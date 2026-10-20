@@ -10,9 +10,9 @@ import (
 	"strings"
 	"time"
 
-	"github.com/cloudreve/Cloudreve/v4/pkg/filemanager/driver"
-	"github.com/cloudreve/Cloudreve/v4/pkg/mediameta"
-	"github.com/cloudreve/Cloudreve/v4/pkg/request"
+	"github.com/Mxucc/StorFlow/pkg/filemanager/driver"
+	"github.com/Mxucc/StorFlow/pkg/mediameta"
+	"github.com/Mxucc/StorFlow/pkg/request"
 	"github.com/huaweicloud/huaweicloud-sdk-go-obs/obs"
 	"github.com/samber/lo"
 )

@@ -9,25 +9,26 @@ import (
 	"strings"
 	"time"
 
-	"github.com/cloudreve/Cloudreve/v4/application/constants"
-	"github.com/cloudreve/Cloudreve/v4/application/dependency"
-	"github.com/cloudreve/Cloudreve/v4/ent"
-	"github.com/cloudreve/Cloudreve/v4/inventory"
-	"github.com/cloudreve/Cloudreve/v4/inventory/types"
-	"github.com/cloudreve/Cloudreve/v4/pkg/cluster/routes"
-	"github.com/cloudreve/Cloudreve/v4/pkg/credmanager"
-	"github.com/cloudreve/Cloudreve/v4/pkg/filemanager/driver/cos"
-	"github.com/cloudreve/Cloudreve/v4/pkg/filemanager/driver/ks3"
-	"github.com/cloudreve/Cloudreve/v4/pkg/filemanager/driver/obs"
-	"github.com/cloudreve/Cloudreve/v4/pkg/filemanager/driver/onedrive"
-	"github.com/cloudreve/Cloudreve/v4/pkg/filemanager/driver/oss"
-	"github.com/cloudreve/Cloudreve/v4/pkg/filemanager/driver/s3"
-	"github.com/cloudreve/Cloudreve/v4/pkg/filemanager/manager"
-	"github.com/cloudreve/Cloudreve/v4/pkg/logging"
-	"github.com/cloudreve/Cloudreve/v4/pkg/util"
+	"github.com/Mxucc/StorFlow/application/constants"
+	"github.com/Mxucc/StorFlow/application/dependency"
+	"github.com/Mxucc/StorFlow/ent"
+	"github.com/Mxucc/StorFlow/inventory"
+	"github.com/Mxucc/StorFlow/inventory/types"
+	"github.com/Mxucc/StorFlow/pkg/cluster/routes"
+	"github.com/Mxucc/StorFlow/pkg/credmanager"
+	"github.com/Mxucc/StorFlow/pkg/filemanager/driver/cos"
+	"github.com/Mxucc/StorFlow/pkg/filemanager/driver/ks3"
+	"github.com/Mxucc/StorFlow/pkg/filemanager/driver/obs"
+	"github.com/Mxucc/StorFlow/pkg/filemanager/driver/onedrive"
+	"github.com/Mxucc/StorFlow/pkg/filemanager/driver/oss"
+	"github.com/Mxucc/StorFlow/pkg/filemanager/driver/s3"
+	"github.com/Mxucc/StorFlow/pkg/filemanager/fs"
+	"github.com/Mxucc/StorFlow/pkg/filemanager/manager"
+	"github.com/Mxucc/StorFlow/pkg/logging"
+	"github.com/Mxucc/StorFlow/pkg/util"
 
-	"github.com/cloudreve/Cloudreve/v4/pkg/request"
-	"github.com/cloudreve/Cloudreve/v4/pkg/serializer"
+	"github.com/Mxucc/StorFlow/pkg/request"
+	"github.com/Mxucc/StorFlow/pkg/serializer"
 	"github.com/gin-gonic/gin"
 )
 
@@ -250,6 +251,57 @@ func (service *SingleStoragePolicyService) Get(c *gin.Context) (*GetStoragePolic
 	return res, nil
 }
 
+// validateLoadBalancePolicy 校验负载均衡（load_balance）策略的子策略配置，并把非法
+// 权重（<=0）规范化为 1。校验规则：
+//   - 至少配置一个子策略；
+//   - 子策略必须存在；
+//   - 不能指向策略自身；
+//   - 不能指向另一个负载均衡策略（否则解析会递归，上传时无法落到具体存储端）。
+func validateLoadBalancePolicy(ctx context.Context, policyClient inventory.StoragePolicyClient,
+	policy *ent.StoragePolicy) error {
+	if policy == nil || policy.Type != types.PolicyTypeLoadBalance {
+		return nil
+	}
+
+	if policy.Settings == nil {
+		policy.Settings = &types.PolicySetting{}
+	}
+
+	subPolicies := policy.Settings.LoadBalanceSubPolicies
+	if len(subPolicies) == 0 {
+		return serializer.NewError(serializer.CodeParamErr,
+			"Load balance policy requires at least one sub storage policy", nil)
+	}
+
+	for i := range subPolicies {
+		// weight <= 0 按 1 处理
+		subPolicies[i].Weight = fs.LoadBalanceWeight(subPolicies[i].Weight)
+
+		subID := subPolicies[i].PolicyID
+		if subID <= 0 {
+			return serializer.NewError(serializer.CodeParamErr, "Invalid sub storage policy ID", nil)
+		}
+
+		if subID == policy.ID {
+			return serializer.NewError(serializer.CodeParamErr,
+				"Load balance policy cannot reference itself as a sub storage policy", nil)
+		}
+
+		sub, err := policyClient.GetPolicyByID(ctx, subID)
+		if err != nil {
+			return serializer.NewError(serializer.CodePolicyNotExist,
+				fmt.Sprintf("Sub storage policy #%d not found", subID), err)
+		}
+
+		if sub.Type == types.PolicyTypeLoadBalance {
+			return serializer.NewError(serializer.CodeParamErr,
+				"Load balance policy cannot reference another load balance policy", nil)
+		}
+	}
+
+	return nil
+}
+
 type (
 	CreateStoragePolicyService struct {
 		Policy *ent.StoragePolicy `json:"policy" binding:"required"`
@@ -263,6 +315,10 @@ func (service *CreateStoragePolicyService) Create(c *gin.Context) (*GetStoragePo
 
 	if service.Policy.Type == types.PolicyTypeLocal {
 		service.Policy.DirNameRule = util.DataPath("uploads/{uid}/{path}")
+	}
+
+	if err := validateLoadBalancePolicy(c, storagePolicyClient, service.Policy); err != nil {
+		return nil, err
 	}
 
 	service.Policy.ID = 0
@@ -295,6 +351,10 @@ func (service *UpdateStoragePolicyService) Update(c *gin.Context) (*GetStoragePo
 	}
 
 	service.Policy.ID = idInt
+
+	if err := validateLoadBalancePolicy(c, storagePolicyClient, service.Policy); err != nil {
+		return nil, err
+	}
 
 	sc, tx, ctx, err := inventory.WithTx(c, storagePolicyClient)
 	if err != nil {
@@ -385,6 +445,10 @@ func (service *CreateStoragePolicyCorsService) Create(c *gin.Context) error {
 		}
 
 		return nil
+	case types.PolicyTypeLoadBalance:
+		// 负载均衡策略本身没有存储端，CORS 需要在其子策略上分别配置。
+		return serializer.NewError(serializer.CodeParamErr,
+			"Load balance policy has no storage endpoint, configure CORS on its sub storage policies instead", nil)
 	default:
 		return serializer.NewError(serializer.CodeParamErr, "Unsupported policy type", nil)
 	}

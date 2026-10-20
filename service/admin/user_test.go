@@ -5,8 +5,8 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/cloudreve/Cloudreve/v4/ent"
-	"github.com/cloudreve/Cloudreve/v4/pkg/serializer"
+	"github.com/Mxucc/StorFlow/ent"
+	"github.com/Mxucc/StorFlow/pkg/serializer"
 	"github.com/gin-gonic/gin/binding"
 )
 

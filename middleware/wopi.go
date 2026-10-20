@@ -5,12 +5,12 @@ import (
 	"net/http"
 	"strings"
 
-	"github.com/cloudreve/Cloudreve/v4/application/dependency"
-	"github.com/cloudreve/Cloudreve/v4/inventory/types"
-	"github.com/cloudreve/Cloudreve/v4/pkg/filemanager/manager"
-	"github.com/cloudreve/Cloudreve/v4/pkg/hashid"
-	"github.com/cloudreve/Cloudreve/v4/pkg/util"
-	"github.com/cloudreve/Cloudreve/v4/pkg/wopi"
+	"github.com/Mxucc/StorFlow/application/dependency"
+	"github.com/Mxucc/StorFlow/inventory/types"
+	"github.com/Mxucc/StorFlow/pkg/filemanager/manager"
+	"github.com/Mxucc/StorFlow/pkg/hashid"
+	"github.com/Mxucc/StorFlow/pkg/util"
+	"github.com/Mxucc/StorFlow/pkg/wopi"
 	"github.com/gin-gonic/gin"
 )
 

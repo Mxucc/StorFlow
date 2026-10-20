@@ -9,7 +9,7 @@ import (
 
 	"entgo.io/ent"
 	"entgo.io/ent/dialect/sql"
-	"github.com/cloudreve/Cloudreve/v4/ent/setting"
+	"github.com/Mxucc/StorFlow/ent/setting"
 )
 
 // Setting is the model entity for the Setting schema.

@@ -10,9 +10,9 @@ import (
 
 	"entgo.io/ent"
 	"entgo.io/ent/dialect/sql"
-	"github.com/cloudreve/Cloudreve/v4/ent/node"
-	"github.com/cloudreve/Cloudreve/v4/inventory/types"
-	"github.com/cloudreve/Cloudreve/v4/pkg/boolset"
+	"github.com/Mxucc/StorFlow/ent/node"
+	"github.com/Mxucc/StorFlow/inventory/types"
+	"github.com/Mxucc/StorFlow/pkg/boolset"
 )
 
 // Node is the model entity for the Node schema.

@@ -10,9 +10,9 @@ import (
 
 	"entgo.io/ent"
 	"entgo.io/ent/dialect/sql"
-	"github.com/cloudreve/Cloudreve/v4/ent/oauthclient"
-	"github.com/cloudreve/Cloudreve/v4/ent/oauthgrant"
-	"github.com/cloudreve/Cloudreve/v4/ent/user"
+	"github.com/Mxucc/StorFlow/ent/oauthclient"
+	"github.com/Mxucc/StorFlow/ent/oauthgrant"
+	"github.com/Mxucc/StorFlow/ent/user"
 )
 
 // OAuthGrant is the model entity for the OAuthGrant schema.

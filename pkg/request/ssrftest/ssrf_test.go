@@ -7,7 +7,7 @@ import (
 	"context"
 	"testing"
 
-	"github.com/cloudreve/Cloudreve/v4/pkg/request"
+	"github.com/Mxucc/StorFlow/pkg/request"
 	"github.com/stretchr/testify/assert"
 )
 
@@ -91,8 +91,8 @@ func TestValidateExternalURL_AllowedHostBypass(t *testing.T) {
 		assert.NoError(t, request.ValidateExternalURL(ctx, raw, opt), "raw=%q", raw)
 	}
 
-	opt = request.SSRFOptions{AllowedHosts: []string{"cloudreve.example.com"}}
-	assert.NoError(t, request.ValidateExternalURL(ctx, "https://cloudreve.example.com/x", opt))
+	opt = request.SSRFOptions{AllowedHosts: []string{"storflow.example.com"}}
+	assert.NoError(t, request.ValidateExternalURL(ctx, "https://storflow.example.com/x", opt))
 
 	opt = request.SSRFOptions{AllowedHosts: []string{"127.0.0.1"}}
 	assert.NoError(t, request.ValidateExternalURL(ctx, "http://127.0.0.1:7777/secret", opt))

@@ -1,0 +1,84 @@
+# StorFlow 一体化构建镜像（前端 + 后端，一条命令出成品）。
+#
+#   docker build -f Dockerfile.allinone -t storflow:dev .
+#
+# 与 Dockerfile 的区别：Dockerfile 只负责「打包」一个已经编译好的二进制，
+# 需要你先跑 .build/build-assets.sh 和 go build；这个文件把整条链路都放进
+# 多阶段构建里，适合本地验证和「不想装 Node/Go」的场景。
+#
+# 公开站点（Astro SSR）是独立镜像，见 site/Dockerfile。
+#
+# 前置：assets 是 git 子模块，clone 时必须带 --recursive，否则前端源码为空。
+
+# ─── 1. 前端（React SPA）────────────────────────────────────────────────────
+FROM node:22-alpine AS frontend
+
+WORKDIR /src/assets
+
+# 先只复制依赖清单，让 yarn install 的层缓存能复用。
+COPY assets/package.json assets/yarn.lock ./
+# yarn 1 与 assets/yarn.lock（v1 格式）配套。package.json 里没有 packageManager
+# 字段，corepack 的默认版本可能随 Node 变化，所以这里钉死版本。
+RUN corepack enable \
+    && (corepack prepare yarn@1.22.22 --activate || npm i -g yarn@1.22.22)
+
+COPY assets/ ./
+RUN yarn install --frozen-lockfile --network-timeout 1000000
+RUN yarn run build
+
+# ─── 2. 后端（Go）───────────────────────────────────────────────────────────
+FROM golang:1.26.5-alpine AS backend
+
+ARG VERSION=dev
+ARG COMMIT=unknown
+
+RUN apk add --no-cache git zip
+
+WORKDIR /src
+
+# 先解决依赖，源码改动不会让 go mod download 层失效。
+COPY go.mod go.sum ./
+RUN go mod download
+
+COPY . .
+
+# 前端产物以 zip 形式内嵌（application/statics/assets.zip 是 go:embed 的目标）。
+COPY --from=frontend /src/assets/build ./assets/build
+RUN rm -f ./application/statics/assets.zip \
+    && zip -r - ./assets/build > ./application/statics/assets.zip
+
+RUN CGO_ENABLED=0 go build -trimpath \
+    -ldflags "-s -w \
+      -X 'github.com/Mxucc/StorFlow/application/constants.BackendVersion=${VERSION}' \
+      -X 'github.com/Mxucc/StorFlow/application/constants.LastCommit=${COMMIT}'" \
+    -o /out/storflow .
+
+# ─── 3. 运行时 ──────────────────────────────────────────────────────────────
+FROM alpine:latest
+
+WORKDIR /storflow
+
+RUN apk update \
+    && apk add --no-cache tzdata vips-tools ffmpeg libreoffice aria2 supervisor font-noto font-noto-cjk libheif libraw-tools\
+    && cp /usr/share/zoneinfo/Asia/Shanghai /etc/localtime \
+    && echo "Asia/Shanghai" > /etc/timezone \
+    && mkdir -p ./data/temp/aria2 \
+    && chmod -R 766 ./data/temp/aria2
+
+ENV CR_ENABLE_ARIA2=1 \
+    CR_SETTING_DEFAULT_thumb_ffmpeg_enabled=1 \
+    CR_SETTING_DEFAULT_thumb_vips_enabled=1 \
+    CR_SETTING_DEFAULT_thumb_libreoffice_enabled=1 \
+    CR_SETTING_DEFAULT_media_meta_ffprobe=1  \
+    CR_SETTING_DEFAULT_thumb_libraw_enabled=1
+
+COPY .build/aria2.supervisor.conf .build/entrypoint.sh ./
+COPY --from=backend /out/storflow ./storflow
+
+RUN chmod +x ./storflow ./entrypoint.sh
+
+EXPOSE 5212 443 6888 6888/udp
+
+VOLUME ["/storflow/data"]
+
+ENTRYPOINT ["sh", "./entrypoint.sh"]

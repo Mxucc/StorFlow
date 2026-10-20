@@ -1,6 +1,6 @@
 package conf
 
-import "github.com/cloudreve/Cloudreve/v4/pkg/util"
+import "github.com/Mxucc/StorFlow/pkg/util"
 
 type DBType string
 
@@ -49,6 +49,10 @@ type System struct {
 	ProxyHeader   string
 	LogLevel      string `validate:"oneof=debug info warning error"`
 	Pprof         string // Address to listen for pprof, e.g. "localhost:6060". Empty to disable.
+	// SiteOrigin 是公开站点（Astro SSR）的地址，例如 http://127.0.0.1:4321。
+	// 配置后首页与小店前台由站点渲染；留空则仍由内嵌 SPA 提供。
+	// 环境变量 CR_SITE_ORIGIN 优先级更高。
+	SiteOrigin string
 }
 
 type SSL struct {
@@ -101,10 +105,14 @@ var RedisConfig = &Redis{
 	TLSSkipVerify: true,
 }
 
+// LegacyDBFileName 是旧版本使用的 SQLite 数据文件名：首次以新版本启动时，
+// 如果新文件名不存在而它存在，会自动改名继续使用，避免出现一个空库。
+const LegacyDBFileName = "cloudreve.db"
+
 // DatabaseConfig 数据库配置
 var DatabaseConfig = &Database{
 	Charset:     "utf8mb4",
-	DBFile:      util.DataPath("cloudreve.db"),
+	DBFile:      util.DataPath("storflow.db"),
 	Port:        3306,
 	UnixSocket:  false,
 	DatabaseURL: "",

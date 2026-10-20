@@ -2,14 +2,15 @@ package explorer
 
 import (
 	"fmt"
-	"github.com/cloudreve/Cloudreve/v4/application/dependency"
-	"github.com/cloudreve/Cloudreve/v4/inventory"
-	"github.com/cloudreve/Cloudreve/v4/pkg/cluster/routes"
-	"github.com/cloudreve/Cloudreve/v4/pkg/filemanager/fs"
-	"github.com/cloudreve/Cloudreve/v4/pkg/filemanager/manager"
-	"github.com/cloudreve/Cloudreve/v4/pkg/filemanager/manager/entitysource"
-	"github.com/cloudreve/Cloudreve/v4/pkg/hashid"
-	"github.com/cloudreve/Cloudreve/v4/pkg/serializer"
+	"github.com/Mxucc/StorFlow/application/dependency"
+	"github.com/Mxucc/StorFlow/inventory"
+	"github.com/Mxucc/StorFlow/pkg/cluster/routes"
+	"github.com/Mxucc/StorFlow/pkg/eventtype"
+	"github.com/Mxucc/StorFlow/pkg/filemanager/fs"
+	"github.com/Mxucc/StorFlow/pkg/filemanager/manager"
+	"github.com/Mxucc/StorFlow/pkg/filemanager/manager/entitysource"
+	"github.com/Mxucc/StorFlow/pkg/hashid"
+	"github.com/Mxucc/StorFlow/pkg/serializer"
 	"github.com/gin-gonic/gin"
 )
 
@@ -43,6 +44,10 @@ func (s *EntityDownloadService) Serve(c *gin.Context) error {
 
 	isDownload := c.Query(routes.IsDownloadQuery) != ""
 	isThumb := c.Query(routes.IsThumbQuery) != ""
+	if !isThumb {
+		WriteAudit(c, eventtype.EntityDownloaded, "file", s.Name,
+			map[string]interface{}{"entity_id": hashid.FromContext(c), "is_download": isDownload})
+	}
 	entitySource.Serve(c.Writer, c.Request,
 		entitysource.WithSpeedLimit(s.SpeedLimit),
 		entitysource.WithDownload(isDownload),

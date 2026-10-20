@@ -6,17 +6,17 @@ import (
 	"strconv"
 	"time"
 
-	"github.com/cloudreve/Cloudreve/v4/application/dependency"
-	"github.com/cloudreve/Cloudreve/v4/ent"
-	"github.com/cloudreve/Cloudreve/v4/inventory"
-	"github.com/cloudreve/Cloudreve/v4/inventory/types"
-	"github.com/cloudreve/Cloudreve/v4/pkg/cluster/routes"
-	"github.com/cloudreve/Cloudreve/v4/pkg/filemanager/fs"
-	"github.com/cloudreve/Cloudreve/v4/pkg/filemanager/manager"
-	"github.com/cloudreve/Cloudreve/v4/pkg/filemanager/manager/entitysource"
-	"github.com/cloudreve/Cloudreve/v4/pkg/hashid"
-	"github.com/cloudreve/Cloudreve/v4/pkg/serializer"
-	"github.com/cloudreve/Cloudreve/v4/pkg/setting"
+	"github.com/Mxucc/StorFlow/application/dependency"
+	"github.com/Mxucc/StorFlow/ent"
+	"github.com/Mxucc/StorFlow/inventory"
+	"github.com/Mxucc/StorFlow/inventory/types"
+	"github.com/Mxucc/StorFlow/pkg/cluster/routes"
+	"github.com/Mxucc/StorFlow/pkg/filemanager/fs"
+	"github.com/Mxucc/StorFlow/pkg/filemanager/manager"
+	"github.com/Mxucc/StorFlow/pkg/filemanager/manager/entitysource"
+	"github.com/Mxucc/StorFlow/pkg/hashid"
+	"github.com/Mxucc/StorFlow/pkg/serializer"
+	"github.com/Mxucc/StorFlow/pkg/setting"
 	"github.com/gin-gonic/gin"
 	"github.com/samber/lo"
 )
@@ -157,6 +157,7 @@ const (
 	fileMetadataCondition   = "file_metadata"
 	fileSharedCondition     = "file_shared"
 	fileDirectLinkCondition = "file_direct_link"
+	fileTypeCondition       = "file_type"
 )
 
 func (service *AdminListService) Files(c *gin.Context) (*ListFileResponse, error) {
@@ -177,12 +178,17 @@ func (service *AdminListService) Files(c *gin.Context) (*ListFileResponse, error
 		metadata   string
 		shared     bool
 		directLink bool
+		typeFilter int
 	)
 
 	if service.Conditions[fileUserCondition] != "" {
-		userID, err = strconv.Atoi(service.Conditions[fileUserCondition])
-		if err != nil {
-			return nil, serializer.NewError(serializer.CodeParamErr, "Invalid user ID", err)
+		if parsed, perr := strconv.Atoi(service.Conditions[fileUserCondition]); perr == nil {
+			userID = parsed
+		} else if decoded, derr := hasher.Decode(service.Conditions[fileUserCondition], hashid.UserID); derr == nil {
+			// Accept hash-encoded user IDs (e.g. from user search picker).
+			userID = decoded
+		} else {
+			return nil, serializer.NewError(serializer.CodeParamErr, "Invalid user ID", perr)
 		}
 	}
 
@@ -205,6 +211,17 @@ func (service *AdminListService) Files(c *gin.Context) (*ListFileResponse, error
 		directLink = true
 	}
 
+	// file_type: "all" = files+folders+symbolic, "folder" = folders only,
+	// empty or "file" = legacy files-only behavior.
+	switch service.Conditions[fileTypeCondition] {
+	case "all":
+		typeFilter = -1
+	case "folder":
+		typeFilter = 1
+	default:
+		typeFilter = 0
+	}
+
 	res, err := fileClient.FlattenListFiles(ctx, &inventory.FlattenListFileParameters{
 		PaginationArgs: &inventory.PaginationArgs{
 			Page:     service.Page - 1,
@@ -218,6 +235,7 @@ func (service *AdminListService) Files(c *gin.Context) (*ListFileResponse, error
 		HasMetadata:     metadata,
 		Shared:          shared,
 		HasDirectLink:   directLink,
+		TypeFilter:      typeFilter,
 	})
 
 	if err != nil {

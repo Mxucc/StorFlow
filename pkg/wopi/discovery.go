@@ -3,7 +3,7 @@ package wopi
 import (
 	"encoding/xml"
 	"fmt"
-	"github.com/cloudreve/Cloudreve/v4/inventory/types"
+	"github.com/Mxucc/StorFlow/inventory/types"
 	"github.com/gofrs/uuid"
 	"github.com/samber/lo"
 )

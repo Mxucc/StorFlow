@@ -11,18 +11,23 @@ import (
 	"entgo.io/ent/dialect/sql"
 	"entgo.io/ent/dialect/sql/sqlgraph"
 	"entgo.io/ent/schema/field"
-	"github.com/cloudreve/Cloudreve/v4/ent/davaccount"
-	"github.com/cloudreve/Cloudreve/v4/ent/entity"
-	"github.com/cloudreve/Cloudreve/v4/ent/file"
-	"github.com/cloudreve/Cloudreve/v4/ent/fsevent"
-	"github.com/cloudreve/Cloudreve/v4/ent/group"
-	"github.com/cloudreve/Cloudreve/v4/ent/oauthgrant"
-	"github.com/cloudreve/Cloudreve/v4/ent/passkey"
-	"github.com/cloudreve/Cloudreve/v4/ent/predicate"
-	"github.com/cloudreve/Cloudreve/v4/ent/share"
-	"github.com/cloudreve/Cloudreve/v4/ent/task"
-	"github.com/cloudreve/Cloudreve/v4/ent/user"
-	"github.com/cloudreve/Cloudreve/v4/inventory/types"
+	"github.com/Mxucc/StorFlow/ent/auditlog"
+	"github.com/Mxucc/StorFlow/ent/davaccount"
+	"github.com/Mxucc/StorFlow/ent/entity"
+	"github.com/Mxucc/StorFlow/ent/file"
+	"github.com/Mxucc/StorFlow/ent/fsevent"
+	"github.com/Mxucc/StorFlow/ent/giftcode"
+	"github.com/Mxucc/StorFlow/ent/group"
+	"github.com/Mxucc/StorFlow/ent/oauthgrant"
+	"github.com/Mxucc/StorFlow/ent/oidcbinding"
+	"github.com/Mxucc/StorFlow/ent/passkey"
+	"github.com/Mxucc/StorFlow/ent/payment"
+	"github.com/Mxucc/StorFlow/ent/pointsledger"
+	"github.com/Mxucc/StorFlow/ent/predicate"
+	"github.com/Mxucc/StorFlow/ent/share"
+	"github.com/Mxucc/StorFlow/ent/task"
+	"github.com/Mxucc/StorFlow/ent/user"
+	"github.com/Mxucc/StorFlow/inventory/types"
 )
 
 // UserUpdate is the builder for updating User entities.
@@ -213,6 +218,53 @@ func (uu *UserUpdate) SetNillableGroupUsers(i *int) *UserUpdate {
 	return uu
 }
 
+// SetPreviousGroup sets the "previous_group" field.
+func (uu *UserUpdate) SetPreviousGroup(i int) *UserUpdate {
+	uu.mutation.ResetPreviousGroup()
+	uu.mutation.SetPreviousGroup(i)
+	return uu
+}
+
+// SetNillablePreviousGroup sets the "previous_group" field if the given value is not nil.
+func (uu *UserUpdate) SetNillablePreviousGroup(i *int) *UserUpdate {
+	if i != nil {
+		uu.SetPreviousGroup(*i)
+	}
+	return uu
+}
+
+// AddPreviousGroup adds i to the "previous_group" field.
+func (uu *UserUpdate) AddPreviousGroup(i int) *UserUpdate {
+	uu.mutation.AddPreviousGroup(i)
+	return uu
+}
+
+// ClearPreviousGroup clears the value of the "previous_group" field.
+func (uu *UserUpdate) ClearPreviousGroup() *UserUpdate {
+	uu.mutation.ClearPreviousGroup()
+	return uu
+}
+
+// SetGroupExpires sets the "group_expires" field.
+func (uu *UserUpdate) SetGroupExpires(t time.Time) *UserUpdate {
+	uu.mutation.SetGroupExpires(t)
+	return uu
+}
+
+// SetNillableGroupExpires sets the "group_expires" field if the given value is not nil.
+func (uu *UserUpdate) SetNillableGroupExpires(t *time.Time) *UserUpdate {
+	if t != nil {
+		uu.SetGroupExpires(*t)
+	}
+	return uu
+}
+
+// ClearGroupExpires clears the value of the "group_expires" field.
+func (uu *UserUpdate) ClearGroupExpires() *UserUpdate {
+	uu.mutation.ClearGroupExpires()
+	return uu
+}
+
 // SetGroupID sets the "group" edge to the Group entity by ID.
 func (uu *UserUpdate) SetGroupID(id int) *UserUpdate {
 	uu.mutation.SetGroupID(id)
@@ -314,6 +366,66 @@ func (uu *UserUpdate) AddFsevents(f ...*FsEvent) *UserUpdate {
 	return uu.AddFseventIDs(ids...)
 }
 
+// AddAuditlogIDs adds the "auditlogs" edge to the AuditLog entity by IDs.
+func (uu *UserUpdate) AddAuditlogIDs(ids ...int) *UserUpdate {
+	uu.mutation.AddAuditlogIDs(ids...)
+	return uu
+}
+
+// AddAuditlogs adds the "auditlogs" edges to the AuditLog entity.
+func (uu *UserUpdate) AddAuditlogs(a ...*AuditLog) *UserUpdate {
+	ids := make([]int, len(a))
+	for i := range a {
+		ids[i] = a[i].ID
+	}
+	return uu.AddAuditlogIDs(ids...)
+}
+
+// AddPaymentIDs adds the "payments" edge to the Payment entity by IDs.
+func (uu *UserUpdate) AddPaymentIDs(ids ...int) *UserUpdate {
+	uu.mutation.AddPaymentIDs(ids...)
+	return uu
+}
+
+// AddPayments adds the "payments" edges to the Payment entity.
+func (uu *UserUpdate) AddPayments(p ...*Payment) *UserUpdate {
+	ids := make([]int, len(p))
+	for i := range p {
+		ids[i] = p[i].ID
+	}
+	return uu.AddPaymentIDs(ids...)
+}
+
+// AddPointsLedgerIDs adds the "points_ledgers" edge to the PointsLedger entity by IDs.
+func (uu *UserUpdate) AddPointsLedgerIDs(ids ...int) *UserUpdate {
+	uu.mutation.AddPointsLedgerIDs(ids...)
+	return uu
+}
+
+// AddPointsLedgers adds the "points_ledgers" edges to the PointsLedger entity.
+func (uu *UserUpdate) AddPointsLedgers(p ...*PointsLedger) *UserUpdate {
+	ids := make([]int, len(p))
+	for i := range p {
+		ids[i] = p[i].ID
+	}
+	return uu.AddPointsLedgerIDs(ids...)
+}
+
+// AddGiftcodeIDs adds the "giftcodes" edge to the GiftCode entity by IDs.
+func (uu *UserUpdate) AddGiftcodeIDs(ids ...int) *UserUpdate {
+	uu.mutation.AddGiftcodeIDs(ids...)
+	return uu
+}
+
+// AddGiftcodes adds the "giftcodes" edges to the GiftCode entity.
+func (uu *UserUpdate) AddGiftcodes(g ...*GiftCode) *UserUpdate {
+	ids := make([]int, len(g))
+	for i := range g {
+		ids[i] = g[i].ID
+	}
+	return uu.AddGiftcodeIDs(ids...)
+}
+
 // AddEntityIDs adds the "entities" edge to the Entity entity by IDs.
 func (uu *UserUpdate) AddEntityIDs(ids ...int) *UserUpdate {
 	uu.mutation.AddEntityIDs(ids...)
@@ -342,6 +454,21 @@ func (uu *UserUpdate) AddOauthGrants(o ...*OAuthGrant) *UserUpdate {
 		ids[i] = o[i].ID
 	}
 	return uu.AddOauthGrantIDs(ids...)
+}
+
+// AddOidcBindingIDs adds the "oidc_bindings" edge to the OIDCBinding entity by IDs.
+func (uu *UserUpdate) AddOidcBindingIDs(ids ...int) *UserUpdate {
+	uu.mutation.AddOidcBindingIDs(ids...)
+	return uu
+}
+
+// AddOidcBindings adds the "oidc_bindings" edges to the OIDCBinding entity.
+func (uu *UserUpdate) AddOidcBindings(o ...*OIDCBinding) *UserUpdate {
+	ids := make([]int, len(o))
+	for i := range o {
+		ids[i] = o[i].ID
+	}
+	return uu.AddOidcBindingIDs(ids...)
 }
 
 // Mutation returns the UserMutation object of the builder.
@@ -481,6 +608,90 @@ func (uu *UserUpdate) RemoveFsevents(f ...*FsEvent) *UserUpdate {
 	return uu.RemoveFseventIDs(ids...)
 }
 
+// ClearAuditlogs clears all "auditlogs" edges to the AuditLog entity.
+func (uu *UserUpdate) ClearAuditlogs() *UserUpdate {
+	uu.mutation.ClearAuditlogs()
+	return uu
+}
+
+// RemoveAuditlogIDs removes the "auditlogs" edge to AuditLog entities by IDs.
+func (uu *UserUpdate) RemoveAuditlogIDs(ids ...int) *UserUpdate {
+	uu.mutation.RemoveAuditlogIDs(ids...)
+	return uu
+}
+
+// RemoveAuditlogs removes "auditlogs" edges to AuditLog entities.
+func (uu *UserUpdate) RemoveAuditlogs(a ...*AuditLog) *UserUpdate {
+	ids := make([]int, len(a))
+	for i := range a {
+		ids[i] = a[i].ID
+	}
+	return uu.RemoveAuditlogIDs(ids...)
+}
+
+// ClearPayments clears all "payments" edges to the Payment entity.
+func (uu *UserUpdate) ClearPayments() *UserUpdate {
+	uu.mutation.ClearPayments()
+	return uu
+}
+
+// RemovePaymentIDs removes the "payments" edge to Payment entities by IDs.
+func (uu *UserUpdate) RemovePaymentIDs(ids ...int) *UserUpdate {
+	uu.mutation.RemovePaymentIDs(ids...)
+	return uu
+}
+
+// RemovePayments removes "payments" edges to Payment entities.
+func (uu *UserUpdate) RemovePayments(p ...*Payment) *UserUpdate {
+	ids := make([]int, len(p))
+	for i := range p {
+		ids[i] = p[i].ID
+	}
+	return uu.RemovePaymentIDs(ids...)
+}
+
+// ClearPointsLedgers clears all "points_ledgers" edges to the PointsLedger entity.
+func (uu *UserUpdate) ClearPointsLedgers() *UserUpdate {
+	uu.mutation.ClearPointsLedgers()
+	return uu
+}
+
+// RemovePointsLedgerIDs removes the "points_ledgers" edge to PointsLedger entities by IDs.
+func (uu *UserUpdate) RemovePointsLedgerIDs(ids ...int) *UserUpdate {
+	uu.mutation.RemovePointsLedgerIDs(ids...)
+	return uu
+}
+
+// RemovePointsLedgers removes "points_ledgers" edges to PointsLedger entities.
+func (uu *UserUpdate) RemovePointsLedgers(p ...*PointsLedger) *UserUpdate {
+	ids := make([]int, len(p))
+	for i := range p {
+		ids[i] = p[i].ID
+	}
+	return uu.RemovePointsLedgerIDs(ids...)
+}
+
+// ClearGiftcodes clears all "giftcodes" edges to the GiftCode entity.
+func (uu *UserUpdate) ClearGiftcodes() *UserUpdate {
+	uu.mutation.ClearGiftcodes()
+	return uu
+}
+
+// RemoveGiftcodeIDs removes the "giftcodes" edge to GiftCode entities by IDs.
+func (uu *UserUpdate) RemoveGiftcodeIDs(ids ...int) *UserUpdate {
+	uu.mutation.RemoveGiftcodeIDs(ids...)
+	return uu
+}
+
+// RemoveGiftcodes removes "giftcodes" edges to GiftCode entities.
+func (uu *UserUpdate) RemoveGiftcodes(g ...*GiftCode) *UserUpdate {
+	ids := make([]int, len(g))
+	for i := range g {
+		ids[i] = g[i].ID
+	}
+	return uu.RemoveGiftcodeIDs(ids...)
+}
+
 // ClearEntities clears all "entities" edges to the Entity entity.
 func (uu *UserUpdate) ClearEntities() *UserUpdate {
 	uu.mutation.ClearEntities()
@@ -521,6 +732,27 @@ func (uu *UserUpdate) RemoveOauthGrants(o ...*OAuthGrant) *UserUpdate {
 		ids[i] = o[i].ID
 	}
 	return uu.RemoveOauthGrantIDs(ids...)
+}
+
+// ClearOidcBindings clears all "oidc_bindings" edges to the OIDCBinding entity.
+func (uu *UserUpdate) ClearOidcBindings() *UserUpdate {
+	uu.mutation.ClearOidcBindings()
+	return uu
+}
+
+// RemoveOidcBindingIDs removes the "oidc_bindings" edge to OIDCBinding entities by IDs.
+func (uu *UserUpdate) RemoveOidcBindingIDs(ids ...int) *UserUpdate {
+	uu.mutation.RemoveOidcBindingIDs(ids...)
+	return uu
+}
+
+// RemoveOidcBindings removes "oidc_bindings" edges to OIDCBinding entities.
+func (uu *UserUpdate) RemoveOidcBindings(o ...*OIDCBinding) *UserUpdate {
+	ids := make([]int, len(o))
+	for i := range o {
+		ids[i] = o[i].ID
+	}
+	return uu.RemoveOidcBindingIDs(ids...)
 }
 
 // Save executes the query and returns the number of nodes affected by the update operation.
@@ -647,6 +879,21 @@ func (uu *UserUpdate) sqlSave(ctx context.Context) (n int, err error) {
 	}
 	if uu.mutation.SettingsCleared() {
 		_spec.ClearField(user.FieldSettings, field.TypeJSON)
+	}
+	if value, ok := uu.mutation.PreviousGroup(); ok {
+		_spec.SetField(user.FieldPreviousGroup, field.TypeInt, value)
+	}
+	if value, ok := uu.mutation.AddedPreviousGroup(); ok {
+		_spec.AddField(user.FieldPreviousGroup, field.TypeInt, value)
+	}
+	if uu.mutation.PreviousGroupCleared() {
+		_spec.ClearField(user.FieldPreviousGroup, field.TypeInt)
+	}
+	if value, ok := uu.mutation.GroupExpires(); ok {
+		_spec.SetField(user.FieldGroupExpires, field.TypeTime, value)
+	}
+	if uu.mutation.GroupExpiresCleared() {
+		_spec.ClearField(user.FieldGroupExpires, field.TypeTime)
 	}
 	if uu.mutation.GroupCleared() {
 		edge := &sqlgraph.EdgeSpec{
@@ -947,6 +1194,186 @@ func (uu *UserUpdate) sqlSave(ctx context.Context) (n int, err error) {
 		}
 		_spec.Edges.Add = append(_spec.Edges.Add, edge)
 	}
+	if uu.mutation.AuditlogsCleared() {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.O2M,
+			Inverse: false,
+			Table:   user.AuditlogsTable,
+			Columns: []string{user.AuditlogsColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(auditlog.FieldID, field.TypeInt),
+			},
+		}
+		_spec.Edges.Clear = append(_spec.Edges.Clear, edge)
+	}
+	if nodes := uu.mutation.RemovedAuditlogsIDs(); len(nodes) > 0 && !uu.mutation.AuditlogsCleared() {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.O2M,
+			Inverse: false,
+			Table:   user.AuditlogsTable,
+			Columns: []string{user.AuditlogsColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(auditlog.FieldID, field.TypeInt),
+			},
+		}
+		for _, k := range nodes {
+			edge.Target.Nodes = append(edge.Target.Nodes, k)
+		}
+		_spec.Edges.Clear = append(_spec.Edges.Clear, edge)
+	}
+	if nodes := uu.mutation.AuditlogsIDs(); len(nodes) > 0 {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.O2M,
+			Inverse: false,
+			Table:   user.AuditlogsTable,
+			Columns: []string{user.AuditlogsColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(auditlog.FieldID, field.TypeInt),
+			},
+		}
+		for _, k := range nodes {
+			edge.Target.Nodes = append(edge.Target.Nodes, k)
+		}
+		_spec.Edges.Add = append(_spec.Edges.Add, edge)
+	}
+	if uu.mutation.PaymentsCleared() {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.O2M,
+			Inverse: false,
+			Table:   user.PaymentsTable,
+			Columns: []string{user.PaymentsColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(payment.FieldID, field.TypeInt),
+			},
+		}
+		_spec.Edges.Clear = append(_spec.Edges.Clear, edge)
+	}
+	if nodes := uu.mutation.RemovedPaymentsIDs(); len(nodes) > 0 && !uu.mutation.PaymentsCleared() {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.O2M,
+			Inverse: false,
+			Table:   user.PaymentsTable,
+			Columns: []string{user.PaymentsColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(payment.FieldID, field.TypeInt),
+			},
+		}
+		for _, k := range nodes {
+			edge.Target.Nodes = append(edge.Target.Nodes, k)
+		}
+		_spec.Edges.Clear = append(_spec.Edges.Clear, edge)
+	}
+	if nodes := uu.mutation.PaymentsIDs(); len(nodes) > 0 {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.O2M,
+			Inverse: false,
+			Table:   user.PaymentsTable,
+			Columns: []string{user.PaymentsColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(payment.FieldID, field.TypeInt),
+			},
+		}
+		for _, k := range nodes {
+			edge.Target.Nodes = append(edge.Target.Nodes, k)
+		}
+		_spec.Edges.Add = append(_spec.Edges.Add, edge)
+	}
+	if uu.mutation.PointsLedgersCleared() {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.O2M,
+			Inverse: false,
+			Table:   user.PointsLedgersTable,
+			Columns: []string{user.PointsLedgersColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(pointsledger.FieldID, field.TypeInt),
+			},
+		}
+		_spec.Edges.Clear = append(_spec.Edges.Clear, edge)
+	}
+	if nodes := uu.mutation.RemovedPointsLedgersIDs(); len(nodes) > 0 && !uu.mutation.PointsLedgersCleared() {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.O2M,
+			Inverse: false,
+			Table:   user.PointsLedgersTable,
+			Columns: []string{user.PointsLedgersColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(pointsledger.FieldID, field.TypeInt),
+			},
+		}
+		for _, k := range nodes {
+			edge.Target.Nodes = append(edge.Target.Nodes, k)
+		}
+		_spec.Edges.Clear = append(_spec.Edges.Clear, edge)
+	}
+	if nodes := uu.mutation.PointsLedgersIDs(); len(nodes) > 0 {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.O2M,
+			Inverse: false,
+			Table:   user.PointsLedgersTable,
+			Columns: []string{user.PointsLedgersColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(pointsledger.FieldID, field.TypeInt),
+			},
+		}
+		for _, k := range nodes {
+			edge.Target.Nodes = append(edge.Target.Nodes, k)
+		}
+		_spec.Edges.Add = append(_spec.Edges.Add, edge)
+	}
+	if uu.mutation.GiftcodesCleared() {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.O2M,
+			Inverse: false,
+			Table:   user.GiftcodesTable,
+			Columns: []string{user.GiftcodesColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(giftcode.FieldID, field.TypeInt),
+			},
+		}
+		_spec.Edges.Clear = append(_spec.Edges.Clear, edge)
+	}
+	if nodes := uu.mutation.RemovedGiftcodesIDs(); len(nodes) > 0 && !uu.mutation.GiftcodesCleared() {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.O2M,
+			Inverse: false,
+			Table:   user.GiftcodesTable,
+			Columns: []string{user.GiftcodesColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(giftcode.FieldID, field.TypeInt),
+			},
+		}
+		for _, k := range nodes {
+			edge.Target.Nodes = append(edge.Target.Nodes, k)
+		}
+		_spec.Edges.Clear = append(_spec.Edges.Clear, edge)
+	}
+	if nodes := uu.mutation.GiftcodesIDs(); len(nodes) > 0 {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.O2M,
+			Inverse: false,
+			Table:   user.GiftcodesTable,
+			Columns: []string{user.GiftcodesColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(giftcode.FieldID, field.TypeInt),
+			},
+		}
+		for _, k := range nodes {
+			edge.Target.Nodes = append(edge.Target.Nodes, k)
+		}
+		_spec.Edges.Add = append(_spec.Edges.Add, edge)
+	}
 	if uu.mutation.EntitiesCleared() {
 		edge := &sqlgraph.EdgeSpec{
 			Rel:     sqlgraph.O2M,
@@ -1030,6 +1457,51 @@ func (uu *UserUpdate) sqlSave(ctx context.Context) (n int, err error) {
 			Bidi:    false,
 			Target: &sqlgraph.EdgeTarget{
 				IDSpec: sqlgraph.NewFieldSpec(oauthgrant.FieldID, field.TypeInt),
+			},
+		}
+		for _, k := range nodes {
+			edge.Target.Nodes = append(edge.Target.Nodes, k)
+		}
+		_spec.Edges.Add = append(_spec.Edges.Add, edge)
+	}
+	if uu.mutation.OidcBindingsCleared() {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.O2M,
+			Inverse: false,
+			Table:   user.OidcBindingsTable,
+			Columns: []string{user.OidcBindingsColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(oidcbinding.FieldID, field.TypeInt),
+			},
+		}
+		_spec.Edges.Clear = append(_spec.Edges.Clear, edge)
+	}
+	if nodes := uu.mutation.RemovedOidcBindingsIDs(); len(nodes) > 0 && !uu.mutation.OidcBindingsCleared() {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.O2M,
+			Inverse: false,
+			Table:   user.OidcBindingsTable,
+			Columns: []string{user.OidcBindingsColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(oidcbinding.FieldID, field.TypeInt),
+			},
+		}
+		for _, k := range nodes {
+			edge.Target.Nodes = append(edge.Target.Nodes, k)
+		}
+		_spec.Edges.Clear = append(_spec.Edges.Clear, edge)
+	}
+	if nodes := uu.mutation.OidcBindingsIDs(); len(nodes) > 0 {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.O2M,
+			Inverse: false,
+			Table:   user.OidcBindingsTable,
+			Columns: []string{user.OidcBindingsColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(oidcbinding.FieldID, field.TypeInt),
 			},
 		}
 		for _, k := range nodes {
@@ -1232,6 +1704,53 @@ func (uuo *UserUpdateOne) SetNillableGroupUsers(i *int) *UserUpdateOne {
 	return uuo
 }
 
+// SetPreviousGroup sets the "previous_group" field.
+func (uuo *UserUpdateOne) SetPreviousGroup(i int) *UserUpdateOne {
+	uuo.mutation.ResetPreviousGroup()
+	uuo.mutation.SetPreviousGroup(i)
+	return uuo
+}
+
+// SetNillablePreviousGroup sets the "previous_group" field if the given value is not nil.
+func (uuo *UserUpdateOne) SetNillablePreviousGroup(i *int) *UserUpdateOne {
+	if i != nil {
+		uuo.SetPreviousGroup(*i)
+	}
+	return uuo
+}
+
+// AddPreviousGroup adds i to the "previous_group" field.
+func (uuo *UserUpdateOne) AddPreviousGroup(i int) *UserUpdateOne {
+	uuo.mutation.AddPreviousGroup(i)
+	return uuo
+}
+
+// ClearPreviousGroup clears the value of the "previous_group" field.
+func (uuo *UserUpdateOne) ClearPreviousGroup() *UserUpdateOne {
+	uuo.mutation.ClearPreviousGroup()
+	return uuo
+}
+
+// SetGroupExpires sets the "group_expires" field.
+func (uuo *UserUpdateOne) SetGroupExpires(t time.Time) *UserUpdateOne {
+	uuo.mutation.SetGroupExpires(t)
+	return uuo
+}
+
+// SetNillableGroupExpires sets the "group_expires" field if the given value is not nil.
+func (uuo *UserUpdateOne) SetNillableGroupExpires(t *time.Time) *UserUpdateOne {
+	if t != nil {
+		uuo.SetGroupExpires(*t)
+	}
+	return uuo
+}
+
+// ClearGroupExpires clears the value of the "group_expires" field.
+func (uuo *UserUpdateOne) ClearGroupExpires() *UserUpdateOne {
+	uuo.mutation.ClearGroupExpires()
+	return uuo
+}
+
 // SetGroupID sets the "group" edge to the Group entity by ID.
 func (uuo *UserUpdateOne) SetGroupID(id int) *UserUpdateOne {
 	uuo.mutation.SetGroupID(id)
@@ -1333,6 +1852,66 @@ func (uuo *UserUpdateOne) AddFsevents(f ...*FsEvent) *UserUpdateOne {
 	return uuo.AddFseventIDs(ids...)
 }
 
+// AddAuditlogIDs adds the "auditlogs" edge to the AuditLog entity by IDs.
+func (uuo *UserUpdateOne) AddAuditlogIDs(ids ...int) *UserUpdateOne {
+	uuo.mutation.AddAuditlogIDs(ids...)
+	return uuo
+}
+
+// AddAuditlogs adds the "auditlogs" edges to the AuditLog entity.
+func (uuo *UserUpdateOne) AddAuditlogs(a ...*AuditLog) *UserUpdateOne {
+	ids := make([]int, len(a))
+	for i := range a {
+		ids[i] = a[i].ID
+	}
+	return uuo.AddAuditlogIDs(ids...)
+}
+
+// AddPaymentIDs adds the "payments" edge to the Payment entity by IDs.
+func (uuo *UserUpdateOne) AddPaymentIDs(ids ...int) *UserUpdateOne {
+	uuo.mutation.AddPaymentIDs(ids...)
+	return uuo
+}
+
+// AddPayments adds the "payments" edges to the Payment entity.
+func (uuo *UserUpdateOne) AddPayments(p ...*Payment) *UserUpdateOne {
+	ids := make([]int, len(p))
+	for i := range p {
+		ids[i] = p[i].ID
+	}
+	return uuo.AddPaymentIDs(ids...)
+}
+
+// AddPointsLedgerIDs adds the "points_ledgers" edge to the PointsLedger entity by IDs.
+func (uuo *UserUpdateOne) AddPointsLedgerIDs(ids ...int) *UserUpdateOne {
+	uuo.mutation.AddPointsLedgerIDs(ids...)
+	return uuo
+}
+
+// AddPointsLedgers adds the "points_ledgers" edges to the PointsLedger entity.
+func (uuo *UserUpdateOne) AddPointsLedgers(p ...*PointsLedger) *UserUpdateOne {
+	ids := make([]int, len(p))
+	for i := range p {
+		ids[i] = p[i].ID
+	}
+	return uuo.AddPointsLedgerIDs(ids...)
+}
+
+// AddGiftcodeIDs adds the "giftcodes" edge to the GiftCode entity by IDs.
+func (uuo *UserUpdateOne) AddGiftcodeIDs(ids ...int) *UserUpdateOne {
+	uuo.mutation.AddGiftcodeIDs(ids...)
+	return uuo
+}
+
+// AddGiftcodes adds the "giftcodes" edges to the GiftCode entity.
+func (uuo *UserUpdateOne) AddGiftcodes(g ...*GiftCode) *UserUpdateOne {
+	ids := make([]int, len(g))
+	for i := range g {
+		ids[i] = g[i].ID
+	}
+	return uuo.AddGiftcodeIDs(ids...)
+}
+
 // AddEntityIDs adds the "entities" edge to the Entity entity by IDs.
 func (uuo *UserUpdateOne) AddEntityIDs(ids ...int) *UserUpdateOne {
 	uuo.mutation.AddEntityIDs(ids...)
@@ -1361,6 +1940,21 @@ func (uuo *UserUpdateOne) AddOauthGrants(o ...*OAuthGrant) *UserUpdateOne {
 		ids[i] = o[i].ID
 	}
 	return uuo.AddOauthGrantIDs(ids...)
+}
+
+// AddOidcBindingIDs adds the "oidc_bindings" edge to the OIDCBinding entity by IDs.
+func (uuo *UserUpdateOne) AddOidcBindingIDs(ids ...int) *UserUpdateOne {
+	uuo.mutation.AddOidcBindingIDs(ids...)
+	return uuo
+}
+
+// AddOidcBindings adds the "oidc_bindings" edges to the OIDCBinding entity.
+func (uuo *UserUpdateOne) AddOidcBindings(o ...*OIDCBinding) *UserUpdateOne {
+	ids := make([]int, len(o))
+	for i := range o {
+		ids[i] = o[i].ID
+	}
+	return uuo.AddOidcBindingIDs(ids...)
 }
 
 // Mutation returns the UserMutation object of the builder.
@@ -1500,6 +2094,90 @@ func (uuo *UserUpdateOne) RemoveFsevents(f ...*FsEvent) *UserUpdateOne {
 	return uuo.RemoveFseventIDs(ids...)
 }
 
+// ClearAuditlogs clears all "auditlogs" edges to the AuditLog entity.
+func (uuo *UserUpdateOne) ClearAuditlogs() *UserUpdateOne {
+	uuo.mutation.ClearAuditlogs()
+	return uuo
+}
+
+// RemoveAuditlogIDs removes the "auditlogs" edge to AuditLog entities by IDs.
+func (uuo *UserUpdateOne) RemoveAuditlogIDs(ids ...int) *UserUpdateOne {
+	uuo.mutation.RemoveAuditlogIDs(ids...)
+	return uuo
+}
+
+// RemoveAuditlogs removes "auditlogs" edges to AuditLog entities.
+func (uuo *UserUpdateOne) RemoveAuditlogs(a ...*AuditLog) *UserUpdateOne {
+	ids := make([]int, len(a))
+	for i := range a {
+		ids[i] = a[i].ID
+	}
+	return uuo.RemoveAuditlogIDs(ids...)
+}
+
+// ClearPayments clears all "payments" edges to the Payment entity.
+func (uuo *UserUpdateOne) ClearPayments() *UserUpdateOne {
+	uuo.mutation.ClearPayments()
+	return uuo
+}
+
+// RemovePaymentIDs removes the "payments" edge to Payment entities by IDs.
+func (uuo *UserUpdateOne) RemovePaymentIDs(ids ...int) *UserUpdateOne {
+	uuo.mutation.RemovePaymentIDs(ids...)
+	return uuo
+}
+
+// RemovePayments removes "payments" edges to Payment entities.
+func (uuo *UserUpdateOne) RemovePayments(p ...*Payment) *UserUpdateOne {
+	ids := make([]int, len(p))
+	for i := range p {
+		ids[i] = p[i].ID
+	}
+	return uuo.RemovePaymentIDs(ids...)
+}
+
+// ClearPointsLedgers clears all "points_ledgers" edges to the PointsLedger entity.
+func (uuo *UserUpdateOne) ClearPointsLedgers() *UserUpdateOne {
+	uuo.mutation.ClearPointsLedgers()
+	return uuo
+}
+
+// RemovePointsLedgerIDs removes the "points_ledgers" edge to PointsLedger entities by IDs.
+func (uuo *UserUpdateOne) RemovePointsLedgerIDs(ids ...int) *UserUpdateOne {
+	uuo.mutation.RemovePointsLedgerIDs(ids...)
+	return uuo
+}
+
+// RemovePointsLedgers removes "points_ledgers" edges to PointsLedger entities.
+func (uuo *UserUpdateOne) RemovePointsLedgers(p ...*PointsLedger) *UserUpdateOne {
+	ids := make([]int, len(p))
+	for i := range p {
+		ids[i] = p[i].ID
+	}
+	return uuo.RemovePointsLedgerIDs(ids...)
+}
+
+// ClearGiftcodes clears all "giftcodes" edges to the GiftCode entity.
+func (uuo *UserUpdateOne) ClearGiftcodes() *UserUpdateOne {
+	uuo.mutation.ClearGiftcodes()
+	return uuo
+}
+
+// RemoveGiftcodeIDs removes the "giftcodes" edge to GiftCode entities by IDs.
+func (uuo *UserUpdateOne) RemoveGiftcodeIDs(ids ...int) *UserUpdateOne {
+	uuo.mutation.RemoveGiftcodeIDs(ids...)
+	return uuo
+}
+
+// RemoveGiftcodes removes "giftcodes" edges to GiftCode entities.
+func (uuo *UserUpdateOne) RemoveGiftcodes(g ...*GiftCode) *UserUpdateOne {
+	ids := make([]int, len(g))
+	for i := range g {
+		ids[i] = g[i].ID
+	}
+	return uuo.RemoveGiftcodeIDs(ids...)
+}
+
 // ClearEntities clears all "entities" edges to the Entity entity.
 func (uuo *UserUpdateOne) ClearEntities() *UserUpdateOne {
 	uuo.mutation.ClearEntities()
@@ -1540,6 +2218,27 @@ func (uuo *UserUpdateOne) RemoveOauthGrants(o ...*OAuthGrant) *UserUpdateOne {
 		ids[i] = o[i].ID
 	}
 	return uuo.RemoveOauthGrantIDs(ids...)
+}
+
+// ClearOidcBindings clears all "oidc_bindings" edges to the OIDCBinding entity.
+func (uuo *UserUpdateOne) ClearOidcBindings() *UserUpdateOne {
+	uuo.mutation.ClearOidcBindings()
+	return uuo
+}
+
+// RemoveOidcBindingIDs removes the "oidc_bindings" edge to OIDCBinding entities by IDs.
+func (uuo *UserUpdateOne) RemoveOidcBindingIDs(ids ...int) *UserUpdateOne {
+	uuo.mutation.RemoveOidcBindingIDs(ids...)
+	return uuo
+}
+
+// RemoveOidcBindings removes "oidc_bindings" edges to OIDCBinding entities.
+func (uuo *UserUpdateOne) RemoveOidcBindings(o ...*OIDCBinding) *UserUpdateOne {
+	ids := make([]int, len(o))
+	for i := range o {
+		ids[i] = o[i].ID
+	}
+	return uuo.RemoveOidcBindingIDs(ids...)
 }
 
 // Where appends a list predicates to the UserUpdate builder.
@@ -1696,6 +2395,21 @@ func (uuo *UserUpdateOne) sqlSave(ctx context.Context) (_node *User, err error) 
 	}
 	if uuo.mutation.SettingsCleared() {
 		_spec.ClearField(user.FieldSettings, field.TypeJSON)
+	}
+	if value, ok := uuo.mutation.PreviousGroup(); ok {
+		_spec.SetField(user.FieldPreviousGroup, field.TypeInt, value)
+	}
+	if value, ok := uuo.mutation.AddedPreviousGroup(); ok {
+		_spec.AddField(user.FieldPreviousGroup, field.TypeInt, value)
+	}
+	if uuo.mutation.PreviousGroupCleared() {
+		_spec.ClearField(user.FieldPreviousGroup, field.TypeInt)
+	}
+	if value, ok := uuo.mutation.GroupExpires(); ok {
+		_spec.SetField(user.FieldGroupExpires, field.TypeTime, value)
+	}
+	if uuo.mutation.GroupExpiresCleared() {
+		_spec.ClearField(user.FieldGroupExpires, field.TypeTime)
 	}
 	if uuo.mutation.GroupCleared() {
 		edge := &sqlgraph.EdgeSpec{
@@ -1996,6 +2710,186 @@ func (uuo *UserUpdateOne) sqlSave(ctx context.Context) (_node *User, err error) 
 		}
 		_spec.Edges.Add = append(_spec.Edges.Add, edge)
 	}
+	if uuo.mutation.AuditlogsCleared() {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.O2M,
+			Inverse: false,
+			Table:   user.AuditlogsTable,
+			Columns: []string{user.AuditlogsColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(auditlog.FieldID, field.TypeInt),
+			},
+		}
+		_spec.Edges.Clear = append(_spec.Edges.Clear, edge)
+	}
+	if nodes := uuo.mutation.RemovedAuditlogsIDs(); len(nodes) > 0 && !uuo.mutation.AuditlogsCleared() {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.O2M,
+			Inverse: false,
+			Table:   user.AuditlogsTable,
+			Columns: []string{user.AuditlogsColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(auditlog.FieldID, field.TypeInt),
+			},
+		}
+		for _, k := range nodes {
+			edge.Target.Nodes = append(edge.Target.Nodes, k)
+		}
+		_spec.Edges.Clear = append(_spec.Edges.Clear, edge)
+	}
+	if nodes := uuo.mutation.AuditlogsIDs(); len(nodes) > 0 {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.O2M,
+			Inverse: false,
+			Table:   user.AuditlogsTable,
+			Columns: []string{user.AuditlogsColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(auditlog.FieldID, field.TypeInt),
+			},
+		}
+		for _, k := range nodes {
+			edge.Target.Nodes = append(edge.Target.Nodes, k)
+		}
+		_spec.Edges.Add = append(_spec.Edges.Add, edge)
+	}
+	if uuo.mutation.PaymentsCleared() {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.O2M,
+			Inverse: false,
+			Table:   user.PaymentsTable,
+			Columns: []string{user.PaymentsColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(payment.FieldID, field.TypeInt),
+			},
+		}
+		_spec.Edges.Clear = append(_spec.Edges.Clear, edge)
+	}
+	if nodes := uuo.mutation.RemovedPaymentsIDs(); len(nodes) > 0 && !uuo.mutation.PaymentsCleared() {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.O2M,
+			Inverse: false,
+			Table:   user.PaymentsTable,
+			Columns: []string{user.PaymentsColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(payment.FieldID, field.TypeInt),
+			},
+		}
+		for _, k := range nodes {
+			edge.Target.Nodes = append(edge.Target.Nodes, k)
+		}
+		_spec.Edges.Clear = append(_spec.Edges.Clear, edge)
+	}
+	if nodes := uuo.mutation.PaymentsIDs(); len(nodes) > 0 {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.O2M,
+			Inverse: false,
+			Table:   user.PaymentsTable,
+			Columns: []string{user.PaymentsColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(payment.FieldID, field.TypeInt),
+			},
+		}
+		for _, k := range nodes {
+			edge.Target.Nodes = append(edge.Target.Nodes, k)
+		}
+		_spec.Edges.Add = append(_spec.Edges.Add, edge)
+	}
+	if uuo.mutation.PointsLedgersCleared() {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.O2M,
+			Inverse: false,
+			Table:   user.PointsLedgersTable,
+			Columns: []string{user.PointsLedgersColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(pointsledger.FieldID, field.TypeInt),
+			},
+		}
+		_spec.Edges.Clear = append(_spec.Edges.Clear, edge)
+	}
+	if nodes := uuo.mutation.RemovedPointsLedgersIDs(); len(nodes) > 0 && !uuo.mutation.PointsLedgersCleared() {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.O2M,
+			Inverse: false,
+			Table:   user.PointsLedgersTable,
+			Columns: []string{user.PointsLedgersColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(pointsledger.FieldID, field.TypeInt),
+			},
+		}
+		for _, k := range nodes {
+			edge.Target.Nodes = append(edge.Target.Nodes, k)
+		}
+		_spec.Edges.Clear = append(_spec.Edges.Clear, edge)
+	}
+	if nodes := uuo.mutation.PointsLedgersIDs(); len(nodes) > 0 {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.O2M,
+			Inverse: false,
+			Table:   user.PointsLedgersTable,
+			Columns: []string{user.PointsLedgersColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(pointsledger.FieldID, field.TypeInt),
+			},
+		}
+		for _, k := range nodes {
+			edge.Target.Nodes = append(edge.Target.Nodes, k)
+		}
+		_spec.Edges.Add = append(_spec.Edges.Add, edge)
+	}
+	if uuo.mutation.GiftcodesCleared() {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.O2M,
+			Inverse: false,
+			Table:   user.GiftcodesTable,
+			Columns: []string{user.GiftcodesColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(giftcode.FieldID, field.TypeInt),
+			},
+		}
+		_spec.Edges.Clear = append(_spec.Edges.Clear, edge)
+	}
+	if nodes := uuo.mutation.RemovedGiftcodesIDs(); len(nodes) > 0 && !uuo.mutation.GiftcodesCleared() {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.O2M,
+			Inverse: false,
+			Table:   user.GiftcodesTable,
+			Columns: []string{user.GiftcodesColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(giftcode.FieldID, field.TypeInt),
+			},
+		}
+		for _, k := range nodes {
+			edge.Target.Nodes = append(edge.Target.Nodes, k)
+		}
+		_spec.Edges.Clear = append(_spec.Edges.Clear, edge)
+	}
+	if nodes := uuo.mutation.GiftcodesIDs(); len(nodes) > 0 {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.O2M,
+			Inverse: false,
+			Table:   user.GiftcodesTable,
+			Columns: []string{user.GiftcodesColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(giftcode.FieldID, field.TypeInt),
+			},
+		}
+		for _, k := range nodes {
+			edge.Target.Nodes = append(edge.Target.Nodes, k)
+		}
+		_spec.Edges.Add = append(_spec.Edges.Add, edge)
+	}
 	if uuo.mutation.EntitiesCleared() {
 		edge := &sqlgraph.EdgeSpec{
 			Rel:     sqlgraph.O2M,
@@ -2079,6 +2973,51 @@ func (uuo *UserUpdateOne) sqlSave(ctx context.Context) (_node *User, err error) 
 			Bidi:    false,
 			Target: &sqlgraph.EdgeTarget{
 				IDSpec: sqlgraph.NewFieldSpec(oauthgrant.FieldID, field.TypeInt),
+			},
+		}
+		for _, k := range nodes {
+			edge.Target.Nodes = append(edge.Target.Nodes, k)
+		}
+		_spec.Edges.Add = append(_spec.Edges.Add, edge)
+	}
+	if uuo.mutation.OidcBindingsCleared() {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.O2M,
+			Inverse: false,
+			Table:   user.OidcBindingsTable,
+			Columns: []string{user.OidcBindingsColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(oidcbinding.FieldID, field.TypeInt),
+			},
+		}
+		_spec.Edges.Clear = append(_spec.Edges.Clear, edge)
+	}
+	if nodes := uuo.mutation.RemovedOidcBindingsIDs(); len(nodes) > 0 && !uuo.mutation.OidcBindingsCleared() {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.O2M,
+			Inverse: false,
+			Table:   user.OidcBindingsTable,
+			Columns: []string{user.OidcBindingsColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(oidcbinding.FieldID, field.TypeInt),
+			},
+		}
+		for _, k := range nodes {
+			edge.Target.Nodes = append(edge.Target.Nodes, k)
+		}
+		_spec.Edges.Clear = append(_spec.Edges.Clear, edge)
+	}
+	if nodes := uuo.mutation.OidcBindingsIDs(); len(nodes) > 0 {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.O2M,
+			Inverse: false,
+			Table:   user.OidcBindingsTable,
+			Columns: []string{user.OidcBindingsColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(oidcbinding.FieldID, field.TypeInt),
 			},
 		}
 		for _, k := range nodes {

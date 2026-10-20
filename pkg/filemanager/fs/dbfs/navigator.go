@@ -6,16 +6,16 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/cloudreve/Cloudreve/v4/application/constants"
-	"github.com/cloudreve/Cloudreve/v4/ent"
-	"github.com/cloudreve/Cloudreve/v4/inventory"
-	"github.com/cloudreve/Cloudreve/v4/inventory/types"
-	"github.com/cloudreve/Cloudreve/v4/pkg/boolset"
-	"github.com/cloudreve/Cloudreve/v4/pkg/cache"
-	"github.com/cloudreve/Cloudreve/v4/pkg/filemanager/fs"
-	"github.com/cloudreve/Cloudreve/v4/pkg/hashid"
-	"github.com/cloudreve/Cloudreve/v4/pkg/serializer"
-	"github.com/cloudreve/Cloudreve/v4/pkg/setting"
+	"github.com/Mxucc/StorFlow/application/constants"
+	"github.com/Mxucc/StorFlow/ent"
+	"github.com/Mxucc/StorFlow/inventory"
+	"github.com/Mxucc/StorFlow/inventory/types"
+	"github.com/Mxucc/StorFlow/pkg/boolset"
+	"github.com/Mxucc/StorFlow/pkg/cache"
+	"github.com/Mxucc/StorFlow/pkg/filemanager/fs"
+	"github.com/Mxucc/StorFlow/pkg/hashid"
+	"github.com/Mxucc/StorFlow/pkg/serializer"
+	"github.com/Mxucc/StorFlow/pkg/setting"
 	"github.com/samber/lo"
 )
 
@@ -540,21 +540,21 @@ func parseSearchPageToken(token string) (int, string, error) {
 }
 
 func newMyUri() *fs.URI {
-	res, _ := fs.NewUriFromString(constants.CloudreveScheme + "://" + string(constants.FileSystemMy))
+	res, _ := fs.NewUriFromString(constants.StorFlowScheme + "://" + string(constants.FileSystemMy))
 	return res
 }
 
 func newMyIDUri(uid string) *fs.URI {
-	res, _ := fs.NewUriFromString(fmt.Sprintf("%s://%s@%s", constants.CloudreveScheme, uid, constants.FileSystemMy))
+	res, _ := fs.NewUriFromString(fmt.Sprintf("%s://%s@%s", constants.StorFlowScheme, uid, constants.FileSystemMy))
 	return res
 }
 
 func newTrashUri(name string) *fs.URI {
-	res, _ := fs.NewUriFromString(fmt.Sprintf("%s://%s", constants.CloudreveScheme, constants.FileSystemTrash))
+	res, _ := fs.NewUriFromString(fmt.Sprintf("%s://%s", constants.StorFlowScheme, constants.FileSystemTrash))
 	return res.Join(name)
 }
 
 func newSharedWithMeUri(id string) *fs.URI {
-	res, _ := fs.NewUriFromString(fmt.Sprintf("%s://%s", constants.CloudreveScheme, constants.FileSystemSharedWithMe))
+	res, _ := fs.NewUriFromString(fmt.Sprintf("%s://%s", constants.StorFlowScheme, constants.FileSystemSharedWithMe))
 	return res.Join(id)
 }

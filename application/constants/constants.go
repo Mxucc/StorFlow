@@ -19,7 +19,9 @@ const (
 	CrHeaderPrefix = "X-Cr-"
 )
 
-const CloudreveScheme = "cloudreve"
+// StorFlowScheme 是虚拟文件系统的内部 URI scheme，例如 storflow://my/folder。
+const StorFlowScheme = "storflow"
+
 
 type (
 	FileSystemType string

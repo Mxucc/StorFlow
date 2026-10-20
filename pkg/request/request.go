@@ -13,11 +13,11 @@ import (
 	"sync"
 	"time"
 
-	"github.com/cloudreve/Cloudreve/v4/application/constants"
-	"github.com/cloudreve/Cloudreve/v4/pkg/auth"
-	"github.com/cloudreve/Cloudreve/v4/pkg/conf"
-	"github.com/cloudreve/Cloudreve/v4/pkg/logging"
-	"github.com/cloudreve/Cloudreve/v4/pkg/serializer"
+	"github.com/Mxucc/StorFlow/application/constants"
+	"github.com/Mxucc/StorFlow/pkg/auth"
+	"github.com/Mxucc/StorFlow/pkg/conf"
+	"github.com/Mxucc/StorFlow/pkg/logging"
+	"github.com/Mxucc/StorFlow/pkg/serializer"
 	"github.com/samber/lo"
 )
 
@@ -150,7 +150,7 @@ func (c *HTTPClient) Request(method, target string, body io.Reader, opts ...Opti
 		}
 	}
 
-	req.Header.Set("User-Agent", "Cloudreve/"+constants.BackendVersion)
+	req.Header.Set("User-Agent", "StorFlow/"+constants.BackendVersion)
 
 	if options.ctx != nil && options.withCorrelationID {
 		req.Header.Add(CorrelationHeader, logging.CorrelationID(options.ctx).String())

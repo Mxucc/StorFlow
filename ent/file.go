@@ -10,10 +10,10 @@ import (
 
 	"entgo.io/ent"
 	"entgo.io/ent/dialect/sql"
-	"github.com/cloudreve/Cloudreve/v4/ent/file"
-	"github.com/cloudreve/Cloudreve/v4/ent/storagepolicy"
-	"github.com/cloudreve/Cloudreve/v4/ent/user"
-	"github.com/cloudreve/Cloudreve/v4/inventory/types"
+	"github.com/Mxucc/StorFlow/ent/file"
+	"github.com/Mxucc/StorFlow/ent/storagepolicy"
+	"github.com/Mxucc/StorFlow/ent/user"
+	"github.com/Mxucc/StorFlow/inventory/types"
 )
 
 // File is the model entity for the File schema.

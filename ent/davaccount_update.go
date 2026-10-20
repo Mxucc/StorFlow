@@ -11,11 +11,11 @@ import (
 	"entgo.io/ent/dialect/sql"
 	"entgo.io/ent/dialect/sql/sqlgraph"
 	"entgo.io/ent/schema/field"
-	"github.com/cloudreve/Cloudreve/v4/ent/davaccount"
-	"github.com/cloudreve/Cloudreve/v4/ent/predicate"
-	"github.com/cloudreve/Cloudreve/v4/ent/user"
-	"github.com/cloudreve/Cloudreve/v4/inventory/types"
-	"github.com/cloudreve/Cloudreve/v4/pkg/boolset"
+	"github.com/Mxucc/StorFlow/ent/davaccount"
+	"github.com/Mxucc/StorFlow/ent/predicate"
+	"github.com/Mxucc/StorFlow/ent/user"
+	"github.com/Mxucc/StorFlow/inventory/types"
+	"github.com/Mxucc/StorFlow/pkg/boolset"
 )
 
 // DavAccountUpdate is the builder for updating DavAccount entities.

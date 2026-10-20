@@ -8,8 +8,8 @@ import (
 	"entgo.io/ent/dialect/sql"
 	"entgo.io/ent/dialect/sql/sqlgraph"
 	"entgo.io/ent/schema/field"
-	"github.com/cloudreve/Cloudreve/v4/ent/davaccount"
-	"github.com/cloudreve/Cloudreve/v4/ent/predicate"
+	"github.com/Mxucc/StorFlow/ent/davaccount"
+	"github.com/Mxucc/StorFlow/ent/predicate"
 )
 
 // DavAccountDelete is the builder for deleting a DavAccount entity.

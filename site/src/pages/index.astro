@@ -1,0 +1,382 @@
+---
+import Base from "../layouts/Base.astro";
+import { getJSON, getSiteBasic } from "../lib/api";
+import { clampText, resolveOrigin } from "../lib/format";
+
+const basic = await getSiteBasic();
+const siteTitle = (basic.ok && basic.data?.title) || "StorFlow";
+// header 里是 32×32 的方框、apple-touch-icon 与 JSON-LD 也要求方形图，
+// 所以这里固定用方形 icon；站点设置里的横版 logo 留给 SPA 使用（它按高度自适应）。
+const siteIcon = "/static/img/brand/icon-192.png";
+
+const origin = resolveOrigin(Astro.request, Astro.url);
+
+const description =
+  "你的资源，不止能存。让资源流动，让价值发生——存得下、看得见、卖得掉，网盘里整理好的东西，也能成为别人的宝藏。";
+
+/** 首页展示的真实小店入口（拉不到就只显示行动按钮，不编造假数据）。 */
+interface PublicShop {
+  slug: string;
+  name: string;
+  description?: string;
+}
+const shopsResult = await getJSON<PublicShop[]>("/shop/store?limit=6");
+const shops = (shopsResult.ok ? (shopsResult.data ?? []) : []).slice(0, 6);
+
+/** 三个「流动」环节：比功能清单更像一句承诺。 */
+const flow = [
+  {
+    step: "01",
+    title: "存得住",
+    body: "原图、原片、工程文件、整季素材——多大都放得下，断点续传，不怕中断。",
+  },
+  {
+    step: "02",
+    title: "看得见",
+    body: "不用下载就能看：文档、PDF、表格、代码、音视频、压缩包，打开即预览。",
+  },
+  {
+    step: "03",
+    title: "流得动",
+    body: "想分享就发链接，想出售就上架成小店。买家付款，内容自动交付，持续更新。",
+  },
+];
+
+/** 给「卖家」的一段：这是网盘里最独特的部分。 */
+const sellerPoints = [
+  {
+    title: "一个文件夹就是一件商品",
+    body: "把整理好的资源放进文件夹，标个价，它就成了一件可以卖的商品。",
+  },
+  {
+    title: "买家拿到的是「活的」资源",
+    body: "你往里补新内容，已经买过的人立刻就能看到，不用重新发货。",
+  },
+  {
+    title: "付款即交付，不用守着回复",
+    body: "支付完成后自动进入买家的网盘，深夜成交也不用爬起来发货。",
+  },
+  {
+    title: "值得的东西，值得被标价",
+    body: "整理、拍摄、剪辑、校对都是劳动，让它们换来应得的回报。",
+  },
+];
+
+const audience = [
+  { title: "内容创作者", body: "整季资源、图包、素材库，一次整理，长期被人需要。" },
+  { title: "摄影师 / 设计师", body: "原图与源文件按需放出，预览让人放心下单。" },
+  { title: "知识分享者", body: "电子书、课程附件、资料合集，随时补充、随时更新。" },
+  { title: "小团队 / 工作室", body: "对外交付、对内归档，一套东西两件事都办了。" },
+];
+
+const faq = [
+  {
+    q: "这里到底是网盘还是小店？",
+    a: "都是。网盘负责把东西存好、看清、分享出去；小店负责把其中值得的东西卖给需要的人。两者是同一个账号、同一份文件。",
+  },
+  {
+    q: "买过之后内容会更新吗？",
+    a: "会。卖家补充的内容会自动出现在买家的网盘里，不需要重新购买或重新发货。",
+  },
+  {
+    q: "我的文件放在哪里？",
+    a: "存在这个站点自己的存储里，不经过第三方；只有你选择分享或上架的内容，才会被别人看到。",
+  },
+  {
+    q: "卖东西需要准备什么？",
+    a: "一个整理好的文件夹，和一句说清楚它值钱在哪的介绍。定价、优惠券、订单和收款都在后台完成。",
+  },
+  {
+    q: "手机能看吗？",
+    a: "能。首页、店铺页和商品页都做了移动端适配，随时浏览、随时下单。",
+  },
+];
+
+const jsonLd = [
+  {
+    "@context": "https://schema.org",
+    "@type": "WebSite",
+    name: siteTitle,
+    url: origin,
+    description,
+    inLanguage: "zh-CN",
+    publisher: {
+      "@type": "Organization",
+      name: siteTitle,
+      url: origin,
+      logo: `${origin}${siteIcon}`,
+    },
+  },
+  {
+    "@context": "https://schema.org",
+    "@type": "FAQPage",
+    mainEntity: faq.map((item) => ({
+      "@type": "Question",
+      name: item.q,
+      acceptedAnswer: { "@type": "Answer", text: item.a },
+    })),
+  },
+];
+
+const year = new Date().getFullYear();
+---
+
+<Base
+  title={`${siteTitle} - 你的资源，不止能存`}
+  description={clampText(description)}
+  path="/"
+  siteTitle={siteTitle}
+  logo={siteIcon}
+  jsonLd={jsonLd}
+>
+  <header class="site-header">
+    <div class="container site-header__inner">
+      <a class="brand" href="/">
+        <img src={siteIcon} alt={siteTitle} width="32" height="32" />
+        <span>{siteTitle}</span>
+      </a>
+      <nav class="site-nav" aria-label="主导航">
+        <a href="#flow">怎么流动</a>
+        <a href="#sell">开一家小店</a>
+        <a href="#shops">逛小店</a>
+        <a href="#faq">常见问题</a>
+      </nav>
+      <div class="header-actions">
+        <a class="btn btn--ghost" href="/session" data-guest-only>
+          登录
+        </a>
+        <a class="btn btn--primary" href="/session/signup" data-guest-only>
+          免费注册
+        </a>
+        {/* 已登录访客由下面的脚本替换成「进入控制台」，避免又绕回登录页。 */}
+        <a class="btn btn--primary" href="/home" data-member-only hidden>
+          进入控制台
+        </a>
+      </div>
+    </div>
+  </header>
+
+  <main>
+    <!-- 首屏：一句话说清我们是什么 -->
+    <section class="hero">
+      <div class="container">
+        <div class="hero__inner">
+          <span class="eyebrow">网盘 · 小店 · 一间屋子两件事</span>
+          <h1>你的资源，<br />不止能存</h1>
+          <p class="hero__slogan">让资源流动，让价值发生。</p>
+          <p>
+            拍过的照片、整理过的资料、剪好的片子——它们不该只躺在硬盘里。
+            在这里被存好、被看见，然后流到真正需要它的人手上。
+          </p>
+          <div class="hero__actions">
+            <a
+              class="btn btn--primary btn--lg"
+              href="/session/signup"
+              data-guest-href="/session/signup"
+              data-member-href="/home"
+              data-member-label="进入控制台"
+            >
+              开始使用
+            </a>
+            <a class="btn btn--ghost btn--lg" href="#shops">去逛逛小店</a>
+          </div>
+          <div class="hero__stats">
+            <div class="hero__stat">
+              <strong>存</strong>
+              <span>多大都放得下</span>
+            </div>
+            <div class="hero__stat">
+              <strong>看</strong>
+              <span>不下载也能预览</span>
+            </div>
+            <div class="hero__stat">
+              <strong>卖</strong>
+              <span>付款自动交付</span>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- 三个环节：存得住 / 看得见 / 流得动 -->
+    <section class="section" id="flow">
+      <div class="container">
+        <div class="section-head section-head--center">
+          <span class="section-kicker">资源的一生</span>
+          <h2>存下来，被看见，然后流出去</h2>
+          <p>大多数网盘只做到第一步。我们想让一件好东西走完全程。</p>
+        </div>
+        <div class="flow">
+          {
+            flow.map((item) => (
+              <article class="flow__item">
+                <span class="flow__step">{item.step}</span>
+                <h3>{item.title}</h3>
+                <p>{item.body}</p>
+              </article>
+            ))
+          }
+        </div>
+      </div>
+    </section>
+
+    <!-- 小店：这是我们和普通网盘不一样的地方 -->
+    <section class="section section--ink" id="sell">
+      <div class="container">
+        <div class="section-head">
+          <span class="section-kicker">网盘小店</span>
+          <h2>让你的收藏，<br />变成别人眼里的宝藏</h2>
+          <p>
+            不用另开店铺、不用学电商。你网盘里的文件夹，就是货架上的商品。
+          </p>
+        </div>
+        <div class="grid grid--2">
+          {
+            sellerPoints.map((item) => (
+              <article class="card card--ink">
+                <h3>{item.title}</h3>
+                <p>{item.body}</p>
+              </article>
+            ))
+          }
+        </div>
+        <div class="hero__actions">
+          <a class="btn btn--primary" href="/session/signup">我也要开一家</a>
+          {shops.length > 0 && <a class="btn btn--ghost" href="#shops">看看别人怎么卖</a>}
+        </div>
+      </div>
+    </section>
+
+    <!-- 谁在用 -->
+    <section class="section section--tight">
+      <div class="container">
+        <div class="section-head section-head--center">
+          <span class="section-kicker">适合谁</span>
+          <h2>把整理好的东西，交给需要它的人</h2>
+        </div>
+        <div class="audience">
+          {
+            audience.map((item) => (
+              <div class="audience__item">
+                <h3>{item.title}</h3>
+                <p>{item.body}</p>
+              </div>
+            ))
+          }
+        </div>
+      </div>
+    </section>
+
+    <!-- 真实小店列表 -->
+    {
+      shops.length > 0 && (
+        <section class="section" id="shops">
+          <div class="container">
+            <div class="section-head section-head--center">
+              <span class="section-kicker">现在就开着的小店</span>
+              <h2>挑一家，进去看看</h2>
+              <p>每一家背后都是一个人整理了很久的东西。</p>
+            </div>
+            <div class="grid grid--3">
+              {shops.map((shop) => (
+                <a class="shop-card" href={`/shop/${encodeURIComponent(shop.slug)}`}>
+                  <h3>{shop.name}</h3>
+                  <p>{clampText(shop.description || "进店看看这位店主整理了些什么。", 72)}</p>
+                  <span class="shop-card__go">进店逛逛 →</span>
+                </a>
+              ))}
+            </div>
+          </div>
+        </section>
+      )
+    }
+
+    <!-- 收尾 CTA -->
+    <section class="section section--cta">
+      <div class="container cta">
+        <h2>你的资源，不该只躺在硬盘里</h2>
+        <p>上传、整理、分享，或者直接开一家属于自己的小店——让价值发生。</p>
+        <div class="hero__actions">
+          <a
+            class="btn btn--primary btn--lg"
+            href="/session/signup"
+            data-guest-href="/session/signup"
+            data-member-href="/home"
+            data-member-label="进入控制台"
+          >
+            免费注册
+          </a>
+          <a class="btn btn--ghost btn--lg" href="/session" data-guest-only>
+            已有账号，登录
+          </a>
+        </div>
+      </div>
+    </section>
+
+    <section class="section section--tight" id="faq">
+      <div class="container">
+        <div class="section-head section-head--center">
+          <span class="section-kicker">常见问题</span>
+          <h2>你可能想问</h2>
+        </div>
+        <div class="faq">
+          {
+            faq.map((item) => (
+              <details>
+                <summary>{item.q}</summary>
+                <p>{item.a}</p>
+              </details>
+            ))
+          }
+        </div>
+      </div>
+    </section>
+  </main>
+
+  <footer class="site-footer">
+    <div class="container site-footer__inner">
+      <span>© {year} {siteTitle}</span>
+      <nav class="site-nav" aria-label="页脚导航" style="margin:0">
+        <a href="/session">登录</a>
+        <a href="/session/signup">注册</a>
+        <a href="/sitemap.xml">站点地图</a>
+      </nav>
+    </div>
+  </footer>
+
+  <script>
+    // 已登录访客（localStorage 里有未过期 token）把「开始使用 / 登录 / 注册」换成
+    // 「进入控制台」。否则从官网首页出发只能又绕回登录页 —— 这正是「回不到首页，
+    // 到了首页又回不去控制台」的症结。
+    (() => {
+      const SESSION_KEY = "storflow_session";
+
+      const readToken = () => {
+        try {
+          const raw = localStorage.getItem(SESSION_KEY);
+          if (!raw) return undefined;
+          const state = JSON.parse(raw);
+          const current = state.current;
+          if (!current || !state.sessions || !state.sessions[current]) return undefined;
+          const token = state.sessions[current].token;
+          if (!token || !token.access_token) return undefined;
+          const expires = token.access_expires ? Date.parse(token.access_expires) : NaN;
+          if (!Number.isNaN(expires) && expires < Date.now()) return undefined;
+          return token.access_token;
+        } catch {
+          return undefined;
+        }
+      };
+
+      if (!readToken()) return;
+
+      document.querySelectorAll("[data-guest-only]").forEach((el) => el.remove());
+      document.querySelectorAll("[data-member-only]").forEach((el) => el.removeAttribute("hidden"));
+      document.querySelectorAll("[data-member-href]").forEach((el) => {
+        el.setAttribute("href", el.getAttribute("data-member-href"));
+        const label = el.getAttribute("data-member-label");
+        if (label) el.textContent = label;
+      });
+    })();
+  </script>
+</Base>

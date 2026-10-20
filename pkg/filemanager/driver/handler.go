@@ -6,18 +6,18 @@ import (
 	"os"
 	"time"
 
-	"github.com/cloudreve/Cloudreve/v4/pkg/boolset"
-	"github.com/cloudreve/Cloudreve/v4/pkg/filemanager/fs"
+	"github.com/Mxucc/StorFlow/pkg/boolset"
+	"github.com/Mxucc/StorFlow/pkg/filemanager/fs"
 )
 
 const (
-	// HandlerCapabilityProxyRequired this handler requires Cloudreve's proxy to get file content
+	// HandlerCapabilityProxyRequired this handler requires StorFlow's proxy to get file content
 	HandlerCapabilityProxyRequired HandlerCapability = iota
 	// HandlerCapabilityInboundGet this handler supports directly get file's RSCloser, usually
-	// indicates that the file is stored in the same machine as Cloudreve
+	// indicates that the file is stored in the same machine as StorFlow
 	HandlerCapabilityInboundGet
 	// HandlerCapabilityUploadSentinelRequired this handler does not support compliance callback mechanism,
-	// thus it requires Cloudreve's sentinel to guarantee the upload is under control. Cloudreve will try
+	// thus it requires StorFlow's sentinel to guarantee the upload is under control. StorFlow will try
 	// to delete the placeholder file and cancel the upload session if upload callback is not made after upload
 	// session expire.
 	HandlerCapabilityUploadSentinelRequired

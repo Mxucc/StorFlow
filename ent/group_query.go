@@ -11,10 +11,10 @@ import (
 	"entgo.io/ent/dialect/sql"
 	"entgo.io/ent/dialect/sql/sqlgraph"
 	"entgo.io/ent/schema/field"
-	"github.com/cloudreve/Cloudreve/v4/ent/group"
-	"github.com/cloudreve/Cloudreve/v4/ent/predicate"
-	"github.com/cloudreve/Cloudreve/v4/ent/storagepolicy"
-	"github.com/cloudreve/Cloudreve/v4/ent/user"
+	"github.com/Mxucc/StorFlow/ent/group"
+	"github.com/Mxucc/StorFlow/ent/predicate"
+	"github.com/Mxucc/StorFlow/ent/storagepolicy"
+	"github.com/Mxucc/StorFlow/ent/user"
 )
 
 // GroupQuery is the builder for querying Group entities.

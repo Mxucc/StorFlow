@@ -6,6 +6,12 @@ import (
 	"entgo.io/ent/dialect/sql"
 )
 
+// AbuseReport is the predicate function for abusereport builders.
+type AbuseReport func(*sql.Selector)
+
+// AuditLog is the predicate function for auditlog builders.
+type AuditLog func(*sql.Selector)
+
 // DavAccount is the predicate function for davaccount builders.
 type DavAccount func(*sql.Selector)
 
@@ -20,6 +26,9 @@ type File func(*sql.Selector)
 
 // FsEvent is the predicate function for fsevent builders.
 type FsEvent func(*sql.Selector)
+
+// GiftCode is the predicate function for giftcode builders.
+type GiftCode func(*sql.Selector)
 
 // Group is the predicate function for group builders.
 type Group func(*sql.Selector)
@@ -36,8 +45,17 @@ type OAuthClient func(*sql.Selector)
 // OAuthGrant is the predicate function for oauthgrant builders.
 type OAuthGrant func(*sql.Selector)
 
+// OIDCBinding is the predicate function for oidcbinding builders.
+type OIDCBinding func(*sql.Selector)
+
 // Passkey is the predicate function for passkey builders.
 type Passkey func(*sql.Selector)
+
+// Payment is the predicate function for payment builders.
+type Payment func(*sql.Selector)
+
+// PointsLedger is the predicate function for pointsledger builders.
+type PointsLedger func(*sql.Selector)
 
 // Setting is the predicate function for setting builders.
 type Setting func(*sql.Selector)

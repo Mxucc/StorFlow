@@ -7,10 +7,10 @@ import (
 	"os"
 	"strconv"
 
-	"github.com/cloudreve/Cloudreve/v4/application/migrator/model"
-	"github.com/cloudreve/Cloudreve/v4/ent"
-	"github.com/cloudreve/Cloudreve/v4/inventory/types"
-	"github.com/cloudreve/Cloudreve/v4/pkg/conf"
+	"github.com/Mxucc/StorFlow/application/migrator/model"
+	"github.com/Mxucc/StorFlow/ent"
+	"github.com/Mxucc/StorFlow/inventory/types"
+	"github.com/Mxucc/StorFlow/pkg/conf"
 )
 
 func (m *Migrator) migrateFile() error {

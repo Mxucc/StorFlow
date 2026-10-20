@@ -8,11 +8,11 @@ import (
 	"io"
 	"os"
 
-	"github.com/cloudreve/Cloudreve/v4/application/dependency"
-	"github.com/cloudreve/Cloudreve/v4/ent/entity"
-	"github.com/cloudreve/Cloudreve/v4/inventory/types"
-	"github.com/cloudreve/Cloudreve/v4/pkg/filemanager/encrypt"
-	"github.com/cloudreve/Cloudreve/v4/pkg/setting"
+	"github.com/Mxucc/StorFlow/application/dependency"
+	"github.com/Mxucc/StorFlow/ent/entity"
+	"github.com/Mxucc/StorFlow/inventory/types"
+	"github.com/Mxucc/StorFlow/pkg/filemanager/encrypt"
+	"github.com/Mxucc/StorFlow/pkg/setting"
 	"github.com/spf13/cobra"
 )
 

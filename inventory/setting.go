@@ -8,11 +8,11 @@ import (
 	"fmt"
 	"io"
 
-	"github.com/cloudreve/Cloudreve/v4/ent"
-	"github.com/cloudreve/Cloudreve/v4/ent/setting"
-	"github.com/cloudreve/Cloudreve/v4/inventory/types"
-	"github.com/cloudreve/Cloudreve/v4/pkg/cache"
-	"github.com/cloudreve/Cloudreve/v4/pkg/util"
+	"github.com/Mxucc/StorFlow/ent"
+	"github.com/Mxucc/StorFlow/ent/setting"
+	"github.com/Mxucc/StorFlow/inventory/types"
+	"github.com/Mxucc/StorFlow/pkg/cache"
+	"github.com/Mxucc/StorFlow/pkg/util"
 	"github.com/gofrs/uuid"
 )
 
@@ -73,10 +73,17 @@ func (c *settingClient) Gets(ctx context.Context, names []string) (map[string]st
 
 func (c *settingClient) Set(ctx context.Context, settings map[string]string) error {
 	for k, v := range settings {
-		if err := c.client.Setting.Update().Where(setting.Name(k)).SetValue(v).Exec(ctx); err != nil {
-			return fmt.Errorf("failed to create setting %q: %w", k, err)
+		// upsert：先更新；行不存在（新设置键）时插入。
+		// 旧实现只做 UPDATE，新键匹配 0 行也返回成功——静默丢数据。
+		n, err := c.client.Setting.Update().Where(setting.Name(k)).SetValue(v).Save(ctx)
+		if err != nil {
+			return fmt.Errorf("failed to update setting %q: %w", k, err)
 		}
-
+		if n == 0 {
+			if _, err := c.client.Setting.Create().SetName(k).SetValue(v).Save(ctx); err != nil {
+				return fmt.Errorf("failed to create setting %q: %w", k, err)
+			}
+		}
 	}
 
 	return nil
@@ -483,109 +490,284 @@ var mailTemplateContents = []MailTemplateContent{
 	},
 }
 
+// MailExtraTemplateContent holds the localized copy of the payment receipt and
+// storage quota emails. Both emails reuse the activation email HTML shell, so
+// only the localized copy is listed here.
+type MailExtraTemplateContent struct {
+	Language        string
+	EmailIsAutoSend string // Translation of `此邮件由系统自动发送。`
+
+	ReceiptTitle  string // Translation of `支付成功`
+	ReceiptDes    string // Translation of `订单详情`
+	ReceiptButton string // Translation of `查看我的账户`
+
+	QuotaTitle  string // Translation of `存储空间已用尽`
+	QuotaDes    string // Translation of `存储空间使用详情`
+	QuotaButton string // Translation of `管理存储空间`
+}
+
+var mailExtraTemplateContents = []MailExtraTemplateContent{
+	{
+		Language:        "en-US",
+		EmailIsAutoSend: "This email is sent automatically.",
+		ReceiptTitle:    "Payment successful",
+		ReceiptDes: "Your order has been fulfilled and the content is ready to use. Order {{ .Order.OrderNo }}, " +
+			"product {{ .Order.ProductName }}, amount {{ .Order.Amount }}, quantity {{ .Order.Quantity }}, " +
+			"paid at {{ .Order.PaidAt }}. Thank you for your support.",
+		ReceiptButton: "View my account",
+		QuotaTitle:    "Your storage is full",
+		QuotaDes: "You have used {{ .Quota.Used }} of {{ .Quota.Total }} ({{ .Quota.Percent }}), " +
+			"so new uploads are rejected. Upgrade your plan or delete unneeded files to continue uploading.",
+		QuotaButton: "Manage storage",
+	},
+	{
+		Language:        "zh-CN",
+		EmailIsAutoSend: "此邮件由系统自动发送。",
+		ReceiptTitle:    "支付成功",
+		ReceiptDes: "你的订单已完成，内容可立即使用。订单号 {{ .Order.OrderNo }}，" +
+			"商品 {{ .Order.ProductName }}，金额 {{ .Order.Amount }}，数量 {{ .Order.Quantity }}，" +
+			"支付时间 {{ .Order.PaidAt }}。感谢你的支持。",
+		ReceiptButton: "查看我的账户",
+		QuotaTitle:    "存储空间已用尽",
+		QuotaDes: "你的存储空间已使用 {{ .Quota.Used }} / {{ .Quota.Total }}（{{ .Quota.Percent }}），" +
+			"新的上传请求已被拒绝。升级套餐或清理不需要的文件后即可继续上传。",
+		QuotaButton: "管理存储空间",
+	},
+	{
+		Language:        "zh-TW",
+		EmailIsAutoSend: "此郵件由系統自動發送。",
+		ReceiptTitle:    "付款成功",
+		ReceiptDes: "你的訂單已完成，內容可立即使用。訂單編號 {{ .Order.OrderNo }}，" +
+			"商品 {{ .Order.ProductName }}，金額 {{ .Order.Amount }}，數量 {{ .Order.Quantity }}，" +
+			"付款時間 {{ .Order.PaidAt }}。感謝你的支持。",
+		ReceiptButton: "查看我的帳戶",
+		QuotaTitle:    "儲存空間已用盡",
+		QuotaDes: "你的儲存空間已使用 {{ .Quota.Used }} / {{ .Quota.Total }}（{{ .Quota.Percent }}），" +
+			"新的上傳請求已被拒絕。升級方案或清理不需要的檔案後即可繼續上傳。",
+		QuotaButton: "管理儲存空間",
+	},
+	{
+		Language:        "de-DE",
+		EmailIsAutoSend: "Diese E-Mail wird automatisch vom System gesendet.",
+		ReceiptTitle:    "Zahlung erfolgreich",
+		ReceiptDes: "Ihre Bestellung wurde ausgeführt und ist sofort nutzbar. Bestellnummer {{ .Order.OrderNo }}, " +
+			"Produkt {{ .Order.ProductName }}, Betrag {{ .Order.Amount }}, Menge {{ .Order.Quantity }}, " +
+			"bezahlt am {{ .Order.PaidAt }}. Vielen Dank für Ihre Unterstützung.",
+		ReceiptButton: "Mein Konto ansehen",
+		QuotaTitle:    "Ihr Speicher ist voll",
+		QuotaDes: "Sie haben {{ .Quota.Used }} von {{ .Quota.Total }} ({{ .Quota.Percent }}) belegt, " +
+			"neue Uploads werden abgelehnt. Bitte upgraden Sie Ihren Tarif oder löschen Sie nicht benötigte Dateien.",
+		QuotaButton: "Speicher verwalten",
+	},
+	{
+		Language:        "es-ES",
+		EmailIsAutoSend: "Este correo electrónico se envía automáticamente.",
+		ReceiptTitle:    "Pago completado",
+		ReceiptDes: "Tu pedido se ha completado y el contenido ya está disponible. Pedido {{ .Order.OrderNo }}, " +
+			"producto {{ .Order.ProductName }}, importe {{ .Order.Amount }}, cantidad {{ .Order.Quantity }}, " +
+			"pagado el {{ .Order.PaidAt }}. Gracias por tu apoyo.",
+		ReceiptButton: "Ver mi cuenta",
+		QuotaTitle:    "Tu almacenamiento está lleno",
+		QuotaDes: "Has usado {{ .Quota.Used }} de {{ .Quota.Total }} ({{ .Quota.Percent }}), " +
+			"por lo que se rechazan las nuevas subidas. Mejora tu plan o elimina los archivos que no necesites.",
+		QuotaButton: "Gestionar almacenamiento",
+	},
+	{
+		Language:        "fr-FR",
+		EmailIsAutoSend: "Cet e-mail est envoyé automatiquement.",
+		ReceiptTitle:    "Paiement réussi",
+		ReceiptDes: "Votre commande a été traitée et le contenu est disponible immédiatement. Commande {{ .Order.OrderNo }}, " +
+			"produit {{ .Order.ProductName }}, montant {{ .Order.Amount }}, quantité {{ .Order.Quantity }}, " +
+			"payé le {{ .Order.PaidAt }}. Merci de votre soutien.",
+		ReceiptButton: "Voir mon compte",
+		QuotaTitle:    "Votre stockage est plein",
+		QuotaDes: "Vous avez utilisé {{ .Quota.Used }} sur {{ .Quota.Total }} ({{ .Quota.Percent }}), " +
+			"les nouveaux envois sont donc refusés. Améliorez votre offre ou supprimez les fichiers inutiles.",
+		QuotaButton: "Gérer le stockage",
+	},
+	{
+		Language:        "it-IT",
+		EmailIsAutoSend: "Questa e-mail viene inviata automaticamente dal sistema.",
+		ReceiptTitle:    "Pagamento riuscito",
+		ReceiptDes: "Il tuo ordine è stato completato e il contenuto è subito disponibile. Ordine {{ .Order.OrderNo }}, " +
+			"prodotto {{ .Order.ProductName }}, importo {{ .Order.Amount }}, quantità {{ .Order.Quantity }}, " +
+			"pagato il {{ .Order.PaidAt }}. Grazie per il supporto.",
+		ReceiptButton: "Vedi il mio account",
+		QuotaTitle:    "Il tuo spazio è esaurito",
+		QuotaDes: "Hai utilizzato {{ .Quota.Used }} su {{ .Quota.Total }} ({{ .Quota.Percent }}), " +
+			"quindi i nuovi caricamenti vengono rifiutati. Aggiorna il piano o elimina i file non necessari.",
+		QuotaButton: "Gestisci lo spazio",
+	},
+	{
+		Language:        "ja-JP",
+		EmailIsAutoSend: "このメールはシステムから自動送信されています。",
+		ReceiptTitle:    "お支払いが完了しました",
+		ReceiptDes: "ご注文の処理が完了し、すぐにご利用いただけます。注文番号 {{ .Order.OrderNo }}、" +
+			"商品 {{ .Order.ProductName }}、金額 {{ .Order.Amount }}、数量 {{ .Order.Quantity }}、" +
+			"支払日時 {{ .Order.PaidAt }}。ご利用ありがとうございます。",
+		ReceiptButton: "アカウントを表示",
+		QuotaTitle:    "ストレージがいっぱいです",
+		QuotaDes: "{{ .Quota.Total }} のうち {{ .Quota.Used }}（{{ .Quota.Percent }}）を使用済みのため、" +
+			"新規アップロードは拒否されます。プランをアップグレードするか不要なファイルを削除してください。",
+		QuotaButton: "ストレージを管理",
+	},
+	{
+		Language:        "ko-KR",
+		EmailIsAutoSend: "이 메일은 시스템에서 자동으로 발송됩니다.",
+		ReceiptTitle:    "결제가 완료되었습니다",
+		ReceiptDes: "주문이 처리되어 바로 사용할 수 있습니다. 주문 번호 {{ .Order.OrderNo }}, " +
+			"상품 {{ .Order.ProductName }}, 금액 {{ .Order.Amount }}, 수량 {{ .Order.Quantity }}, " +
+			"결제 시간 {{ .Order.PaidAt }}. 이용해 주셔서 감사합니다.",
+		ReceiptButton: "내 계정 보기",
+		QuotaTitle:    "저장 공간이 가득 찼습니다",
+		QuotaDes: "{{ .Quota.Total }} 중 {{ .Quota.Used }}({{ .Quota.Percent }})를 사용하여 " +
+			"새 업로드가 거부됩니다. 요금제를 업그레이드하거나 필요 없는 파일을 삭제하세요.",
+		QuotaButton: "저장 공간 관리",
+	},
+	{
+		Language:        "pt-BR",
+		EmailIsAutoSend: "Este e-mail é enviado automaticamente pelo sistema.",
+		ReceiptTitle:    "Pagamento concluído",
+		ReceiptDes: "Seu pedido foi processado e o conteúdo já está disponível. Pedido {{ .Order.OrderNo }}, " +
+			"produto {{ .Order.ProductName }}, valor {{ .Order.Amount }}, quantidade {{ .Order.Quantity }}, " +
+			"pago em {{ .Order.PaidAt }}. Obrigado pelo apoio.",
+		ReceiptButton: "Ver minha conta",
+		QuotaTitle:    "Seu armazenamento está cheio",
+		QuotaDes: "Você usou {{ .Quota.Used }} de {{ .Quota.Total }} ({{ .Quota.Percent }}), " +
+			"então novos envios são recusados. Faça upgrade do plano ou exclua arquivos desnecessários.",
+		QuotaButton: "Gerenciar armazenamento",
+	},
+	{
+		Language:        "ru-RU",
+		EmailIsAutoSend: "Это письмо отправлено системой автоматически.",
+		ReceiptTitle:    "Оплата прошла успешно",
+		ReceiptDes: "Ваш заказ выполнен, содержимое доступно сразу. Заказ {{ .Order.OrderNo }}, " +
+			"товар {{ .Order.ProductName }}, сумма {{ .Order.Amount }}, количество {{ .Order.Quantity }}, " +
+			"оплачено {{ .Order.PaidAt }}. Спасибо за поддержку.",
+		ReceiptButton: "Мой аккаунт",
+		QuotaTitle:    "Хранилище заполнено",
+		QuotaDes: "Использовано {{ .Quota.Used }} из {{ .Quota.Total }} ({{ .Quota.Percent }}), " +
+			"поэтому новые загрузки отклоняются. Обновите тариф или удалите ненужные файлы.",
+		QuotaButton: "Управление хранилищем",
+	},
+}
+
 var DefaultSettings = map[string]string{
-	"siteURL":                                    `http://localhost:5212`,
-	"siteName":                                   `Cloudreve`,
-	"siteDes":                                    "Cloudreve",
-	"siteID":                                     uuid.Must(uuid.NewV4()).String(),
-	"siteTitle":                                  "Cloud storage for everyone",
-	"siteScript":                                 "",
-	"pwa_small_icon":                             "/static/img/favicon.ico",
-	"pwa_medium_icon":                            "/static/img/logo192.png",
-	"pwa_large_icon":                             "/static/img/logo512.png",
-	"pwa_display":                                "standalone",
-	"pwa_theme_color":                            "#000000",
-	"pwa_background_color":                       "#ffffff",
-	"register_enabled":                           `1`,
-	"default_group":                              `2`,
-	"fromName":                                   `Cloudreve`,
-	"mail_keepalive":                             `30`,
-	"fromAdress":                                 `no-reply@cloudreve.org`,
-	"smtpHost":                                   `smtp.cloudreve.com`,
-	"smtpPort":                                   `25`,
-	"replyTo":                                    `support@cloudreve.org`,
-	"smtpUser":                                   `smtp.cloudreve.com`,
-	"smtpPass":                                   ``,
-	"smtpEncryption":                             `0`,
-	"ban_time":                                   `604800`,
-	"maxEditSize":                                `52428800`,
-	"archive_timeout":                            `600`,
-	"upload_session_timeout":                     `86400`,
-	"slave_api_timeout":                          `60`,
-	"folder_props_timeout":                       `300`,
-	"chunk_retries":                              `5`,
-	"use_temp_chunk_buffer":                      `1`,
-	"login_captcha":                              `0`,
-	"reg_captcha":                                `0`,
-	"email_active":                               `0`,
-	"forget_captcha":                             `0`,
-	"gravatar_server":                            `https://www.gravatar.com/`,
-	"defaultTheme":                               `#1976d2`,
-	"theme_options":                              `{"#1976d2":{"light":{"palette":{"primary":{"main":"#1976d2","light":"#42a5f5","dark":"#1565c0"},"secondary":{"main":"#9c27b0","light":"#ba68c8","dark":"#7b1fa2"}}},"dark":{"palette":{"primary":{"main":"#90caf9","light":"#e3f2fd","dark":"#42a5f5"},"secondary":{"main":"#ce93d8","light":"#f3e5f5","dark":"#ab47bc"}}}},"#3f51b5":{"light":{"palette":{"primary":{"main":"#3f51b5"},"secondary":{"main":"#f50057"}}},"dark":{"palette":{"primary":{"main":"#9fa8da"},"secondary":{"main":"#ff4081"}}}}}`,
-	"max_parallel_transfer":                      `4`,
-	"secret_key":                                 util.RandStringRunesCrypto(256),
-	"temp_path":                                  "temp",
-	"avatar_path":                                "avatar",
-	"avatar_size":                                "4194304",
-	"avatar_size_l":                              "200",
-	"cron_garbage_collect":                       "@every 30m",
-	"cron_entity_collect":                        "@every 15m",
-	"cron_trash_bin_collect":                     "@every 33m",
-	"cron_oauth_cred_refresh":                    "@every 230h",
-	"authn_enabled":                              "1",
-	"captcha_type":                               "normal",
-	"captcha_height":                             "60",
-	"captcha_width":                              "240",
-	"captcha_mode":                               "3",
-	"captcha_ComplexOfNoiseText":                 "0",
-	"captcha_ComplexOfNoiseDot":                  "0",
-	"captcha_IsShowHollowLine":                   "0",
-	"captcha_IsShowNoiseDot":                     "1",
-	"captcha_IsShowNoiseText":                    "0",
-	"captcha_IsShowSlimeLine":                    "1",
-	"captcha_IsShowSineLine":                     "0",
-	"captcha_CaptchaLen":                         "6",
-	"captcha_ReCaptchaKey":                       "defaultKey",
-	"captcha_ReCaptchaSecret":                    "defaultSecret",
-	"captcha_turnstile_site_key":                 "",
-	"captcha_turnstile_site_secret":              "",
-	"captcha_cap_instance_url":                   "",
-	"captcha_cap_site_key":                       "",
-	"captcha_cap_secret_key":                     "",
-	"captcha_cap_asset_server":                   "jsdelivr",
-	"thumb_width":                                "400",
-	"thumb_height":                               "300",
-	"thumb_entity_suffix":                        "{blob_path}/{blob_name}._thumb",
-	"thumb_slave_sidecar_suffix":                 "._thumb_sidecar",
-	"thumb_encode_method":                        "png",
-	"thumb_gc_after_gen":                         "0",
-	"thumb_encode_quality":                       "95",
-	"thumb_builtin_enabled":                      "1",
-	"thumb_builtin_max_size":                     "78643200", // 75 MB
-	"thumb_vips_max_size":                        "78643200", // 75 MB
-	"thumb_vips_enabled":                         "0",
-	"thumb_vips_exts":                            "3fr,ari,arw,bay,braw,crw,cr2,cr3,cap,data,dcs,dcr,dng,drf,eip,erf,fff,gpr,iiq,k25,kdc,mdc,mef,mos,mrw,nef,nrw,obm,orf,pef,ptx,pxn,r3d,raf,raw,rwl,rw2,rwz,sr2,srf,srw,tif,x3f,csv,mat,img,hdr,pbm,pgm,ppm,pfm,pnm,svg,svgz,j2k,jp2,jpt,j2c,jpc,gif,png,jpg,jpeg,jpe,webp,tif,tiff,fits,fit,fts,exr,jxl,pdf,heic,heif,avif,svs,vms,vmu,ndpi,scn,mrxs,svslide,bif,raw",
-	"thumb_ffmpeg_enabled":                       "0",
-	"thumb_vips_path":                            "vips",
-	"thumb_ffmpeg_path":                          "ffmpeg",
-	"thumb_ffmpeg_max_size":                      "10737418240", // 10 GB
-	"thumb_ffmpeg_exts":                          "3g2,3gp,asf,asx,avi,divx,flv,m2ts,m2v,m4v,mkv,mov,mp4,mpeg,mpg,mts,mxf,ogv,rm,swf,webm,wmv",
-	"thumb_ffmpeg_seek":                          "00:00:01.00",
-	"thumb_ffmpeg_extra_args":                    "-hwaccel auto",
-	"thumb_libreoffice_path":                     "soffice",
-	"thumb_libreoffice_max_size":                 "78643200", // 75 MB
-	"thumb_libreoffice_enabled":                  "0",
-	"thumb_libreoffice_exts":                     "txt,pdf,md,ods,ots,fods,uos,xlsx,xml,xls,xlt,dif,dbf,html,slk,csv,xlsm,docx,dotx,doc,dot,rtf,xlsm,xlst,xls,xlw,xlc,xlt,pptx,ppsx,potx,pomx,ppt,pps,ppm,pot,pom",
-	"thumb_music_cover_enabled":                  "1",
-	"thumb_music_cover_exts":                     "mp3,m4a,ogg,flac",
-	"thumb_music_cover_max_size":                 "1073741824", // 1 GB
-	"thumb_libraw_enabled":                       "0",
-	"thumb_libraw_path":                          "simple_dcraw",
-	"thumb_libraw_max_size":                      "78643200", // 75 MB
-	"thumb_libraw_exts":                          "3fr,ari,arw,bay,braw,crw,cr2,cr3,cap,data,dcs,dcr,dng,drf,eip,erf,fff,gpr,iiq,k25,kdc,mdc,mef,mos,mrw,nef,nrw,obm,orf,pef,ptx,pxn,r3d,raf,raw,rwl,rw2,rwz,sr2,srf,srw,tif,x3f",
-	"phone_required":                             "false",
-	"phone_enabled":                              "false",
-	"show_app_promotion":                         "1",
+	"siteURL":          `http://localhost:5212`,
+	"siteName":         `StorFlow`,
+	"siteDes":          "StorFlow",
+	"siteAnnouncement": "",
+	"siteID":           uuid.Must(uuid.NewV4()).String(),
+	"siteTitle":        "Your resources, more than storage",
+	"siteScript":       "",
+	"pwa_small_icon":   "/static/img/brand/favicon.ico",
+	// 站点级「初始分享快捷方式」：注册时写入新用户侧边栏的置顶分享数字 ID（JSON 数组）。
+	"default_symbolics":    "[]",
+	"pwa_medium_icon":      "/static/img/brand/icon-192.png",
+	"pwa_large_icon":       "/static/img/brand/icon-512.png",
+	"pwa_display":          "standalone",
+	"pwa_theme_color":      "#000000",
+	"pwa_background_color": "#ffffff",
+	"register_enabled":     `1`,
+	// Pro：注册邮箱域过滤（disabled/whitelist/blacklist）及其规则列表（逗号分隔）。
+	"filter_email_provider":      "disabled",
+	"filter_email_provider_rule": "",
+	// Pro：禁止使用包含 "+" 的子地址邮箱注册。
+	"disable_sub_address_email":     "0",
+	"default_group":                 `2`,
+	"fromName":                      `StorFlow`,
+	"mail_keepalive":                `30`,
+	"fromAdress":                    `noreply@example.com`,
+	"smtpHost":                      ``,
+	"smtpPort":                      `25`,
+	"replyTo":                       `noreply@example.com`,
+	"smtpUser":                      ``,
+	"smtpPass":                      ``,
+	"smtpEncryption":                `0`,
+	"ban_time":                      `604800`,
+	"maxEditSize":                   `52428800`,
+	"archive_timeout":               `600`,
+	"upload_session_timeout":        `86400`,
+	"slave_api_timeout":             `60`,
+	"folder_props_timeout":          `300`,
+	"chunk_retries":                 `5`,
+	"use_temp_chunk_buffer":         `1`,
+	"login_captcha":                 `0`,
+	"reg_captcha":                   `0`,
+	"email_active":                  `0`,
+	"forget_captcha":                `0`,
+	"gravatar_server":               `https://www.gravatar.com/`,
+	"defaultTheme":                  `#4D6BFE`,
+	"theme_options":                 `{"#4D6BFE":{"light":{"palette":{"primary":{"main":"#4D6BFE","light":"#7C90FF","dark":"#2B45C9","contrastText":"#FFFFFF"},"secondary":{"main":"#6366F1","light":"#818CF8","dark":"#4338CA","contrastText":"#FFFFFF"}}},"dark":{"palette":{"primary":{"main":"#7C90FF","light":"#A5B4FF","dark":"#4D6BFE","contrastText":"#0A0F1F"},"secondary":{"main":"#A5B4FC","light":"#C7D2FE","dark":"#818CF8","contrastText":"#0A0F1F"}}}},"#111827":{"light":{"palette":{"primary":{"main":"#111827","light":"#374151","dark":"#030712","contrastText":"#FFFFFF"},"secondary":{"main":"#4D6BFE","light":"#7C90FF","dark":"#2B45C9","contrastText":"#FFFFFF"}}},"dark":{"palette":{"primary":{"main":"#9CA3AF","light":"#D1D5DB","dark":"#6B7280","contrastText":"#0B0E14"},"secondary":{"main":"#7C90FF","light":"#A5B4FF","dark":"#4D6BFE","contrastText":"#0A0F1F"}}}}}`,
+	"max_parallel_transfer":         `4`,
+	"secret_key":                    util.RandStringRunesCrypto(256),
+	"temp_path":                     "temp",
+	"avatar_path":                   "avatar",
+	"avatar_size":                   "4194304",
+	"avatar_size_l":                 "200",
+	"cron_garbage_collect":          "@every 30m",
+	"cron_entity_collect":           "@every 15m",
+	"cron_trash_bin_collect":        "@every 33m",
+	"cron_group_expire":             "@every 15m",
+	"cron_yun139_token_refresh":     "@every 6h",
+	"cron_oauth_cred_refresh":       "@every 230h",
+	"authn_enabled":                 "1",
+	"captcha_type":                  "normal",
+	"captcha_height":                "60",
+	"captcha_width":                 "240",
+	"captcha_mode":                  "3",
+	"captcha_ComplexOfNoiseText":    "0",
+	"captcha_ComplexOfNoiseDot":     "0",
+	"captcha_IsShowHollowLine":      "0",
+	"captcha_IsShowNoiseDot":        "1",
+	"captcha_IsShowNoiseText":       "0",
+	"captcha_IsShowSlimeLine":       "1",
+	"captcha_IsShowSineLine":        "0",
+	"captcha_CaptchaLen":            "6",
+	"captcha_ReCaptchaKey":          "defaultKey",
+	"captcha_ReCaptchaSecret":       "defaultSecret",
+	"captcha_turnstile_site_key":    "",
+	"captcha_turnstile_site_secret": "",
+	"captcha_cap_instance_url":      "",
+	"captcha_cap_site_key":          "",
+	"captcha_cap_secret_key":        "",
+	"captcha_cap_asset_server":      "jsdelivr",
+	"thumb_width":                   "400",
+	"thumb_height":                  "300",
+	"thumb_entity_suffix":           "{blob_path}/{blob_name}._thumb",
+	"thumb_slave_sidecar_suffix":    "._thumb_sidecar",
+	"thumb_encode_method":           "png",
+	"thumb_gc_after_gen":            "0",
+	"thumb_encode_quality":          "95",
+	"thumb_builtin_enabled":         "1",
+	"thumb_builtin_max_size":        "78643200", // 75 MB
+	"thumb_vips_max_size":           "78643200", // 75 MB
+	"thumb_vips_enabled":            "0",
+	"thumb_vips_exts":               "3fr,ari,arw,bay,braw,crw,cr2,cr3,cap,data,dcs,dcr,dng,drf,eip,erf,fff,gpr,iiq,k25,kdc,mdc,mef,mos,mrw,nef,nrw,obm,orf,pef,ptx,pxn,r3d,raf,raw,rwl,rw2,rwz,sr2,srf,srw,tif,x3f,csv,mat,img,hdr,pbm,pgm,ppm,pfm,pnm,svg,svgz,j2k,jp2,jpt,j2c,jpc,gif,png,jpg,jpeg,jpe,webp,tif,tiff,fits,fit,fts,exr,jxl,pdf,heic,heif,avif,svs,vms,vmu,ndpi,scn,mrxs,svslide,bif,raw",
+	"thumb_ffmpeg_enabled":          "0",
+	"thumb_vips_path":               "vips",
+	"thumb_ffmpeg_path":             "ffmpeg",
+	"thumb_ffmpeg_max_size":         "10737418240", // 10 GB
+	"thumb_ffmpeg_exts":             "3g2,3gp,asf,asx,avi,divx,flv,m2ts,m2v,m4v,mkv,mov,mp4,mpeg,mpg,mts,mxf,ogv,rm,swf,webm,wmv",
+	"thumb_ffmpeg_seek":             "00:00:01.00",
+	"thumb_ffmpeg_extra_args":       "-hwaccel auto",
+	"thumb_libreoffice_path":        "soffice",
+	"thumb_libreoffice_max_size":    "78643200", // 75 MB
+	"thumb_libreoffice_enabled":     "0",
+	"thumb_libreoffice_exts":        "txt,pdf,md,ods,ots,fods,uos,xlsx,xml,xls,xlt,dif,dbf,html,slk,csv,xlsm,docx,dotx,doc,dot,rtf,xlsm,xlst,xls,xlw,xlc,xlt,pptx,ppsx,potx,pomx,ppt,pps,ppm,pot,pom",
+	"thumb_music_cover_enabled":     "1",
+	"thumb_music_cover_exts":        "mp3,m4a,ogg,flac",
+	"thumb_music_cover_max_size":    "1073741824", // 1 GB
+	"thumb_libraw_enabled":          "0",
+	"thumb_libraw_path":             "simple_dcraw",
+	"thumb_libraw_max_size":         "78643200", // 75 MB
+	"thumb_libraw_exts":             "3fr,ari,arw,bay,braw,crw,cr2,cr3,cap,data,dcs,dcr,dng,drf,eip,erf,fff,gpr,iiq,k25,kdc,mdc,mef,mos,mrw,nef,nrw,obm,orf,pef,ptx,pxn,r3d,raf,raw,rwl,rw2,rwz,sr2,srf,srw,tif,x3f",
+	"phone_required":                "false",
+	"phone_enabled":                 "false",
+	"show_app_promotion":            "1",
+	// app_feedback / app_forum 用于客户端「设置」页展示反馈与论坛入口，留空即不展示。
+	"app_feedback":                               "",
+	"app_forum":                                  "",
 	"public_resource_maxage":                     "86400",
 	"viewer_session_timeout":                     "36000",
 	"hash_id_salt":                               util.RandStringRunesCrypto(64),
@@ -641,10 +823,10 @@ var DefaultSettings = map[string]string{
 	"media_meta_ffprobe_size_remote":             "0",
 	"media_meta_geocoding":                       "0",
 	"media_meta_geocoding_mapbox_ak":             "",
-	"site_logo":                                  "/static/img/logo.svg",
-	"site_logo_light":                            "/static/img/logo_light.svg",
-	"tos_url":                                    "https://cloudreve.org/privacy-policy",
-	"privacy_policy_url":                         "https://cloudreve.org/privacy-policy",
+	"site_logo":                                  "/static/img/brand/logo.svg",
+	"site_logo_light":                            "/static/img/brand/logo-light.svg",
+	"tos_url":                                    "https://github.com/Mxucc/StorFlow",
+	"privacy_policy_url":                         "https://github.com/Mxucc/StorFlow",
 	"explorer_category_image_query":              "type=file&case_folding&use_or&name=*.bmp&name=*.iff&name=*.png&name=*.gif&name=*.jpg&name=*.jpeg&name=*.psd&name=*.svg&name=*.webp&name=*.heif&name=*.heic&name=*.tiff&name=*.avif&name=*.3fr&name=*.ari&name=*.arw&name=*.bay&name=*.braw&name=*.crw&name=*.cr2&name=*.cr3&name=*.cap&name=*.dcs&name=*.dcr&name=*.dng&name=*.drf&name=*.eip&name=*.erf&name=*.fff&name=*.gpr&name=*.iiq&name=*.k25&name=*.kdc&name=*.mdc&name=*.mef&name=*.mos&name=*.mrw&name=*.nef&name=*.nrw&name=*.obm&name=*.orf&name=*.pef&name=*.ptx&name=*.pxn&name=*.r3d&name=*.raf&name=*.raw&name=*.rwl&name=*.rw2&name=*.rwz&name=*.sr2&name=*.srf&name=*.srw&name=*.tif&name=*.x3f",
 	"explorer_category_video_query":              "type=file&case_folding&use_or&name=*.mp4&name=*.m3u8&name=*.flv&name=*.avi&name=*.wmv&name=*.mkv&name=*.rm&name=*.rmvb&name=*.mov&name=*.ogv",
 	"explorer_category_audio_query":              "type=file&case_folding&use_or&name=*.mp3&name=*.flac&name=*.ape&name=*.wav&name=*.acc&name=*.ogg&name=*.m4a",
@@ -686,6 +868,27 @@ var DefaultSettings = map[string]string{
 	"fts_chunk_size":                             "2000",
 	"viewer_default_apps":                        "{}",
 	"expose_user_email":                          "1",
+	// OIDC SSO（G6）：第三方 OIDC 授权码登录 / 账号绑定 / 自动注册。
+	// 密钥类键名以 _secret 结尾，默认值为空串，可被 ensureDefaultSettings 正常补齐。
+	"oidc_enabled":                 "0",
+	"oidc_endpoint":                "",
+	"oidc_client_id":               "",
+	"oidc_client_secret":           "",
+	"oidc_scopes":                  "openid profile email",
+	"oidc_display_name":            "vas.sso",
+	"oidc_auto_redirect":           "0",
+	"oidc_password_login_disabled": "0",
+	"oidc_auto_register":           "0",
+	"oidc_auto_link_email":         "0",
+	"oidc_require_email_verified":  "0",
+	"oidc_subject_claim":           "sub",
+	"oidc_email_claim":             "email",
+	"oidc_name_claim":              "name",
+	// QQ 互联（QQ Connect）登录：复用 OIDC 的绑定表（issuer="qq"）与回跳契约。
+	// qq_api_base / qq_graph_base 是隐藏高级设置，默认指向腾讯官方域名，
+	// 仅在自建代理或端到端测试时才需要修改，不在管理端渲染。
+	"qq_api_base":   "https://graph.qq.com/oauth2.0",
+	"qq_graph_base": "https://graph.qq.com",
 }
 
 var RedactedSettings = map[string]struct{}{
@@ -751,6 +954,58 @@ func init() {
 		panic(err)
 	}
 	DefaultSettings["mail_reset_template"] = string(mailResetTemplates)
+
+	// Payment receipt & storage quota emails reuse the activation email HTML
+	// shell: only the localized copy is swapped in via placeholder renaming.
+	receiptMailBody := util.Replace(map[string]string{
+		"[[ .ActiveTitle ]]":  "[[ .ReceiptTitle ]]",
+		"[[ .ActiveDes ]]":    "[[ .ReceiptDes ]]",
+		"[[ .ActiveButton ]]": "[[ .ReceiptButton ]]",
+	}, defaultActiveMailBody)
+	quotaMailBody := util.Replace(map[string]string{
+		"[[ .ActiveTitle ]]":  "[[ .QuotaTitle ]]",
+		"[[ .ActiveDes ]]":    "[[ .QuotaDes ]]",
+		"[[ .ActiveButton ]]": "[[ .QuotaButton ]]",
+	}, defaultActiveMailBody)
+
+	receiptMails := []map[string]string{}
+	quotaMails := []map[string]string{}
+	for _, langContents := range mailExtraTemplateContents {
+		receiptMails = append(receiptMails, map[string]string{
+			"language": langContents.Language,
+			"title":    "[{{ .CommonContext.SiteBasic.Name }}] " + langContents.ReceiptTitle,
+			"body": util.Replace(map[string]string{
+				"[[ .Language ]]":        langContents.Language,
+				"[[ .ReceiptTitle ]]":    langContents.ReceiptTitle,
+				"[[ .ReceiptDes ]]":      langContents.ReceiptDes,
+				"[[ .ReceiptButton ]]":   langContents.ReceiptButton,
+				"[[ .EmailIsAutoSend ]]": langContents.EmailIsAutoSend,
+			}, receiptMailBody),
+		})
+		quotaMails = append(quotaMails, map[string]string{
+			"language": langContents.Language,
+			"title":    "[{{ .CommonContext.SiteBasic.Name }}] " + langContents.QuotaTitle,
+			"body": util.Replace(map[string]string{
+				"[[ .Language ]]":        langContents.Language,
+				"[[ .QuotaTitle ]]":      langContents.QuotaTitle,
+				"[[ .QuotaDes ]]":        langContents.QuotaDes,
+				"[[ .QuotaButton ]]":     langContents.QuotaButton,
+				"[[ .EmailIsAutoSend ]]": langContents.EmailIsAutoSend,
+			}, quotaMailBody),
+		})
+	}
+
+	mailReceiptTemplates, err := json.Marshal(receiptMails)
+	if err != nil {
+		panic(err)
+	}
+	DefaultSettings["mail_receipt_template"] = string(mailReceiptTemplates)
+
+	mailQuotaTemplates, err := json.Marshal(quotaMails)
+	if err != nil {
+		panic(err)
+	}
+	DefaultSettings["mail_exceed_quota_template"] = string(mailQuotaTemplates)
 
 	key := make([]byte, 32)
 	if _, err := io.ReadFull(rand.Reader, key); err != nil {

@@ -4,9 +4,9 @@ import (
 	"context"
 	"fmt"
 
-	"github.com/cloudreve/Cloudreve/v4/application/migrator/model"
-	"github.com/cloudreve/Cloudreve/v4/ent/file"
-	"github.com/cloudreve/Cloudreve/v4/pkg/conf"
+	"github.com/Mxucc/StorFlow/application/migrator/model"
+	"github.com/Mxucc/StorFlow/ent/file"
+	"github.com/Mxucc/StorFlow/pkg/conf"
 )
 
 func (m *Migrator) migrateShare() error {

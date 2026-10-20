@@ -6,7 +6,7 @@ import (
 	"os"
 	"path/filepath"
 
-	"github.com/cloudreve/Cloudreve/v4/pkg/util"
+	"github.com/Mxucc/StorFlow/pkg/util"
 )
 
 func migrateAvatars(m *Migrator) error {

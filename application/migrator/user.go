@@ -3,10 +3,10 @@ package migrator
 import (
 	"context"
 	"fmt"
-	"github.com/cloudreve/Cloudreve/v4/application/migrator/model"
-	"github.com/cloudreve/Cloudreve/v4/ent/user"
-	"github.com/cloudreve/Cloudreve/v4/inventory/types"
-	"github.com/cloudreve/Cloudreve/v4/pkg/conf"
+	"github.com/Mxucc/StorFlow/application/migrator/model"
+	"github.com/Mxucc/StorFlow/ent/user"
+	"github.com/Mxucc/StorFlow/inventory/types"
+	"github.com/Mxucc/StorFlow/pkg/conf"
 )
 
 func (m *Migrator) migrateUser() error {

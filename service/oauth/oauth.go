@@ -6,15 +6,15 @@ import (
 	"strings"
 	"time"
 
-	"github.com/cloudreve/Cloudreve/v4/application/dependency"
-	"github.com/cloudreve/Cloudreve/v4/ent"
-	"github.com/cloudreve/Cloudreve/v4/inventory"
-	"github.com/cloudreve/Cloudreve/v4/inventory/types"
-	"github.com/cloudreve/Cloudreve/v4/pkg/auth"
-	"github.com/cloudreve/Cloudreve/v4/pkg/cluster/routes"
-	"github.com/cloudreve/Cloudreve/v4/pkg/hashid"
-	"github.com/cloudreve/Cloudreve/v4/pkg/serializer"
-	"github.com/cloudreve/Cloudreve/v4/pkg/util"
+	"github.com/Mxucc/StorFlow/application/dependency"
+	"github.com/Mxucc/StorFlow/ent"
+	"github.com/Mxucc/StorFlow/inventory"
+	"github.com/Mxucc/StorFlow/inventory/types"
+	"github.com/Mxucc/StorFlow/pkg/auth"
+	"github.com/Mxucc/StorFlow/pkg/cluster/routes"
+	"github.com/Mxucc/StorFlow/pkg/hashid"
+	"github.com/Mxucc/StorFlow/pkg/serializer"
+	"github.com/Mxucc/StorFlow/pkg/util"
 	"github.com/gin-gonic/gin"
 	"github.com/samber/lo"
 )
@@ -317,7 +317,7 @@ func (s *UserInfoService) GetUserInfo(c *gin.Context) (*UserInfoResponse, error)
 			resp.UpdatedAt = u.UpdatedAt.Unix()
 		case types.ScopeEmail:
 			resp.Email = u.Email
-			resp.EmailVerified = true // Users in Cloudreve have verified emails
+			resp.EmailVerified = true // Users in StorFlow have verified emails
 		}
 	}
 

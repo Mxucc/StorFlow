@@ -4,16 +4,16 @@ import (
 	"context"
 	"fmt"
 
-	"github.com/cloudreve/Cloudreve/v4/application/constants"
-	"github.com/cloudreve/Cloudreve/v4/ent"
-	"github.com/cloudreve/Cloudreve/v4/inventory"
-	"github.com/cloudreve/Cloudreve/v4/inventory/types"
-	"github.com/cloudreve/Cloudreve/v4/pkg/boolset"
-	"github.com/cloudreve/Cloudreve/v4/pkg/cache"
-	"github.com/cloudreve/Cloudreve/v4/pkg/filemanager/fs"
-	"github.com/cloudreve/Cloudreve/v4/pkg/hashid"
-	"github.com/cloudreve/Cloudreve/v4/pkg/logging"
-	"github.com/cloudreve/Cloudreve/v4/pkg/setting"
+	"github.com/Mxucc/StorFlow/application/constants"
+	"github.com/Mxucc/StorFlow/ent"
+	"github.com/Mxucc/StorFlow/inventory"
+	"github.com/Mxucc/StorFlow/inventory/types"
+	"github.com/Mxucc/StorFlow/pkg/boolset"
+	"github.com/Mxucc/StorFlow/pkg/cache"
+	"github.com/Mxucc/StorFlow/pkg/filemanager/fs"
+	"github.com/Mxucc/StorFlow/pkg/hashid"
+	"github.com/Mxucc/StorFlow/pkg/logging"
+	"github.com/Mxucc/StorFlow/pkg/setting"
 )
 
 var (

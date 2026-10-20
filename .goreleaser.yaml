@@ -10,11 +10,11 @@ builds:
   - env:
       - CGO_ENABLED=0
 
-    binary: cloudreve
+    binary: storflow
 
     ldflags:
       - -s -w
-      - -X 'github.com/cloudreve/Cloudreve/v4/application/constants.BackendVersion={{.Tag}}' -X 'github.com/cloudreve/Cloudreve/v4/application/constants.LastCommit={{.ShortCommit}}'
+      - -X 'github.com/Mxucc/StorFlow/application/constants.BackendVersion={{.Tag}}' -X 'github.com/Mxucc/StorFlow/application/constants.LastCommit={{.ShortCommit}}'
 
     goos:
       - linux
@@ -51,7 +51,7 @@ archives:
   - formats: ["tar.gz"]
     # this name template makes the OS and Arch compatible with the results of uname.
     name_template: >-
-      cloudreve_{{.Tag}}_{{- .Os }}_{{ .Arch }}
+      storflow_{{.Tag}}_{{- .Os }}_{{ .Arch }}
       {{- if .Arm }}v{{ .Arm }}{{ end }}
     # use zip for windows archives
     format_overrides:
@@ -76,43 +76,10 @@ release:
   target_commitish: "{{ .Commit }}"
   name_template: "{{.Version}}"
 
-dockers:
-  - dockerfile: Dockerfile
-    use: buildx
-    build_flag_templates:
-      - "--platform=linux/amd64"
-      - "--provenance=false"
-    goos: linux
-    goarch: amd64
-    goamd64: v1
-    extra_files:
-      - .build/aria2.supervisor.conf
-      - .build/entrypoint.sh
-    image_templates:
-      - "cloudreve/cloudreve:{{ .Tag }}-amd64"
-  - dockerfile: Dockerfile
-    use: buildx
-    build_flag_templates:
-      - "--platform=linux/arm64"
-      - "--provenance=false"
-    goos: linux
-    goarch: arm64
-    extra_files:
-      - .build/aria2.supervisor.conf
-      - .build/entrypoint.sh
-    image_templates:
-      - "cloudreve/cloudreve:{{ .Tag }}-arm64"
-
-docker_manifests:
-  - name_template: "cloudreve/cloudreve:latest"
-    image_templates:
-      - "cloudreve/cloudreve:{{ .Tag }}-amd64"
-      - "cloudreve/cloudreve:{{ .Tag }}-arm64"
-  - name_template: "cloudreve/cloudreve:v4"
-    image_templates:
-      - "cloudreve/cloudreve:{{ .Tag }}-amd64"
-      - "cloudreve/cloudreve:{{ .Tag }}-arm64"
-  - name_template: "cloudreve/cloudreve:{{ .Tag }}"
-    image_templates:
-      - "cloudreve/cloudreve:{{ .Tag }}-amd64"
-      - "cloudreve/cloudreve:{{ .Tag }}-arm64"
+# 镜像不在这里构建。
+#
+# Docker 镜像（ghcr.io/mxucc/storflow 与 ghcr.io/mxucc/storflow-site）统一由
+# .github/workflows/docker.yml 产出：它先在 runner 上编好二进制，再用
+# Dockerfile 打包，前后端两条流水线互不干扰，也不需要在这里配置 registry 凭据。
+#
+# 这里只负责发布多平台二进制与 Release。

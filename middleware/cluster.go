@@ -3,13 +3,13 @@ package middleware
 import (
 	"sync"
 
-	"github.com/cloudreve/Cloudreve/v4/application/dependency"
-	"github.com/cloudreve/Cloudreve/v4/inventory/types"
-	"github.com/cloudreve/Cloudreve/v4/pkg/cluster"
-	"github.com/cloudreve/Cloudreve/v4/pkg/downloader"
-	"github.com/cloudreve/Cloudreve/v4/pkg/request"
-	"github.com/cloudreve/Cloudreve/v4/pkg/serializer"
-	"github.com/cloudreve/Cloudreve/v4/routers/controllers"
+	"github.com/Mxucc/StorFlow/application/dependency"
+	"github.com/Mxucc/StorFlow/inventory/types"
+	"github.com/Mxucc/StorFlow/pkg/cluster"
+	"github.com/Mxucc/StorFlow/pkg/downloader"
+	"github.com/Mxucc/StorFlow/pkg/request"
+	"github.com/Mxucc/StorFlow/pkg/serializer"
+	"github.com/Mxucc/StorFlow/routers/controllers"
 	"github.com/gin-gonic/gin"
 )
 
@@ -63,7 +63,7 @@ func SlaveRPCSignRequired() gin.HandlerFunc {
 			return
 		}
 
-		slaveNode, err := np.Get(c, types.NodeCapabilityNone, nodeId)
+		slaveNode, err := np.Get(c, types.NodeCapabilityNone, nodeId, nil)
 		if slaveNode == nil || slaveNode.IsMaster() {
 			c.JSON(200, serializer.ParamErr(c, "Unknown node ID", err))
 			c.Abort()

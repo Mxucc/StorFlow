@@ -8,13 +8,13 @@ import (
 	"strings"
 	"time"
 
-	"github.com/cloudreve/Cloudreve/v4/ent"
-	"github.com/cloudreve/Cloudreve/v4/ent/user"
-	"github.com/cloudreve/Cloudreve/v4/inventory"
-	"github.com/cloudreve/Cloudreve/v4/inventory/types"
-	"github.com/cloudreve/Cloudreve/v4/pkg/filemanager/fs"
-	"github.com/cloudreve/Cloudreve/v4/pkg/hashid"
-	"github.com/cloudreve/Cloudreve/v4/pkg/serializer"
+	"github.com/Mxucc/StorFlow/ent"
+	"github.com/Mxucc/StorFlow/ent/user"
+	"github.com/Mxucc/StorFlow/inventory"
+	"github.com/Mxucc/StorFlow/inventory/types"
+	"github.com/Mxucc/StorFlow/pkg/filemanager/fs"
+	"github.com/Mxucc/StorFlow/pkg/hashid"
+	"github.com/Mxucc/StorFlow/pkg/serializer"
 	"github.com/samber/lo"
 	"golang.org/x/tools/container/intsets"
 )
@@ -30,6 +30,10 @@ func (f *DBFS) Create(ctx context.Context, path *fs.URI, fileType types.FileType
 	if err != nil {
 		return nil, err
 	}
+
+	// Collaborative share: bypass the owner check when the share grants
+	// upload permission.
+	ctx = f.shareWriteContext(ctx, path, navigator, types.SharePermissionUpload)
 
 	// Get most recent ancestor
 	var ancestor *File
@@ -154,6 +158,10 @@ func (f *DBFS) Rename(ctx context.Context, path *fs.URI, newName string) (fs.Fil
 		return nil, nil, err
 	}
 
+	// Collaborative share: bypass the owner check when the share grants edit
+	// permission.
+	ctx = f.shareWriteContext(ctx, path, navigator, types.SharePermissionEdit)
+
 	// Get target file
 	ctx = context.WithValue(ctx, inventory.LoadFileMetadata{}, true)
 	target, err := f.getFileByPath(ctx, navigator, path)
@@ -270,6 +278,13 @@ func (f *DBFS) SoftDelete(ctx context.Context, path ...*fs.URI) error {
 			continue
 		}
 
+		// Modules may protect files from being removed (the shop keeps the
+		// folders it sold available for its buyers).
+		if err := f.checkDeletionGuard(ctx, target, false); err != nil {
+			ae.Add(p.String(), err)
+			continue
+		}
+
 		// Root folder cannot be deleted
 		if target.IsRootFolder() {
 			ae.Add(p.String(), fs.ErrNotSupportedAction.WithError(fmt.Errorf("cannot delete root folder")))
@@ -361,6 +376,13 @@ func (f *DBFS) Delete(ctx context.Context, path []*fs.URI, opts ...fs.Option) ([
 
 		if _, ok := ctx.Value(ByPassOwnerCheckCtxKey{}).(bool); !o.SysSkipSoftDelete && !ok && target.Owner().ID != f.user.ID {
 			ae.Add(p.String(), fs.ErrOwnerOnly)
+			continue
+		}
+
+		// Permanent deletion is guarded as well: emptying the trash must not be
+		// able to remove a protected file.
+		if err := f.checkDeletionGuard(ctx, target, true); err != nil {
+			ae.Add(p.String(), err)
 			continue
 		}
 

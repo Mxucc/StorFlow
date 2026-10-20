@@ -10,8 +10,8 @@ import (
 
 	"entgo.io/ent"
 	"entgo.io/ent/dialect/sql"
-	"github.com/cloudreve/Cloudreve/v4/ent/oauthclient"
-	"github.com/cloudreve/Cloudreve/v4/inventory/types"
+	"github.com/Mxucc/StorFlow/ent/oauthclient"
+	"github.com/Mxucc/StorFlow/inventory/types"
 )
 
 // OAuthClient is the model entity for the OAuthClient schema.

@@ -9,20 +9,21 @@ import (
 	"sync"
 	"time"
 
-	"github.com/cloudreve/Cloudreve/v4/application/constants"
-	"github.com/cloudreve/Cloudreve/v4/ent"
-	"github.com/cloudreve/Cloudreve/v4/inventory"
-	"github.com/cloudreve/Cloudreve/v4/inventory/types"
-	"github.com/cloudreve/Cloudreve/v4/pkg/cache"
-	"github.com/cloudreve/Cloudreve/v4/pkg/filemanager/encrypt"
-	"github.com/cloudreve/Cloudreve/v4/pkg/filemanager/eventhub"
-	"github.com/cloudreve/Cloudreve/v4/pkg/filemanager/fs"
-	"github.com/cloudreve/Cloudreve/v4/pkg/filemanager/lock"
-	"github.com/cloudreve/Cloudreve/v4/pkg/hashid"
-	"github.com/cloudreve/Cloudreve/v4/pkg/logging"
-	"github.com/cloudreve/Cloudreve/v4/pkg/serializer"
-	"github.com/cloudreve/Cloudreve/v4/pkg/setting"
-	"github.com/cloudreve/Cloudreve/v4/pkg/util"
+	"github.com/Mxucc/StorFlow/application/constants"
+	"github.com/Mxucc/StorFlow/ent"
+	"github.com/Mxucc/StorFlow/inventory"
+	"github.com/Mxucc/StorFlow/inventory/types"
+	"github.com/Mxucc/StorFlow/pkg/cache"
+	"github.com/Mxucc/StorFlow/pkg/fileguard"
+	"github.com/Mxucc/StorFlow/pkg/filemanager/encrypt"
+	"github.com/Mxucc/StorFlow/pkg/filemanager/eventhub"
+	"github.com/Mxucc/StorFlow/pkg/filemanager/fs"
+	"github.com/Mxucc/StorFlow/pkg/filemanager/lock"
+	"github.com/Mxucc/StorFlow/pkg/hashid"
+	"github.com/Mxucc/StorFlow/pkg/logging"
+	"github.com/Mxucc/StorFlow/pkg/serializer"
+	"github.com/Mxucc/StorFlow/pkg/setting"
+	"github.com/Mxucc/StorFlow/pkg/util"
 	"github.com/gofrs/uuid"
 	"github.com/samber/lo"
 	"golang.org/x/tools/container/intsets"
@@ -109,6 +110,12 @@ func (f *DBFS) GetEntity(ctx context.Context, entityID int) (fs.Entity, error) {
 }
 
 func (f *DBFS) List(ctx context.Context, path *fs.URI, opts ...fs.Option) (fs.File, *fs.ListFileResult, error) {
+	// A linked folder lists the content of the share it points at.
+	var err error
+	if path, err = f.linkedFolderTarget(ctx, path); err != nil {
+		return nil, nil, err
+	}
+
 	o := newDbfsOption()
 	for _, opt := range opts {
 		o.apply(opt)
@@ -237,7 +244,11 @@ func (f *DBFS) Capacity(ctx context.Context, u *ent.User) (*fs.Capacity, error) 
 	}
 
 	res.Used = f.user.Storage
+	// 增值服务（容量包）与兑换码购买的容量计入用户总容量。
 	res.Total = requesterGroup.MaxStorage
+	if u.Settings != nil && u.Settings.ExtraStorage > 0 {
+		res.Total += u.Settings.ExtraStorage
+	}
 	return res, nil
 }
 
@@ -368,7 +379,51 @@ func (f *DBFS) SharedAddressTranslation(ctx context.Context, path *fs.URI, opts 
 	return target, path, nil
 }
 
+// linkedFolderTarget resolves a path that lives inside a symbolic "linked
+// folder" (a folder whose only metadata is the address of a share) to the
+// address of the shared content it points at.
+//
+// Linked folders are how the shop delivers a purchased folder into a buyer's
+// drive without duplicating any data: the entry is symbolic and only remembers
+// the share address, so every later change of the seller is visible at once.
+// Reads follow the link transparently; writes are still rejected with
+// ErrSymbolicFolderFound, which keeps a link read-only.
+//
+// Paths that do not point into a linked folder are returned unchanged.
+func (f *DBFS) linkedFolderTarget(ctx context.Context, path *fs.URI) (*fs.URI, error) {
+	if path == nil {
+		return path, nil
+	}
+	if path.FileSystem() != constants.FileSystemMy && path.FileSystem() != constants.FileSystemSharedWithMe {
+		return path, nil
+	}
+
+	_, translated, err := f.SharedAddressTranslation(ctx, path)
+	if err != nil {
+		// A linked folder whose share is no longer readable (the share was
+		// revoked by a refund, expired, or deleted) must report the reason
+		// instead of failing later with a confusing "cannot be walked into".
+		if errors.Is(err, ErrNotPurchased) {
+			return nil, ErrNotPurchased
+		}
+		return path, nil
+	}
+	if translated == nil || translated.String() == path.String() {
+		return path, nil
+	}
+
+	// Note: the resolved address contains the share password, so it is never
+	// written to the log.
+	f.l.Debug("Resolved linked folder %q to a shared address", path.String())
+	return translated, nil
+}
+
 func (f *DBFS) Get(ctx context.Context, path *fs.URI, opts ...fs.Option) (fs.File, error) {
+	var err error
+	if path, err = f.linkedFolderTarget(ctx, path); err != nil {
+		return nil, err
+	}
+
 	o := newDbfsOption()
 	for _, opt := range opts {
 		o.apply(opt)
@@ -666,10 +721,25 @@ func (f *DBFS) generateEncryptMetadata(ctx context.Context, uploadRequest *fs.Up
 }
 
 // getPreferredPolicy tries to get the preferred storage policy for the given file.
+// If the resolved policy is a load_balance composite policy, one of its sub
+// policies is picked by weight and returned, so that the caller always receives
+// a concrete policy (see fs.ResolveLoadBalancePolicy).
 func (f *DBFS) getPreferredPolicy(ctx context.Context, file *File) (*ent.StoragePolicy, error) {
 	ownerGroup := file.Owner().Edges.Group
 	if ownerGroup == nil {
 		return nil, fmt.Errorf("owner group not loaded")
+	}
+	// 用户组未绑定单一策略、但配置了可用策略列表时，使用列表中的第一个作为默认策略
+	// （Pro: 可用存储策略多选）。
+	if ownerGroup.StoragePolicyID == 0 {
+		if allowed := types.AllowedStoragePolicies(ownerGroup.Settings, 0); len(allowed) > 0 {
+			policy, err := f.storagePolicyClient.GetPolicyByID(ctx, allowed[0])
+			if err != nil {
+				return nil, err
+			}
+
+			return fs.ResolveLoadBalancePolicy(ctx, f.storagePolicyClient, policy)
+		}
 	}
 
 	sc, _ := inventory.InheritTx(ctx, f.storagePolicyClient)
@@ -678,7 +748,49 @@ func (f *DBFS) getPreferredPolicy(ctx context.Context, file *File) (*ent.Storage
 		return nil, serializer.NewError(serializer.CodeDBError, "Failed to get available storage policies", err)
 	}
 
-	return groupPolicy, nil
+	return fs.ResolveLoadBalancePolicy(ctx, f.storagePolicyClient, groupPolicy)
+}
+
+// validatePreferredPolicy 校验显式指定的存储策略是否在文件属主所在用户组的
+// 可用范围内。管理员不受限制；用户组未配置可用策略列表时沿用旧行为（只允许
+// 用户组绑定的默认策略，未绑定则不限制）。
+func (f *DBFS) validatePreferredPolicy(ctx context.Context, owner *ent.User, policyID int) error {
+	if policyID <= 0 {
+		return nil
+	}
+
+	// 管理员（含代表其他用户导入文件的管理员）可以为任意策略上传。
+	if f.user != nil && f.user.Edges.Group != nil &&
+		f.user.Edges.Group.Permissions.Enabled(int(types.GroupPermissionIsAdmin)) {
+		return nil
+	}
+
+	if owner == nil {
+		return nil
+	}
+
+	group := owner.Edges.Group
+	if group == nil {
+		return nil
+	}
+
+	if group.Permissions.Enabled(int(types.GroupPermissionIsAdmin)) {
+		return nil
+	}
+
+	allowed := types.AllowedStoragePolicies(group.Settings, group.StoragePolicyID)
+	if len(allowed) == 0 {
+		return nil
+	}
+
+	for _, id := range allowed {
+		if id == policyID {
+			return nil
+		}
+	}
+
+	return serializer.NewError(serializer.CodeGroupNotAllowed,
+		"The requested storage policy is not available for your group", nil)
 }
 
 func (f *DBFS) getFileByPath(ctx context.Context, navigator Navigator, path *fs.URI) (*File, error) {
@@ -698,6 +810,55 @@ func (f *DBFS) getFileByPath(ctx context.Context, navigator Navigator, path *fs.
 	}
 
 	return file, err
+}
+
+// checkDeletionGuard asks the registered deletion guard (if any) whether the
+// file may be removed. hard distinguishes "move to trash" from a permanent
+// delete.
+func (f *DBFS) checkDeletionGuard(ctx context.Context, target *File, hard bool) error {
+	if target == nil || target.Model == nil {
+		return nil
+	}
+
+	ancestors := make([]*ent.File, 0, 4)
+	for _, ancestor := range target.Ancestors() {
+		if ancestor == nil || ancestor.Model == nil || ancestor.IsRootFolder() {
+			continue
+		}
+		ancestors = append(ancestors, ancestor.Model)
+	}
+
+	f.l.Debug("Deletion guard: checking file id=%d name=%q owner=%d hard=%v ancestors=%d",
+		target.Model.ID, target.Model.Name, target.Model.OwnerID, hard, len(ancestors))
+
+	return fileguard.CheckDeletion(ctx, target.Model, hard, ancestors)
+}
+
+// shareWriteContext injects a ByPassOwnerCheck hint into ctx when the request
+// operates on a share file system whose collaboration permission is enough for
+// the operation. Without it every write through a share link would be rejected
+// by the per-file owner check in this package.
+func (f *DBFS) shareWriteContext(ctx context.Context, path *fs.URI, n Navigator,
+	need types.SharePermission) context.Context {
+	if path == nil || path.FileSystem() != constants.FileSystemShare {
+		return ctx
+	}
+
+	sn, ok := n.(*shareNavigator)
+	if !ok {
+		return ctx
+	}
+
+	switch p := sn.resolveSharePermission(); p {
+	case types.SharePermissionEdit:
+		return context.WithValue(ctx, ByPassOwnerCheckCtxKey{}, true)
+	case types.SharePermissionUpload:
+		if need == types.SharePermissionUpload {
+			return context.WithValue(ctx, ByPassOwnerCheckCtxKey{}, true)
+		}
+	}
+
+	return ctx
 }
 
 // initFs initializes the file system for the user.

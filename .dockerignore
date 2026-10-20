@@ -1,0 +1,22 @@
+# 构建上下文里不需要的东西。少了这个文件，data/、node_modules 会被整个
+# 塞进 Docker daemon，构建会慢到不可用。
+.git
+.github
+data
+docs
+*.md
+.pi-shot
+
+# 前端依赖与产物（Dockerfile.allinone 会在镜像里自己装、自己构建）
+assets/node_modules
+assets/build
+assets/.husky
+
+# 公开站点依赖与产物
+site/node_modules
+site/dist
+site/.astro
+
+# 前端产物 zip 每次构建都重新生成（Dockerfile.allinone 自己打包），
+# 不把上一次的旧包带进上下文。
+application/statics/assets.zip

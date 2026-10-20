@@ -1,7 +1,14 @@
+# StorFlow 一键部署。
+#
+#   docker compose up -d
+#
+# 用的是 GHCR 上预构建好的镜像（由 .github/workflows/docker.yml 产出）。
+# 想自己从源码构建：把 image 换成 build（例如 `build: {context: ., dockerfile: Dockerfile.allinone}`），
+# 或者直接 `docker build -f Dockerfile.allinone -t storflow:dev .`。
 services:
-  cloudreve:
-    image: cloudreve/cloudreve:latest
-    container_name: cloudreve-backend
+  storflow:
+    image: ghcr.io/mxucc/storflow:latest
+    container_name: storflow
     depends_on:
       - postgresql
       - redis
@@ -13,12 +20,33 @@ services:
     environment:
       - CR_CONF_Database.Type=postgres
       - CR_CONF_Database.Host=postgresql
-      - CR_CONF_Database.User=cloudreve
-      - CR_CONF_Database.Name=cloudreve
+      - CR_CONF_Database.User=storflow
+      - CR_CONF_Database.Name=storflow
       - CR_CONF_Database.Port=5432
       - CR_CONF_Redis.Server=redis:6379
+      # 公开站点（Astro SSR）的地址：首页介绍页与小店前台由它渲染，
+      # 未设置时这些页面仍由内嵌 SPA 提供。
+      - CR_SITE_ORIGIN=http://storflow-site:4321
     volumes:
-      - backend_data:/cloudreve/data
+      - backend_data:/storflow/data
+
+  # 营销首页与小店前台（SEO 需要的服务端 HTML）。
+  # 只被后端反向代理访问，因此不对外暴露端口。
+  storflow-site:
+    image: ghcr.io/mxucc/storflow-site:latest
+    # 想从源码构建就用下面这行替代上面的 image：
+    # build: ./site
+    container_name: storflow-site
+    depends_on:
+      - storflow
+    restart: unless-stopped
+    environment:
+      - PORT=4321
+      - HOST=0.0.0.0
+      - CR_API_BASE=http://storflow:5212
+      # 访客实际访问的站点地址，用于 canonical / og:url / sitemap 的绝对地址。
+      # 绑定域名后请改成真实地址，例如 https://pan.example.com
+      # - CR_SITE_URL=https://pan.example.com
 
   postgresql:
     # Best practice: Pin to major version. 
@@ -28,8 +56,8 @@ services:
     container_name: postgresql
     restart: unless-stopped
     environment:
-      - POSTGRES_USER=cloudreve
-      - POSTGRES_DB=cloudreve
+      - POSTGRES_USER=storflow
+      - POSTGRES_DB=storflow
       - POSTGRES_HOST_AUTH_METHOD=trust
     volumes:
       - database_postgres:/var/lib/postgresql/data

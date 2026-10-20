@@ -8,9 +8,9 @@ import (
 	_ "embed"
 	"encoding/json"
 	"fmt"
-	"github.com/cloudreve/Cloudreve/v4/application/constants"
-	"github.com/cloudreve/Cloudreve/v4/pkg/logging"
-	"github.com/cloudreve/Cloudreve/v4/pkg/util"
+	"github.com/Mxucc/StorFlow/application/constants"
+	"github.com/Mxucc/StorFlow/pkg/logging"
+	"github.com/Mxucc/StorFlow/pkg/util"
 	"github.com/gin-contrib/static"
 	"io"
 	"io/fs"
@@ -85,7 +85,7 @@ func NewServerStaticFS(l logging.Logger, statics fs.FS, isPro bool) (static.Serv
 		return staticFS, nil
 	}
 
-	staticName := "cloudreve-frontend"
+	staticName := "storflow-frontend"
 	if isPro {
 		staticName += "-pro"
 	}

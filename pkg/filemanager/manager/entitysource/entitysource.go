@@ -15,21 +15,21 @@ import (
 	"strings"
 	"time"
 
-	"github.com/cloudreve/Cloudreve/v4/ent"
-	"github.com/cloudreve/Cloudreve/v4/inventory/types"
-	"github.com/cloudreve/Cloudreve/v4/pkg/auth"
-	"github.com/cloudreve/Cloudreve/v4/pkg/cluster/routes"
-	"github.com/cloudreve/Cloudreve/v4/pkg/conf"
-	"github.com/cloudreve/Cloudreve/v4/pkg/filemanager/driver"
-	"github.com/cloudreve/Cloudreve/v4/pkg/filemanager/driver/local"
-	"github.com/cloudreve/Cloudreve/v4/pkg/filemanager/encrypt"
-	"github.com/cloudreve/Cloudreve/v4/pkg/filemanager/fs"
-	"github.com/cloudreve/Cloudreve/v4/pkg/filemanager/fs/mime"
-	"github.com/cloudreve/Cloudreve/v4/pkg/hashid"
-	"github.com/cloudreve/Cloudreve/v4/pkg/logging"
-	"github.com/cloudreve/Cloudreve/v4/pkg/request"
-	"github.com/cloudreve/Cloudreve/v4/pkg/setting"
-	"github.com/cloudreve/Cloudreve/v4/pkg/util"
+	"github.com/Mxucc/StorFlow/ent"
+	"github.com/Mxucc/StorFlow/inventory/types"
+	"github.com/Mxucc/StorFlow/pkg/auth"
+	"github.com/Mxucc/StorFlow/pkg/cluster/routes"
+	"github.com/Mxucc/StorFlow/pkg/conf"
+	"github.com/Mxucc/StorFlow/pkg/filemanager/driver"
+	"github.com/Mxucc/StorFlow/pkg/filemanager/driver/local"
+	"github.com/Mxucc/StorFlow/pkg/filemanager/encrypt"
+	"github.com/Mxucc/StorFlow/pkg/filemanager/fs"
+	"github.com/Mxucc/StorFlow/pkg/filemanager/fs/mime"
+	"github.com/Mxucc/StorFlow/pkg/hashid"
+	"github.com/Mxucc/StorFlow/pkg/logging"
+	"github.com/Mxucc/StorFlow/pkg/request"
+	"github.com/Mxucc/StorFlow/pkg/setting"
+	"github.com/Mxucc/StorFlow/pkg/util"
 	"github.com/juju/ratelimit"
 )
 
@@ -369,7 +369,7 @@ func (f *entitySource) Serve(w http.ResponseWriter, r *http.Request, opts ...Ent
 			ErrorHandler: func(writer http.ResponseWriter, request *http.Request, err error) {
 				f.l.Error("Reverse proxy error in %q: %s", request.URL.String(), err)
 				writer.WriteHeader(http.StatusBadGateway)
-				writer.Write([]byte("[Cloudreve] Bad Gateway"))
+				writer.Write([]byte("[StorFlow] Bad Gateway"))
 			},
 		}
 

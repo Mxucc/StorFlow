@@ -11,10 +11,10 @@ import (
 	"entgo.io/ent/dialect/sql"
 	"entgo.io/ent/dialect/sql/sqlgraph"
 	"entgo.io/ent/schema/field"
-	"github.com/cloudreve/Cloudreve/v4/ent/file"
-	"github.com/cloudreve/Cloudreve/v4/ent/share"
-	"github.com/cloudreve/Cloudreve/v4/ent/user"
-	"github.com/cloudreve/Cloudreve/v4/inventory/types"
+	"github.com/Mxucc/StorFlow/ent/file"
+	"github.com/Mxucc/StorFlow/ent/share"
+	"github.com/Mxucc/StorFlow/ent/user"
+	"github.com/Mxucc/StorFlow/inventory/types"
 )
 
 // ShareCreate is the builder for creating a Share entity.

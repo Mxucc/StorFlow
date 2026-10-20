@@ -11,12 +11,12 @@ import (
 	"entgo.io/ent/dialect/sql"
 	"entgo.io/ent/dialect/sql/sqlgraph"
 	"entgo.io/ent/schema/field"
-	"github.com/cloudreve/Cloudreve/v4/ent/entity"
-	"github.com/cloudreve/Cloudreve/v4/ent/file"
-	"github.com/cloudreve/Cloudreve/v4/ent/group"
-	"github.com/cloudreve/Cloudreve/v4/ent/node"
-	"github.com/cloudreve/Cloudreve/v4/ent/predicate"
-	"github.com/cloudreve/Cloudreve/v4/ent/storagepolicy"
+	"github.com/Mxucc/StorFlow/ent/entity"
+	"github.com/Mxucc/StorFlow/ent/file"
+	"github.com/Mxucc/StorFlow/ent/group"
+	"github.com/Mxucc/StorFlow/ent/node"
+	"github.com/Mxucc/StorFlow/ent/predicate"
+	"github.com/Mxucc/StorFlow/ent/storagepolicy"
 )
 
 // StoragePolicyQuery is the builder for querying StoragePolicy entities.

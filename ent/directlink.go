@@ -9,8 +9,8 @@ import (
 
 	"entgo.io/ent"
 	"entgo.io/ent/dialect/sql"
-	"github.com/cloudreve/Cloudreve/v4/ent/directlink"
-	"github.com/cloudreve/Cloudreve/v4/ent/file"
+	"github.com/Mxucc/StorFlow/ent/directlink"
+	"github.com/Mxucc/StorFlow/ent/file"
 )
 
 // DirectLink is the model entity for the DirectLink schema.

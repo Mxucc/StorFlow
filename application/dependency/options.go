@@ -3,16 +3,16 @@ package dependency
 import (
 	"io/fs"
 
-	"github.com/cloudreve/Cloudreve/v4/ent"
-	"github.com/cloudreve/Cloudreve/v4/inventory"
-	"github.com/cloudreve/Cloudreve/v4/pkg/auth"
-	"github.com/cloudreve/Cloudreve/v4/pkg/cache"
-	"github.com/cloudreve/Cloudreve/v4/pkg/conf"
-	"github.com/cloudreve/Cloudreve/v4/pkg/email"
-	"github.com/cloudreve/Cloudreve/v4/pkg/hashid"
-	"github.com/cloudreve/Cloudreve/v4/pkg/logging"
-	"github.com/cloudreve/Cloudreve/v4/pkg/searcher"
-	"github.com/cloudreve/Cloudreve/v4/pkg/setting"
+	"github.com/Mxucc/StorFlow/ent"
+	"github.com/Mxucc/StorFlow/inventory"
+	"github.com/Mxucc/StorFlow/pkg/auth"
+	"github.com/Mxucc/StorFlow/pkg/cache"
+	"github.com/Mxucc/StorFlow/pkg/conf"
+	"github.com/Mxucc/StorFlow/pkg/email"
+	"github.com/Mxucc/StorFlow/pkg/hashid"
+	"github.com/Mxucc/StorFlow/pkg/logging"
+	"github.com/Mxucc/StorFlow/pkg/searcher"
+	"github.com/Mxucc/StorFlow/pkg/setting"
 	"github.com/gin-contrib/static"
 )
 

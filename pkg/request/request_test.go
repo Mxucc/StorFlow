@@ -3,8 +3,8 @@ package request
 import (
 	"context"
 	"errors"
-	"github.com/cloudreve/Cloudreve/v4/pkg/auth"
-	"github.com/cloudreve/Cloudreve/v4/pkg/cache"
+	"github.com/Mxucc/StorFlow/pkg/auth"
+	"github.com/Mxucc/StorFlow/pkg/cache"
 	"github.com/stretchr/testify/assert"
 	testMock "github.com/stretchr/testify/mock"
 	"io"
@@ -74,10 +74,10 @@ func TestHTTPClient_Request(t *testing.T) {
 	{
 		resp := client.Request(
 			"GET",
-			"http://cloudreveisnotexist.com",
+			"http://storflowdoesnotexist.example",
 			strings.NewReader(""),
 			WithContentLength(0),
-			WithEndpoint("http://cloudreveisnotexist.com"),
+			WithEndpoint("http://storflowdoesnotexist.example"),
 			WithTimeout(time.Duration(1)*time.Microsecond),
 			WithCredential(auth.HMACAuth{SecretKey: []byte("123")}, 10),
 			WithContext(context.Background()),

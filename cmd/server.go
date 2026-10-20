@@ -5,21 +5,21 @@ import (
 	"os/signal"
 	"syscall"
 
-	"github.com/cloudreve/Cloudreve/v4/application"
-	"github.com/cloudreve/Cloudreve/v4/application/constants"
-	"github.com/cloudreve/Cloudreve/v4/application/dependency"
-	"github.com/cloudreve/Cloudreve/v4/pkg/logging"
+	"github.com/Mxucc/StorFlow/application"
+	"github.com/Mxucc/StorFlow/application/constants"
+	"github.com/Mxucc/StorFlow/application/dependency"
+	"github.com/Mxucc/StorFlow/pkg/logging"
 	"github.com/spf13/cobra"
 )
 
 func init() {
 	rootCmd.AddCommand(serverCmd)
-	serverCmd.PersistentFlags().StringVarP(&licenseKey, "license-key", "l", "", "License key of your Cloudreve Pro")
+	serverCmd.PersistentFlags().StringVarP(&licenseKey, "license-key", "l", "", "License key of your StorFlow Pro")
 }
 
 var serverCmd = &cobra.Command{
 	Use:   "server",
-	Short: "Start a Cloudreve server with the given config file",
+	Short: "Start a StorFlow server with the given config file",
 	Run: func(cmd *cobra.Command, args []string) {
 		dep := dependency.NewDependency(
 			dependency.WithConfigPath(confPath),

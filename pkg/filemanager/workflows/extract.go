@@ -12,19 +12,19 @@ import (
 	"sync/atomic"
 	"time"
 
-	"github.com/cloudreve/Cloudreve/v4/application/dependency"
-	"github.com/cloudreve/Cloudreve/v4/ent"
-	"github.com/cloudreve/Cloudreve/v4/ent/task"
-	"github.com/cloudreve/Cloudreve/v4/inventory"
-	"github.com/cloudreve/Cloudreve/v4/inventory/types"
-	"github.com/cloudreve/Cloudreve/v4/pkg/cluster"
-	"github.com/cloudreve/Cloudreve/v4/pkg/filemanager/fs"
-	"github.com/cloudreve/Cloudreve/v4/pkg/filemanager/fs/dbfs"
-	"github.com/cloudreve/Cloudreve/v4/pkg/filemanager/manager"
-	"github.com/cloudreve/Cloudreve/v4/pkg/hashid"
-	"github.com/cloudreve/Cloudreve/v4/pkg/logging"
-	"github.com/cloudreve/Cloudreve/v4/pkg/queue"
-	"github.com/cloudreve/Cloudreve/v4/pkg/util"
+	"github.com/Mxucc/StorFlow/application/dependency"
+	"github.com/Mxucc/StorFlow/ent"
+	"github.com/Mxucc/StorFlow/ent/task"
+	"github.com/Mxucc/StorFlow/inventory"
+	"github.com/Mxucc/StorFlow/inventory/types"
+	"github.com/Mxucc/StorFlow/pkg/cluster"
+	"github.com/Mxucc/StorFlow/pkg/filemanager/fs"
+	"github.com/Mxucc/StorFlow/pkg/filemanager/fs/dbfs"
+	"github.com/Mxucc/StorFlow/pkg/filemanager/manager"
+	"github.com/Mxucc/StorFlow/pkg/hashid"
+	"github.com/Mxucc/StorFlow/pkg/logging"
+	"github.com/Mxucc/StorFlow/pkg/queue"
+	"github.com/Mxucc/StorFlow/pkg/util"
 	"github.com/gofrs/uuid"
 	"github.com/mholt/archives"
 )
@@ -73,15 +73,15 @@ func init() {
 }
 
 // NewExtractArchiveTask creates a new ExtractArchiveTask
-func NewExtractArchiveTask(ctx context.Context, src, dst, encoding, password string, mask []string) (queue.Task, error) {
+func NewExtractArchiveTask(ctx context.Context, src, dst, encoding, password string, mask []string, sel NodeSelection) (queue.Task, error) {
 	state := &ExtractArchiveTaskState{
-		Uri:       src,
-		Dst:       dst,
-		Encoding:  encoding,
-		NodeState: NodeState{},
-		Password:  password,
-		FileMask:  mask,
+		Uri:      src,
+		Dst:      dst,
+		Encoding: encoding,
+		Password: password,
+		FileMask: mask,
 	}
+	sel.applyTo(&state.NodeState)
 	stateBytes, err := json.Marshal(state)
 	if err != nil {
 		return nil, fmt.Errorf("failed to marshal state: %w", err)
@@ -606,7 +606,7 @@ func (m *SlaveExtractArchiveTask) Do(ctx context.Context) (task.Status, error) {
 		return task.StatusError, fmt.Errorf("failed to get node pool: %w", err)
 	}
 
-	m.node, err = np.Get(ctx, types.NodeCapabilityNone, 0)
+	m.node, err = np.Get(ctx, types.NodeCapabilityNone, 0, nil)
 	if err != nil || !m.node.IsMaster() {
 		return task.StatusError, fmt.Errorf("failed to get master node: %w", err)
 	}

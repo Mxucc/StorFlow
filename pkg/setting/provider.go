@@ -6,13 +6,15 @@ import (
 	"encoding/json"
 	"fmt"
 	"net/url"
+	"slices"
 	"strconv"
 	"strings"
 	"time"
 
-	"github.com/cloudreve/Cloudreve/v4/inventory/types"
-	"github.com/cloudreve/Cloudreve/v4/pkg/auth/requestinfo"
-	"github.com/cloudreve/Cloudreve/v4/pkg/boolset"
+	"github.com/Mxucc/StorFlow/inventory/types"
+	"github.com/Mxucc/StorFlow/pkg/auth/requestinfo"
+	"github.com/Mxucc/StorFlow/pkg/boolset"
+	"github.com/Mxucc/StorFlow/pkg/eventtype"
 )
 
 type (
@@ -24,6 +26,20 @@ type (
 		PWA(ctx context.Context) *PWASetting
 		// RegisterEnabled returns true if public sign-up is enabled.
 		RegisterEnabled(ctx context.Context) bool
+		// FilterEmailProvider returns the email domain filter mode applied at registration.
+		FilterEmailProvider(ctx context.Context) EmailProviderFilter
+		// FilterEmailProviderRule returns the email domains used by the registration filter.
+		FilterEmailProviderRule(ctx context.Context) []string
+		// DisableSubAddressEmail returns true if email addresses containing "+" are
+		// rejected at registration.
+		DisableSubAddressEmail(ctx context.Context) bool
+		// OIDC returns the OIDC SSO (G6) settings.
+		OIDC(ctx context.Context) *OIDC
+		// QQLogin returns true when the QQ Connect login is turned on.
+		QQLogin(ctx context.Context) bool
+		// QQConfig returns the QQ Connect login settings (credentials, hidden
+		// advanced API base URLs, ...).
+		QQConfig(ctx context.Context) *QQConfig
 		// AuthnEnabled returns true if Webauthn is enabled.
 		AuthnEnabled(ctx context.Context) bool
 		// RegCaptchaEnabled returns true if registration captcha is enabled.
@@ -56,6 +72,12 @@ type (
 		ActivationEmailTemplate(ctx context.Context) []EmailTemplate
 		// ResetEmailTemplate returns the email template for reset password.
 		ResetEmailTemplate(ctx context.Context) []EmailTemplate
+		// ReceiptEmailTemplate returns the email template for payment receipts.
+		ReceiptEmailTemplate(ctx context.Context) []EmailTemplate
+		// ExceedQuotaEmailTemplate returns the email template for storage quota exceed notices.
+		ExceedQuotaEmailTemplate(ctx context.Context) []EmailTemplate
+		// DefaultSymbolics returns the site-wide pinned share IDs applied to new users.
+		DefaultSymbolics(ctx context.Context) []int
 		// TokenAuth returns token based auth related settings.
 		TokenAuth(ctx context.Context) *TokenAuth
 		// HashIDSalt returns the salt used for hash ID generation.
@@ -204,6 +226,8 @@ type (
 		CustomProps(ctx context.Context) []types.CustomProps
 		// CustomNavItems returns the custom nav items settings.
 		CustomNavItems(ctx context.Context) []CustomNavItem
+		// AuditEventEnabled reports whether events of the given audit type are recorded.
+		AuditEventEnabled(ctx context.Context, ev eventtype.EventType) bool
 		// CustomHTML returns the custom HTML settings.
 		CustomHTML(ctx context.Context) *CustomHTML
 		// FFMpegExtraArgs returns the extra arguments of ffmpeg thumb generator.
@@ -311,6 +335,24 @@ func (s *settingProvider) CustomProps(ctx context.Context) []types.CustomProps {
 	return props
 }
 
+// AuditEventEnabled reports whether events of the given type should be
+// recorded. The setting holds a JSON array of enabled event names (see
+// pkg/eventtype); a missing value enables every event type, while an explicit
+// JSON array is authoritative (an empty array disables all events).
+func (s *settingProvider) AuditEventEnabled(ctx context.Context, ev eventtype.EventType) bool {
+	raw := s.getString(ctx, "audit_event_enabled", "")
+	if raw == "" {
+		return true
+	}
+	var names []string
+	if err := json.Unmarshal([]byte(raw), &names); err != nil {
+		return true
+	}
+	// An explicit (possibly empty) list is authoritative: an empty list means
+	// the administrator turned every event off.
+	return slices.Contains(names, ev.Name())
+}
+
 func (s *settingProvider) License(ctx context.Context) string {
 	return s.getString(ctx, "license", "")
 }
@@ -353,6 +395,8 @@ func (s *settingProvider) AppSetting(ctx context.Context) *AppSetting {
 	return &AppSetting{
 		Promotion:        s.getBoolean(ctx, "show_app_promotion", false),
 		DesktopPromotion: s.getBoolean(ctx, "show_desktop_app_promotion", false),
+		Feedback:         s.getString(ctx, "app_feedback", ""),
+		Forum:            s.getString(ctx, "app_forum", ""),
 	}
 }
 
@@ -382,8 +426,8 @@ func (s *settingProvider) MimeMapping(ctx context.Context) string {
 
 func (s *settingProvider) Logo(ctx context.Context) *Logo {
 	return &Logo{
-		Normal: s.getString(ctx, "site_logo", "/static/img/logo.svg"),
-		Light:  s.getString(ctx, "site_logo_light", "/static/img/logo_light.svg"),
+		Normal: s.getString(ctx, "site_logo", "/static/img/brand/logo.svg"),
+		Light:  s.getString(ctx, "site_logo_light", "/static/img/brand/logo-light.svg"),
 	}
 }
 
@@ -736,6 +780,40 @@ func (s *settingProvider) ActivationEmailTemplate(ctx context.Context) []EmailTe
 	return templates
 }
 
+// ReceiptEmailTemplate returns the email template sent after a payment is fulfilled.
+func (s *settingProvider) ReceiptEmailTemplate(ctx context.Context) []EmailTemplate {
+	return s.emailTemplates(ctx, "mail_receipt_template")
+}
+
+// ExceedQuotaEmailTemplate returns the email template sent when the user runs out of storage.
+func (s *settingProvider) ExceedQuotaEmailTemplate(ctx context.Context) []EmailTemplate {
+	return s.emailTemplates(ctx, "mail_exceed_quota_template")
+}
+
+// DefaultSymbolics returns the site-wide pinned share IDs that are applied to
+// newly registered users (Pro: 初始分享快捷方式).
+func (s *settingProvider) DefaultSymbolics(ctx context.Context) []int {
+	raw := s.getString(ctx, "default_symbolics", "[]")
+	var ids []int
+	if err := json.Unmarshal([]byte(raw), &ids); err != nil {
+		return nil
+	}
+
+	return ids
+}
+
+// emailTemplates decodes a mail template setting, falling back to an empty list on
+// missing or malformed values.
+func (s *settingProvider) emailTemplates(ctx context.Context, name string) []EmailTemplate {
+	src := s.getString(ctx, name, "[]")
+	var templates []EmailTemplate
+	if err := json.Unmarshal([]byte(src), &templates); err != nil {
+		return []EmailTemplate{}
+	}
+
+	return templates
+}
+
 func (s *settingProvider) SecretKey(ctx context.Context) string {
 	return s.getString(ctx, "secret_key", "")
 }
@@ -863,17 +941,131 @@ func (s *settingProvider) RegisterEnabled(ctx context.Context) bool {
 	return s.getBoolean(ctx, "register_enabled", false)
 }
 
+// FilterEmailProvider returns the email domain filter mode applied at registration.
+func (s *settingProvider) FilterEmailProvider(ctx context.Context) EmailProviderFilter {
+	return EmailProviderFilter(s.getString(ctx, "filter_email_provider", string(EmailProviderFilterDisabled)))
+}
+
+// FilterEmailProviderRule returns the normalized (lower-cased, trimmed, non-empty)
+// email domains used by the registration filter.
+func (s *settingProvider) FilterEmailProviderRule(ctx context.Context) []string {
+	raw := s.getString(ctx, "filter_email_provider_rule", "")
+	domains := make([]string, 0)
+	for _, d := range strings.Split(raw, ",") {
+		d = strings.ToLower(strings.TrimSpace(d))
+		if d != "" {
+			domains = append(domains, d)
+		}
+	}
+	return domains
+}
+
+func (s *settingProvider) DisableSubAddressEmail(ctx context.Context) bool {
+	return s.getBoolean(ctx, "disable_sub_address_email", false)
+}
+
+// OIDC returns the OIDC SSO (G6) settings.
+func (s *settingProvider) OIDC(ctx context.Context) *OIDC {
+	scopes := strings.Fields(s.getString(ctx, "oidc_scopes", "openid profile email"))
+	if len(scopes) == 0 {
+		scopes = []string{"openid", "profile", "email"}
+	}
+
+	return &OIDC{
+		Enabled:               s.getBoolean(ctx, "oidc_enabled", false),
+		Endpoint:              strings.TrimSuffix(s.getString(ctx, "oidc_endpoint", ""), "/"),
+		ClientID:              s.getString(ctx, "oidc_client_id", ""),
+		ClientSecret:          s.getString(ctx, "oidc_client_secret", ""),
+		Scopes:                scopes,
+		DisplayName:           s.getString(ctx, "oidc_display_name", "vas.sso"),
+		AutoRedirect:          s.getBoolean(ctx, "oidc_auto_redirect", false),
+		PasswordLoginDisabled: s.getBoolean(ctx, "oidc_password_login_disabled", false),
+		AutoRegister:          s.getBoolean(ctx, "oidc_auto_register", false),
+		AutoLinkEmail:         s.getBoolean(ctx, "oidc_auto_link_email", false),
+		RequireEmailVerified:  s.getBoolean(ctx, "oidc_require_email_verified", false),
+		SubjectClaim:          claimOrDefault(ctx, s, "oidc_subject_claim", "sub"),
+		EmailClaim:            claimOrDefault(ctx, s, "oidc_email_claim", "email"),
+		NameClaim:             claimOrDefault(ctx, s, "oidc_name_claim", "name"),
+	}
+}
+
+// qqLoginConfig 是 qq_login_config 设置项的 JSON 结构。旧版占位默认值为
+// {"direct_sign_in":false}，因此 auto_register 用指针区分「未配置」与「显式关闭」。
+type qqLoginConfig struct {
+	AppID        string `json:"app_id"`
+	AppSecret    string `json:"app_secret"`
+	DirectSignIn bool   `json:"direct_sign_in"`
+	AutoRegister *bool  `json:"auto_register"`
+	DisplayName  string `json:"display_name"`
+}
+
+const (
+	// DefaultQQAPIBase 是 QQ 互联 authorize / token / me 的默认基址。
+	DefaultQQAPIBase = "https://graph.qq.com/oauth2.0"
+	// DefaultQQGraphBase 是 QQ 互联 user/get_user_info 的默认基址。
+	DefaultQQGraphBase = "https://graph.qq.com"
+	// DefaultQQDisplayName 是登录页 QQ 按钮的默认文案（i18n key）。
+	DefaultQQDisplayName = "vas.qqConnect"
+)
+
+// QQLogin returns true when the QQ Connect login is turned on.
+func (s *settingProvider) QQLogin(ctx context.Context) bool {
+	return s.getBoolean(ctx, "qq_login", false)
+}
+
+// QQConfig returns the QQ Connect login settings. qq_api_base / qq_graph_base
+// are hidden advanced settings (never rendered in the admin panel); they only
+// exist to point the flow at a self-hosted proxy or at a test double.
+func (s *settingProvider) QQConfig(ctx context.Context) *QQConfig {
+	raw := s.getString(ctx, "qq_login_config", "{}")
+	parsed := qqLoginConfig{}
+	// 配置损坏时退化为默认值，而不是让登录流程整体失败。
+	_ = json.Unmarshal([]byte(raw), &parsed)
+
+	autoRegister := true
+	if parsed.AutoRegister != nil {
+		autoRegister = *parsed.AutoRegister
+	}
+
+	displayName := strings.TrimSpace(parsed.DisplayName)
+	if displayName == "" {
+		displayName = DefaultQQDisplayName
+	}
+
+	return &QQConfig{
+		Enabled:      s.QQLogin(ctx),
+		AppID:        strings.TrimSpace(parsed.AppID),
+		AppSecret:    strings.TrimSpace(parsed.AppSecret),
+		DirectSignIn: parsed.DirectSignIn,
+		AutoRegister: autoRegister,
+		DisplayName:  displayName,
+		APIBase:      strings.TrimSuffix(s.getString(ctx, "qq_api_base", DefaultQQAPIBase), "/"),
+		GraphBase:    strings.TrimSuffix(s.getString(ctx, "qq_graph_base", DefaultQQGraphBase), "/"),
+	}
+}
+
+// claimOrDefault reads a claim name setting, falling back to the given default
+// when it is empty or blank.
+func claimOrDefault(ctx context.Context, s *settingProvider, name, defaultVal string) string {
+	if v := strings.TrimSpace(s.getString(ctx, name, defaultVal)); v != "" {
+		return v
+	}
+
+	return defaultVal
+}
+
 func (s *settingProvider) ExposeUserEmail(ctx context.Context) bool {
 	return s.getBoolean(ctx, "expose_user_email", true)
 }
 
 func (s *settingProvider) SiteBasic(ctx context.Context) *SiteBasic {
 	return &SiteBasic{
-		Name:        s.getString(ctx, "siteName", ""),
-		Title:       s.getString(ctx, "siteTitle", ""),
-		ID:          s.getString(ctx, "siteID", ""),
-		Description: s.getString(ctx, "siteDes", ""),
-		Script:      s.getString(ctx, "siteScript", ""),
+		Name:         s.getString(ctx, "siteName", ""),
+		Title:        s.getString(ctx, "siteTitle", ""),
+		ID:           s.getString(ctx, "siteID", ""),
+		Description:  s.getString(ctx, "siteDes", ""),
+		Script:       s.getString(ctx, "siteScript", ""),
+		Announcement: s.getString(ctx, "siteAnnouncement", ""),
 	}
 }
 

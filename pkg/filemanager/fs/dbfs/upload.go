@@ -8,13 +8,13 @@ import (
 	"path"
 	"time"
 
-	"github.com/cloudreve/Cloudreve/v4/ent"
-	"github.com/cloudreve/Cloudreve/v4/inventory"
-	"github.com/cloudreve/Cloudreve/v4/inventory/types"
-	"github.com/cloudreve/Cloudreve/v4/pkg/filemanager/fs"
-	"github.com/cloudreve/Cloudreve/v4/pkg/hashid"
-	"github.com/cloudreve/Cloudreve/v4/pkg/serializer"
-	"github.com/cloudreve/Cloudreve/v4/pkg/util"
+	"github.com/Mxucc/StorFlow/ent"
+	"github.com/Mxucc/StorFlow/inventory"
+	"github.com/Mxucc/StorFlow/inventory/types"
+	"github.com/Mxucc/StorFlow/pkg/filemanager/fs"
+	"github.com/Mxucc/StorFlow/pkg/hashid"
+	"github.com/Mxucc/StorFlow/pkg/serializer"
+	"github.com/Mxucc/StorFlow/pkg/util"
 )
 
 func (f *DBFS) PreValidateUpload(ctx context.Context, dst *fs.URI, files ...fs.PreValidateFile) error {
@@ -23,6 +23,10 @@ func (f *DBFS) PreValidateUpload(ctx context.Context, dst *fs.URI, files ...fs.P
 	if err != nil {
 		return err
 	}
+
+	// Collaborative share: bypass the owner check when the share grants
+	// upload permission to the current requester.
+	ctx = f.shareWriteContext(ctx, dst, navigator, types.SharePermissionUpload)
 
 	dstFile, err := f.getFileByPath(ctx, navigator, dst)
 	if err != nil {
@@ -125,10 +129,20 @@ func (f *DBFS) PrepareUpload(ctx context.Context, req *fs.UploadRequest, opts ..
 	var (
 		policy *ent.StoragePolicy
 	)
-	if req.ImportFrom == nil {
+	// 上传时若显式指定了存储策略（Pro: 用户组可用存储策略多选），则必须先校验
+	// 该策略属于文件属主所在用户组的可用范围；未指定时沿用父目录所属用户组的策略。
+	// 解析出的策略若为负载均衡（load_balance）复合策略，则按权重随机挑选一个子策略
+	// 作为实际生效的策略，写入文件实体的始终是子策略（见 fs.ResolveLoadBalancePolicy）。
+	if req.ImportFrom == nil && req.Props.PreferredStoragePolicy == 0 {
 		policy, err = f.getPreferredPolicy(ctx, ancestor)
 	} else {
+		if err := f.validatePreferredPolicy(ctx, ancestor.Owner(), req.Props.PreferredStoragePolicy); err != nil {
+			return nil, err
+		}
 		policy, err = f.storagePolicyClient.GetPolicyByID(ctx, req.Props.PreferredStoragePolicy)
+		if err == nil {
+			policy, err = fs.ResolveLoadBalancePolicy(ctx, f.storagePolicyClient, policy)
+		}
 	}
 	if err != nil {
 		return nil, err

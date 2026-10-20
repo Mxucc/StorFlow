@@ -1,10 +1,10 @@
 package controllers
 
 import (
-	"github.com/cloudreve/Cloudreve/v4/pkg/hashid"
-	"github.com/cloudreve/Cloudreve/v4/pkg/queue"
-	"github.com/cloudreve/Cloudreve/v4/pkg/serializer"
-	"github.com/cloudreve/Cloudreve/v4/service/explorer"
+	"github.com/Mxucc/StorFlow/pkg/hashid"
+	"github.com/Mxucc/StorFlow/pkg/queue"
+	"github.com/Mxucc/StorFlow/pkg/serializer"
+	"github.com/Mxucc/StorFlow/service/explorer"
 	"github.com/gin-gonic/gin"
 )
 
@@ -65,4 +65,18 @@ func CancelDownloadTask(c *gin.Context) {
 	}
 
 	c.JSON(200, serializer.Response{})
+}
+
+// ListAvailableNodes 返回当前用户组可选的可用节点（Pro: 允许选择节点）。
+func ListAvailableNodes(c *gin.Context) {
+	resp, err := explorer.ListAvailableNodes(c)
+	if err != nil {
+		c.JSON(200, serializer.Err(c, err))
+		c.Abort()
+		return
+	}
+
+	c.JSON(200, serializer.Response{
+		Data: resp,
+	})
 }

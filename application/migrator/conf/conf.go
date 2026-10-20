@@ -1,7 +1,7 @@
 package conf
 
 import (
-	"github.com/cloudreve/Cloudreve/v4/pkg/logging"
+	"github.com/Mxucc/StorFlow/pkg/logging"
 	"github.com/go-ini/ini"
 	"github.com/go-playground/validator/v10"
 )

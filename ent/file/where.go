@@ -7,7 +7,7 @@ import (
 
 	"entgo.io/ent/dialect/sql"
 	"entgo.io/ent/dialect/sql/sqlgraph"
-	"github.com/cloudreve/Cloudreve/v4/ent/predicate"
+	"github.com/Mxucc/StorFlow/ent/predicate"
 )
 
 // ID filters vertices based on their ID field.

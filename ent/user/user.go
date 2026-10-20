@@ -9,7 +9,7 @@ import (
 	"entgo.io/ent"
 	"entgo.io/ent/dialect/sql"
 	"entgo.io/ent/dialect/sql/sqlgraph"
-	"github.com/cloudreve/Cloudreve/v4/inventory/types"
+	"github.com/Mxucc/StorFlow/inventory/types"
 )
 
 const (
@@ -41,6 +41,10 @@ const (
 	FieldSettings = "settings"
 	// FieldGroupUsers holds the string denoting the group_users field in the database.
 	FieldGroupUsers = "group_users"
+	// FieldPreviousGroup holds the string denoting the previous_group field in the database.
+	FieldPreviousGroup = "previous_group"
+	// FieldGroupExpires holds the string denoting the group_expires field in the database.
+	FieldGroupExpires = "group_expires"
 	// EdgeGroup holds the string denoting the group edge name in mutations.
 	EdgeGroup = "group"
 	// EdgeFiles holds the string denoting the files edge name in mutations.
@@ -55,10 +59,20 @@ const (
 	EdgeTasks = "tasks"
 	// EdgeFsevents holds the string denoting the fsevents edge name in mutations.
 	EdgeFsevents = "fsevents"
+	// EdgeAuditlogs holds the string denoting the auditlogs edge name in mutations.
+	EdgeAuditlogs = "auditlogs"
+	// EdgePayments holds the string denoting the payments edge name in mutations.
+	EdgePayments = "payments"
+	// EdgePointsLedgers holds the string denoting the points_ledgers edge name in mutations.
+	EdgePointsLedgers = "points_ledgers"
+	// EdgeGiftcodes holds the string denoting the giftcodes edge name in mutations.
+	EdgeGiftcodes = "giftcodes"
 	// EdgeEntities holds the string denoting the entities edge name in mutations.
 	EdgeEntities = "entities"
 	// EdgeOauthGrants holds the string denoting the oauth_grants edge name in mutations.
 	EdgeOauthGrants = "oauth_grants"
+	// EdgeOidcBindings holds the string denoting the oidc_bindings edge name in mutations.
+	EdgeOidcBindings = "oidc_bindings"
 	// Table holds the table name of the user in the database.
 	Table = "users"
 	// GroupTable is the table that holds the group relation/edge.
@@ -110,6 +124,34 @@ const (
 	FseventsInverseTable = "fs_events"
 	// FseventsColumn is the table column denoting the fsevents relation/edge.
 	FseventsColumn = "user_fsevent"
+	// AuditlogsTable is the table that holds the auditlogs relation/edge.
+	AuditlogsTable = "audit_logs"
+	// AuditlogsInverseTable is the table name for the AuditLog entity.
+	// It exists in this package in order to avoid circular dependency with the "auditlog" package.
+	AuditlogsInverseTable = "audit_logs"
+	// AuditlogsColumn is the table column denoting the auditlogs relation/edge.
+	AuditlogsColumn = "user_id"
+	// PaymentsTable is the table that holds the payments relation/edge.
+	PaymentsTable = "payments"
+	// PaymentsInverseTable is the table name for the Payment entity.
+	// It exists in this package in order to avoid circular dependency with the "payment" package.
+	PaymentsInverseTable = "payments"
+	// PaymentsColumn is the table column denoting the payments relation/edge.
+	PaymentsColumn = "user_id"
+	// PointsLedgersTable is the table that holds the points_ledgers relation/edge.
+	PointsLedgersTable = "points_ledgers"
+	// PointsLedgersInverseTable is the table name for the PointsLedger entity.
+	// It exists in this package in order to avoid circular dependency with the "pointsledger" package.
+	PointsLedgersInverseTable = "points_ledgers"
+	// PointsLedgersColumn is the table column denoting the points_ledgers relation/edge.
+	PointsLedgersColumn = "user_id"
+	// GiftcodesTable is the table that holds the giftcodes relation/edge.
+	GiftcodesTable = "gift_codes"
+	// GiftcodesInverseTable is the table name for the GiftCode entity.
+	// It exists in this package in order to avoid circular dependency with the "giftcode" package.
+	GiftcodesInverseTable = "gift_codes"
+	// GiftcodesColumn is the table column denoting the giftcodes relation/edge.
+	GiftcodesColumn = "used_by"
 	// EntitiesTable is the table that holds the entities relation/edge.
 	EntitiesTable = "entities"
 	// EntitiesInverseTable is the table name for the Entity entity.
@@ -124,6 +166,13 @@ const (
 	OauthGrantsInverseTable = "oauth_grants"
 	// OauthGrantsColumn is the table column denoting the oauth_grants relation/edge.
 	OauthGrantsColumn = "user_id"
+	// OidcBindingsTable is the table that holds the oidc_bindings relation/edge.
+	OidcBindingsTable = "oidc_bindings"
+	// OidcBindingsInverseTable is the table name for the OIDCBinding entity.
+	// It exists in this package in order to avoid circular dependency with the "oidcbinding" package.
+	OidcBindingsInverseTable = "oidc_bindings"
+	// OidcBindingsColumn is the table column denoting the oidc_bindings relation/edge.
+	OidcBindingsColumn = "user_id"
 )
 
 // Columns holds all SQL columns for user fields.
@@ -141,6 +190,8 @@ var Columns = []string{
 	FieldAvatar,
 	FieldSettings,
 	FieldGroupUsers,
+	FieldPreviousGroup,
+	FieldGroupExpires,
 }
 
 // ValidColumn reports if the column name is valid (part of the table columns).
@@ -157,7 +208,7 @@ func ValidColumn(column string) bool {
 // package on the initialization of the application. Therefore,
 // it should be imported in the main as follows:
 //
-//	import _ "github.com/cloudreve/Cloudreve/v4/ent/runtime"
+//	import _ "github.com/Mxucc/StorFlow/ent/runtime"
 var (
 	Hooks        [1]ent.Hook
 	Interceptors [1]ent.Interceptor
@@ -268,6 +319,16 @@ func ByGroupUsers(opts ...sql.OrderTermOption) OrderOption {
 	return sql.OrderByField(FieldGroupUsers, opts...).ToFunc()
 }
 
+// ByPreviousGroup orders the results by the previous_group field.
+func ByPreviousGroup(opts ...sql.OrderTermOption) OrderOption {
+	return sql.OrderByField(FieldPreviousGroup, opts...).ToFunc()
+}
+
+// ByGroupExpires orders the results by the group_expires field.
+func ByGroupExpires(opts ...sql.OrderTermOption) OrderOption {
+	return sql.OrderByField(FieldGroupExpires, opts...).ToFunc()
+}
+
 // ByGroupField orders the results by group field.
 func ByGroupField(field string, opts ...sql.OrderTermOption) OrderOption {
 	return func(s *sql.Selector) {
@@ -359,6 +420,62 @@ func ByFsevents(term sql.OrderTerm, terms ...sql.OrderTerm) OrderOption {
 	}
 }
 
+// ByAuditlogsCount orders the results by auditlogs count.
+func ByAuditlogsCount(opts ...sql.OrderTermOption) OrderOption {
+	return func(s *sql.Selector) {
+		sqlgraph.OrderByNeighborsCount(s, newAuditlogsStep(), opts...)
+	}
+}
+
+// ByAuditlogs orders the results by auditlogs terms.
+func ByAuditlogs(term sql.OrderTerm, terms ...sql.OrderTerm) OrderOption {
+	return func(s *sql.Selector) {
+		sqlgraph.OrderByNeighborTerms(s, newAuditlogsStep(), append([]sql.OrderTerm{term}, terms...)...)
+	}
+}
+
+// ByPaymentsCount orders the results by payments count.
+func ByPaymentsCount(opts ...sql.OrderTermOption) OrderOption {
+	return func(s *sql.Selector) {
+		sqlgraph.OrderByNeighborsCount(s, newPaymentsStep(), opts...)
+	}
+}
+
+// ByPayments orders the results by payments terms.
+func ByPayments(term sql.OrderTerm, terms ...sql.OrderTerm) OrderOption {
+	return func(s *sql.Selector) {
+		sqlgraph.OrderByNeighborTerms(s, newPaymentsStep(), append([]sql.OrderTerm{term}, terms...)...)
+	}
+}
+
+// ByPointsLedgersCount orders the results by points_ledgers count.
+func ByPointsLedgersCount(opts ...sql.OrderTermOption) OrderOption {
+	return func(s *sql.Selector) {
+		sqlgraph.OrderByNeighborsCount(s, newPointsLedgersStep(), opts...)
+	}
+}
+
+// ByPointsLedgers orders the results by points_ledgers terms.
+func ByPointsLedgers(term sql.OrderTerm, terms ...sql.OrderTerm) OrderOption {
+	return func(s *sql.Selector) {
+		sqlgraph.OrderByNeighborTerms(s, newPointsLedgersStep(), append([]sql.OrderTerm{term}, terms...)...)
+	}
+}
+
+// ByGiftcodesCount orders the results by giftcodes count.
+func ByGiftcodesCount(opts ...sql.OrderTermOption) OrderOption {
+	return func(s *sql.Selector) {
+		sqlgraph.OrderByNeighborsCount(s, newGiftcodesStep(), opts...)
+	}
+}
+
+// ByGiftcodes orders the results by giftcodes terms.
+func ByGiftcodes(term sql.OrderTerm, terms ...sql.OrderTerm) OrderOption {
+	return func(s *sql.Selector) {
+		sqlgraph.OrderByNeighborTerms(s, newGiftcodesStep(), append([]sql.OrderTerm{term}, terms...)...)
+	}
+}
+
 // ByEntitiesCount orders the results by entities count.
 func ByEntitiesCount(opts ...sql.OrderTermOption) OrderOption {
 	return func(s *sql.Selector) {
@@ -384,6 +501,20 @@ func ByOauthGrantsCount(opts ...sql.OrderTermOption) OrderOption {
 func ByOauthGrants(term sql.OrderTerm, terms ...sql.OrderTerm) OrderOption {
 	return func(s *sql.Selector) {
 		sqlgraph.OrderByNeighborTerms(s, newOauthGrantsStep(), append([]sql.OrderTerm{term}, terms...)...)
+	}
+}
+
+// ByOidcBindingsCount orders the results by oidc_bindings count.
+func ByOidcBindingsCount(opts ...sql.OrderTermOption) OrderOption {
+	return func(s *sql.Selector) {
+		sqlgraph.OrderByNeighborsCount(s, newOidcBindingsStep(), opts...)
+	}
+}
+
+// ByOidcBindings orders the results by oidc_bindings terms.
+func ByOidcBindings(term sql.OrderTerm, terms ...sql.OrderTerm) OrderOption {
+	return func(s *sql.Selector) {
+		sqlgraph.OrderByNeighborTerms(s, newOidcBindingsStep(), append([]sql.OrderTerm{term}, terms...)...)
 	}
 }
 func newGroupStep() *sqlgraph.Step {
@@ -435,6 +566,34 @@ func newFseventsStep() *sqlgraph.Step {
 		sqlgraph.Edge(sqlgraph.O2M, false, FseventsTable, FseventsColumn),
 	)
 }
+func newAuditlogsStep() *sqlgraph.Step {
+	return sqlgraph.NewStep(
+		sqlgraph.From(Table, FieldID),
+		sqlgraph.To(AuditlogsInverseTable, FieldID),
+		sqlgraph.Edge(sqlgraph.O2M, false, AuditlogsTable, AuditlogsColumn),
+	)
+}
+func newPaymentsStep() *sqlgraph.Step {
+	return sqlgraph.NewStep(
+		sqlgraph.From(Table, FieldID),
+		sqlgraph.To(PaymentsInverseTable, FieldID),
+		sqlgraph.Edge(sqlgraph.O2M, false, PaymentsTable, PaymentsColumn),
+	)
+}
+func newPointsLedgersStep() *sqlgraph.Step {
+	return sqlgraph.NewStep(
+		sqlgraph.From(Table, FieldID),
+		sqlgraph.To(PointsLedgersInverseTable, FieldID),
+		sqlgraph.Edge(sqlgraph.O2M, false, PointsLedgersTable, PointsLedgersColumn),
+	)
+}
+func newGiftcodesStep() *sqlgraph.Step {
+	return sqlgraph.NewStep(
+		sqlgraph.From(Table, FieldID),
+		sqlgraph.To(GiftcodesInverseTable, FieldID),
+		sqlgraph.Edge(sqlgraph.O2M, false, GiftcodesTable, GiftcodesColumn),
+	)
+}
 func newEntitiesStep() *sqlgraph.Step {
 	return sqlgraph.NewStep(
 		sqlgraph.From(Table, FieldID),
@@ -447,5 +606,12 @@ func newOauthGrantsStep() *sqlgraph.Step {
 		sqlgraph.From(Table, FieldID),
 		sqlgraph.To(OauthGrantsInverseTable, FieldID),
 		sqlgraph.Edge(sqlgraph.O2M, false, OauthGrantsTable, OauthGrantsColumn),
+	)
+}
+func newOidcBindingsStep() *sqlgraph.Step {
+	return sqlgraph.NewStep(
+		sqlgraph.From(Table, FieldID),
+		sqlgraph.To(OidcBindingsInverseTable, FieldID),
+		sqlgraph.Edge(sqlgraph.O2M, false, OidcBindingsTable, OidcBindingsColumn),
 	)
 }

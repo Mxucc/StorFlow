@@ -1,8 +1,8 @@
 package middleware
 
 import (
-	"github.com/cloudreve/Cloudreve/v4/application/dependency"
-	"github.com/cloudreve/Cloudreve/v4/pkg/util"
+	"github.com/Mxucc/StorFlow/application/dependency"
+	"github.com/Mxucc/StorFlow/pkg/util"
 	"github.com/gin-gonic/gin"
 	"io"
 	"net/http"
@@ -73,7 +73,9 @@ func FrontendFileHandler(dep dependency.Dep) gin.HandlerFunc {
 			return
 		}
 
-		if path == "/sw.js" || strings.HasPrefix(path, "/locales/") {
+		if path == "/sw.js" || strings.HasPrefix(path, "/locales/") || strings.HasPrefix(path, "/static/") {
+			// /static/ 下是站点 Logo、PWA 图标等允许管理员替换的资源，
+			// 必须每次回源校验，否则换成新图标后浏览器仍然显示缓存的旧图。
 			c.Header("Cache-Control", "public, no-cache")
 		} else if strings.HasPrefix(path, "/assets/") {
 			c.Header("Cache-Control", "public, max-age=31536000")

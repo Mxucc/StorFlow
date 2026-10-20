@@ -4,16 +4,17 @@ import (
 	"context"
 	"strings"
 
-	"github.com/cloudreve/Cloudreve/v4/application/dependency"
-	"github.com/cloudreve/Cloudreve/v4/ent"
-	"github.com/cloudreve/Cloudreve/v4/inventory"
-	"github.com/cloudreve/Cloudreve/v4/inventory/types"
-	"github.com/cloudreve/Cloudreve/v4/pkg/cluster/routes"
-	"github.com/cloudreve/Cloudreve/v4/pkg/filemanager/fs"
-	"github.com/cloudreve/Cloudreve/v4/pkg/filemanager/manager"
-	"github.com/cloudreve/Cloudreve/v4/pkg/hashid"
-	"github.com/cloudreve/Cloudreve/v4/pkg/serializer"
-	"github.com/cloudreve/Cloudreve/v4/service/explorer"
+	"github.com/Mxucc/StorFlow/application/dependency"
+	"github.com/Mxucc/StorFlow/ent"
+	"github.com/Mxucc/StorFlow/inventory"
+	"github.com/Mxucc/StorFlow/inventory/types"
+	"github.com/Mxucc/StorFlow/pkg/cluster/routes"
+	"github.com/Mxucc/StorFlow/pkg/eventtype"
+	"github.com/Mxucc/StorFlow/pkg/filemanager/fs"
+	"github.com/Mxucc/StorFlow/pkg/filemanager/manager"
+	"github.com/Mxucc/StorFlow/pkg/hashid"
+	"github.com/Mxucc/StorFlow/pkg/serializer"
+	"github.com/Mxucc/StorFlow/service/explorer"
 	"github.com/gin-gonic/gin"
 )
 
@@ -28,7 +29,7 @@ type (
 func (s *ShortLinkRedirectService) RedirectTo(c *gin.Context) string {
 	shareLongUrl := routes.MasterShareLongUrl(s.ID, s.Password)
 
-	shortLinkQuery := c.Request.URL.Query() // Query in ShortLink, adapt to Cloudreve V3
+	shortLinkQuery := c.Request.URL.Query() // Query in ShortLink, adapt to the V3 short link format
 	shareLongUrlQuery := shareLongUrl.Query()
 
 	userSpecifiedPath := shortLinkQuery.Get("path")
@@ -78,6 +79,8 @@ func (s *ShareInfoService) Get(c *gin.Context) (*explorer.Share, error) {
 
 	if s.CountViews {
 		_ = shareClient.Viewed(c, share)
+		explorer.WriteAudit(c, eventtype.ShareLinkViewed, "share", share.Edges.File.Name,
+			map[string]interface{}{"share_id": share.ID})
 	}
 
 	unlocked := true
@@ -120,7 +123,63 @@ type (
 		NextPageToken  string `form:"next_page_token"`
 	}
 	ListShareParamCtx struct{}
+
+	// DiscoverService lists public, valid shares across all users
+	// (ZXFile Android discover page).
+	DiscoverService struct {
+		PageSize       int    `form:"page_size" binding:"omitempty,min=10,max=100"`
+		OrderBy        string `form:"order_by"`
+		OrderDirection string `form:"order_direction"`
+		NextPageToken  string `form:"next_page_token"`
+	}
+	DiscoverParamCtx struct{}
 )
+
+// Discover lists public shares from all users, ordered by creation
+// time descending. SQL-level filters: no password, not expired,
+// remaining downloads. Owner/source-file validity is filtered after
+// the query via IsValidShare.
+func (s *DiscoverService) List(c *gin.Context) (*ListShareResponse, error) {
+	dep := dependency.FromContext(c)
+	user := inventory.UserFromContext(c)
+	if inventory.IsAnonymousUser(user) {
+		return nil, serializer.NewError(serializer.CodeCheckLogin, "Login required", nil)
+	}
+	hasher := dep.HashIDEncoder()
+	shareClient := dep.ShareClient()
+
+	args := &inventory.ListShareArgs{
+		PaginationArgs: &inventory.PaginationArgs{
+			UseCursorPagination: true,
+			PageToken:           s.NextPageToken,
+			PageSize:            s.PageSize,
+			Order:               inventory.OrderDirection(s.OrderDirection),
+			OrderBy:             s.OrderBy,
+		},
+		PublicOnly: true,
+		OnlyValid:  true,
+	}
+
+	ctx := context.WithValue(c, inventory.LoadShareUser{}, true)
+	ctx = context.WithValue(ctx, inventory.LoadShareFile{}, true)
+	ctx = context.WithValue(ctx, inventory.LoadFileMetadata{}, true)
+	res, err := shareClient.List(ctx, args)
+	if err != nil {
+		return nil, serializer.NewError(serializer.CodeDBError, "Failed to list shares", err)
+	}
+
+	// Drop shares whose owner is inactive or source file deleted.
+	validShares := make([]*ent.Share, 0, len(res.Shares))
+	for _, sh := range res.Shares {
+		if err := inventory.IsValidShare(sh); err == nil {
+			validShares = append(validShares, sh)
+		}
+	}
+	res.Shares = validShares
+
+	base := dep.SettingProvider().SiteURL(ctx)
+	return BuildListShareResponse(ctx, res, hasher, base, user, true), nil
+}
 
 func (s *ListShareService) List(c *gin.Context) (*ListShareResponse, error) {
 	dep := dependency.FromContext(c)
@@ -147,8 +206,24 @@ func (s *ListShareService) List(c *gin.Context) (*ListShareResponse, error) {
 		return nil, serializer.NewError(serializer.CodeDBError, "Failed to list shares", err)
 	}
 
+	// Internal shares (created by the shop module for the folders on sale) are
+	// an implementation detail: they are not manageable links.
+	res.Shares = filterInternalShares(res.Shares)
+
 	base := dep.SettingProvider().SiteURL(ctx)
 	return BuildListShareResponse(ctx, res, hasher, base, user, true), nil
+}
+
+// filterInternalShares drops the shares owned by another subsystem.
+func filterInternalShares(shares []*ent.Share) []*ent.Share {
+	res := make([]*ent.Share, 0, len(shares))
+	for _, share := range shares {
+		if share.Props != nil && share.Props.Internal {
+			continue
+		}
+		res = append(res, share)
+	}
+	return res
 }
 
 func (s *ListShareService) ListInUserProfile(c *gin.Context, uid int) (*ListShareResponse, error) {
@@ -186,6 +261,8 @@ func (s *ListShareService) ListInUserProfile(c *gin.Context, uid int) (*ListShar
 	if err != nil {
 		return nil, serializer.NewError(serializer.CodeDBError, "Failed to list shares", err)
 	}
+
+	res.Shares = filterInternalShares(res.Shares)
 
 	base := dep.SettingProvider().SiteURL(ctx)
 	return BuildListShareResponse(ctx, res, hasher, base, user, false), nil

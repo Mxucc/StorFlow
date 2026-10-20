@@ -7,16 +7,16 @@ import (
 	"strings"
 	"time"
 
-	"github.com/cloudreve/Cloudreve/v4/application/constants"
-	"github.com/cloudreve/Cloudreve/v4/ent"
-	"github.com/cloudreve/Cloudreve/v4/inventory"
-	"github.com/cloudreve/Cloudreve/v4/inventory/types"
-	"github.com/cloudreve/Cloudreve/v4/pkg/filemanager/fs"
-	"github.com/cloudreve/Cloudreve/v4/pkg/filemanager/fs/dbfs"
-	"github.com/cloudreve/Cloudreve/v4/pkg/filemanager/lock"
-	"github.com/cloudreve/Cloudreve/v4/pkg/serializer"
-	"github.com/cloudreve/Cloudreve/v4/pkg/setting"
-	"github.com/cloudreve/Cloudreve/v4/pkg/util"
+	"github.com/Mxucc/StorFlow/application/constants"
+	"github.com/Mxucc/StorFlow/ent"
+	"github.com/Mxucc/StorFlow/inventory"
+	"github.com/Mxucc/StorFlow/inventory/types"
+	"github.com/Mxucc/StorFlow/pkg/filemanager/fs"
+	"github.com/Mxucc/StorFlow/pkg/filemanager/fs/dbfs"
+	"github.com/Mxucc/StorFlow/pkg/filemanager/lock"
+	"github.com/Mxucc/StorFlow/pkg/serializer"
+	"github.com/Mxucc/StorFlow/pkg/setting"
+	"github.com/Mxucc/StorFlow/pkg/util"
 	"github.com/samber/lo"
 )
 
@@ -161,7 +161,7 @@ func (m *manager) SoftDelete(ctx context.Context, path ...*fs.URI) error {
 // It iterates through all pages of the trash listing and performs the deletion in
 // batches. Returns nil if the trash is already empty.
 func (m *manager) EmptyTrash(ctx context.Context) error {
-	trashUri, err := fs.NewUriFromString(fmt.Sprintf("%s://%s", constants.CloudreveScheme, constants.FileSystemTrash))
+	trashUri, err := fs.NewUriFromString(fmt.Sprintf("%s://%s", constants.StorFlowScheme, constants.FileSystemTrash))
 	if err != nil {
 		return fmt.Errorf("failed to build trash uri: %w", err)
 	}
@@ -324,6 +324,12 @@ func (l *manager) CreateOrUpdateShare(ctx context.Context, path *fs.URI, args *C
 	props := &types.ShareProps{
 		ShareView:  args.ShareView,
 		ShowReadMe: args.ShowReadMe,
+		Permission: args.Permission,
+		Grants:     args.Grants,
+		PayEnabled: args.PayEnabled,
+		Price:      args.Price,
+		IsDefault:  args.IsDefault,
+		Internal:   args.Internal,
 	}
 
 	share, err := shareClient.Upsert(ctx, &inventory.CreateShareParams{

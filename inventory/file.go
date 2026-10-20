@@ -6,17 +6,17 @@ import (
 	"time"
 
 	"entgo.io/ent/dialect/sql"
-	"github.com/cloudreve/Cloudreve/v4/ent"
-	"github.com/cloudreve/Cloudreve/v4/ent/directlink"
-	"github.com/cloudreve/Cloudreve/v4/ent/entity"
-	"github.com/cloudreve/Cloudreve/v4/ent/file"
-	"github.com/cloudreve/Cloudreve/v4/ent/metadata"
-	"github.com/cloudreve/Cloudreve/v4/ent/predicate"
-	"github.com/cloudreve/Cloudreve/v4/ent/schema"
-	"github.com/cloudreve/Cloudreve/v4/ent/share"
-	"github.com/cloudreve/Cloudreve/v4/inventory/types"
-	"github.com/cloudreve/Cloudreve/v4/pkg/conf"
-	"github.com/cloudreve/Cloudreve/v4/pkg/hashid"
+	"github.com/Mxucc/StorFlow/ent"
+	"github.com/Mxucc/StorFlow/ent/directlink"
+	"github.com/Mxucc/StorFlow/ent/entity"
+	"github.com/Mxucc/StorFlow/ent/file"
+	"github.com/Mxucc/StorFlow/ent/metadata"
+	"github.com/Mxucc/StorFlow/ent/predicate"
+	"github.com/Mxucc/StorFlow/ent/schema"
+	"github.com/Mxucc/StorFlow/ent/share"
+	"github.com/Mxucc/StorFlow/inventory/types"
+	"github.com/Mxucc/StorFlow/pkg/conf"
+	"github.com/Mxucc/StorFlow/pkg/hashid"
 	"github.com/gofrs/uuid"
 	"github.com/samber/lo"
 	"golang.org/x/tools/container/intsets"
@@ -52,6 +52,9 @@ type (
 		Search       *SearchFileParameters
 	}
 
+	// FlattenListFileParameters parameters for flattened file listing in admin panel.
+	// TypeFilter: -1 = all (files, folders and symbolic links), 0 = files only
+	// (default, legacy behavior), 1 = folders only.
 	FlattenListFileParameters struct {
 		*PaginationArgs
 		UserID          int
@@ -60,6 +63,7 @@ type (
 		HasMetadata     string
 		Shared          bool
 		HasDirectLink   bool
+		TypeFilter      int
 	}
 
 	MetadataFilter struct {
@@ -1151,7 +1155,18 @@ func (f *fileClient) GetByIDs(ctx context.Context, ids []int, page int) ([]*ent.
 }
 
 func (f *fileClient) FlattenListFiles(ctx context.Context, args *FlattenListFileParameters) (*ListFileResult, error) {
-	query := f.client.File.Query().Where(file.Type(int(types.FileTypeFile)), file.IsSymbolic(false))
+	var query *ent.FileQuery
+	switch args.TypeFilter {
+	case -1:
+		// All files, folders and symbolic links.
+		query = f.client.File.Query().Where(file.NameNEQ(RootFolderName))
+	case int(types.FileTypeFolder):
+		query = f.client.File.Query().
+			Where(file.Type(int(types.FileTypeFolder)), file.IsSymbolic(false), file.NameNEQ(RootFolderName))
+	default:
+		// Legacy default: regular files only.
+		query = f.client.File.Query().Where(file.Type(int(types.FileTypeFile)), file.IsSymbolic(false))
+	}
 
 	if args.UserID > 0 {
 		query = query.Where(file.OwnerID(args.UserID))

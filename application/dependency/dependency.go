@@ -2,36 +2,37 @@ package dependency
 
 import (
 	"context"
+	stdsql "database/sql"
 	"errors"
 	iofs "io/fs"
 	"net/url"
 	"sync"
 	"time"
 
-	"github.com/cloudreve/Cloudreve/v4/application/statics"
-	"github.com/cloudreve/Cloudreve/v4/ent"
-	"github.com/cloudreve/Cloudreve/v4/inventory"
-	"github.com/cloudreve/Cloudreve/v4/pkg/auth"
-	"github.com/cloudreve/Cloudreve/v4/pkg/cache"
-	"github.com/cloudreve/Cloudreve/v4/pkg/cluster"
-	"github.com/cloudreve/Cloudreve/v4/pkg/conf"
-	"github.com/cloudreve/Cloudreve/v4/pkg/credmanager"
-	"github.com/cloudreve/Cloudreve/v4/pkg/email"
-	"github.com/cloudreve/Cloudreve/v4/pkg/filemanager/encrypt"
-	"github.com/cloudreve/Cloudreve/v4/pkg/filemanager/eventhub"
-	"github.com/cloudreve/Cloudreve/v4/pkg/filemanager/fs/mime"
-	"github.com/cloudreve/Cloudreve/v4/pkg/filemanager/lock"
-	"github.com/cloudreve/Cloudreve/v4/pkg/hashid"
-	"github.com/cloudreve/Cloudreve/v4/pkg/logging"
-	"github.com/cloudreve/Cloudreve/v4/pkg/mediameta"
-	"github.com/cloudreve/Cloudreve/v4/pkg/queue"
-	"github.com/cloudreve/Cloudreve/v4/pkg/request"
-	"github.com/cloudreve/Cloudreve/v4/pkg/searcher"
-	"github.com/cloudreve/Cloudreve/v4/pkg/searcher/extractor"
-	"github.com/cloudreve/Cloudreve/v4/pkg/searcher/indexer"
-	"github.com/cloudreve/Cloudreve/v4/pkg/setting"
-	"github.com/cloudreve/Cloudreve/v4/pkg/thumb"
-	"github.com/cloudreve/Cloudreve/v4/pkg/util"
+	"github.com/Mxucc/StorFlow/application/statics"
+	"github.com/Mxucc/StorFlow/ent"
+	"github.com/Mxucc/StorFlow/inventory"
+	"github.com/Mxucc/StorFlow/pkg/auth"
+	"github.com/Mxucc/StorFlow/pkg/cache"
+	"github.com/Mxucc/StorFlow/pkg/cluster"
+	"github.com/Mxucc/StorFlow/pkg/conf"
+	"github.com/Mxucc/StorFlow/pkg/credmanager"
+	"github.com/Mxucc/StorFlow/pkg/email"
+	"github.com/Mxucc/StorFlow/pkg/filemanager/encrypt"
+	"github.com/Mxucc/StorFlow/pkg/filemanager/eventhub"
+	"github.com/Mxucc/StorFlow/pkg/filemanager/fs/mime"
+	"github.com/Mxucc/StorFlow/pkg/filemanager/lock"
+	"github.com/Mxucc/StorFlow/pkg/hashid"
+	"github.com/Mxucc/StorFlow/pkg/logging"
+	"github.com/Mxucc/StorFlow/pkg/mediameta"
+	"github.com/Mxucc/StorFlow/pkg/queue"
+	"github.com/Mxucc/StorFlow/pkg/request"
+	"github.com/Mxucc/StorFlow/pkg/searcher"
+	"github.com/Mxucc/StorFlow/pkg/searcher/extractor"
+	"github.com/Mxucc/StorFlow/pkg/searcher/indexer"
+	"github.com/Mxucc/StorFlow/pkg/setting"
+	"github.com/Mxucc/StorFlow/pkg/thumb"
+	"github.com/Mxucc/StorFlow/pkg/util"
 	"github.com/gin-contrib/static"
 	"github.com/go-webauthn/webauthn/webauthn"
 	"github.com/robfig/cron/v3"
@@ -63,6 +64,9 @@ type Dep interface {
 	ServerStaticFS() static.ServeFileSystem
 	// DBClient Get a singleton ent.Client instance for database access.
 	DBClient() *ent.Client
+	// RawDB Get the underlying database handle and dialect name for modules
+	// that own their own tables.
+	RawDB() (*stdsql.DB, string)
 	// KV Get a singleton cache.Driver instance for KV store.
 	KV() cache.Driver
 	// NavigatorStateKV Get a singleton cache.Driver instance for navigator state store. It forces use in-memory
@@ -155,6 +159,8 @@ type dependency struct {
 	serverStaticFS        static.ServeFileSystem
 	dbClient              *ent.Client
 	rawEntClient          *ent.Client
+	dbHandle              *stdsql.DB
+	dbDialect             string
 	kv                    cache.Driver
 	navigatorStateKv      cache.Driver
 	settingClient         inventory.SettingClient
@@ -332,12 +338,7 @@ func (d *dependency) DBClient() *ent.Client {
 	}
 
 	if d.rawEntClient == nil {
-		client, err := inventory.NewRawEntClient(d.Logger(), d.ConfigProvider())
-		if err != nil {
-			d.panicError(err)
-		}
-
-		d.rawEntClient = client
+		d.openRawDB()
 	}
 
 	proSuffix := ""
@@ -352,6 +353,32 @@ func (d *dependency) DBClient() *ent.Client {
 
 	d.dbClient = client
 	return d.dbClient
+}
+
+// openRawDB initializes the shared raw connection handle once.
+func (d *dependency) openRawDB() {
+	client, handle, dialect, err := inventory.NewRawEntClientWithDB(d.Logger(), d.ConfigProvider())
+	if err != nil {
+		d.panicError(err)
+	}
+
+	d.rawEntClient = client
+	d.dbHandle = handle
+	d.dbDialect = string(dialect)
+}
+
+// RawDB returns the underlying database handle together with the normalized
+// dialect name. Modules that own their own tables (the shop module) use it to
+// run their own statements on the same connection pool.
+func (d *dependency) RawDB() (*stdsql.DB, string) {
+	if d.rawEntClient == nil || d.dbHandle == nil {
+		d.openRawDB()
+	}
+
+	// Make sure schema migration already ran, the module tables are created
+	// after the host schema exists.
+	_ = d.DBClient()
+	return d.dbHandle, d.dbDialect
 }
 
 func (d *dependency) KV() cache.Driver {

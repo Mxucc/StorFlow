@@ -5,22 +5,25 @@ import (
 	"encoding/gob"
 	"fmt"
 	"net/http"
+	"net/url"
 	"time"
 
-	"github.com/cloudreve/Cloudreve/v4/application/dependency"
-	"github.com/cloudreve/Cloudreve/v4/inventory"
-	"github.com/cloudreve/Cloudreve/v4/inventory/types"
-	"github.com/cloudreve/Cloudreve/v4/pkg/auth"
-	"github.com/cloudreve/Cloudreve/v4/pkg/cluster/routes"
-	"github.com/cloudreve/Cloudreve/v4/pkg/filemanager/fs"
-	"github.com/cloudreve/Cloudreve/v4/pkg/filemanager/fs/dbfs"
-	"github.com/cloudreve/Cloudreve/v4/pkg/filemanager/manager"
-	"github.com/cloudreve/Cloudreve/v4/pkg/filemanager/manager/entitysource"
-	"github.com/cloudreve/Cloudreve/v4/pkg/hashid"
-	"github.com/cloudreve/Cloudreve/v4/pkg/request"
-	"github.com/cloudreve/Cloudreve/v4/pkg/serializer"
-	"github.com/cloudreve/Cloudreve/v4/pkg/setting"
-	"github.com/cloudreve/Cloudreve/v4/pkg/util"
+	"github.com/Mxucc/StorFlow/application/dependency"
+	"github.com/Mxucc/StorFlow/ent"
+	"github.com/Mxucc/StorFlow/inventory"
+	"github.com/Mxucc/StorFlow/inventory/types"
+	"github.com/Mxucc/StorFlow/pkg/auth"
+	"github.com/Mxucc/StorFlow/pkg/cluster/routes"
+	"github.com/Mxucc/StorFlow/pkg/eventtype"
+	"github.com/Mxucc/StorFlow/pkg/filemanager/fs"
+	"github.com/Mxucc/StorFlow/pkg/filemanager/fs/dbfs"
+	"github.com/Mxucc/StorFlow/pkg/filemanager/manager"
+	"github.com/Mxucc/StorFlow/pkg/filemanager/manager/entitysource"
+	"github.com/Mxucc/StorFlow/pkg/hashid"
+	"github.com/Mxucc/StorFlow/pkg/request"
+	"github.com/Mxucc/StorFlow/pkg/serializer"
+	"github.com/Mxucc/StorFlow/pkg/setting"
+	"github.com/Mxucc/StorFlow/pkg/util"
 	"github.com/gin-gonic/gin"
 	"github.com/gofrs/uuid"
 	"github.com/samber/lo"
@@ -100,6 +103,14 @@ func (s *GetDirectLinkService) Get(c *gin.Context) ([]DirectLinkResponse, error)
 	dep := dependency.FromContext(c)
 	u := inventory.UserFromContext(c)
 
+	for _, uri := range s.Uris {
+		ru, _ := fs.NewUriFromString(uri)
+		name := ""
+		if ru != nil {
+			name = ru.Name()
+		}
+		WriteAudit(c, eventtype.GetDirectLink, "file", name, map[string]interface{}{"uri": uri})
+	}
 	if u.Edges.Group.Settings.SourceBatchSize == 0 {
 		return nil, serializer.NewError(serializer.CodeGroupNotAllowed, "", nil)
 	}
@@ -238,6 +249,13 @@ func (service *CreateFileService) Create(c *gin.Context) (*FileResponse, error) 
 		return nil, err
 	}
 
+	content := map[string]interface{}{"uri": uri.String()}
+	if fileType == types.FileTypeFolder {
+		WriteAudit(c, eventtype.FileCreate, "folder", uri.Name(), content)
+	} else {
+		WriteAudit(c, eventtype.FileCreate, "file", uri.Name(), content)
+	}
+
 	return BuildFileResponse(c, user, file, dep.HashIDEncoder(), nil), nil
 }
 
@@ -264,6 +282,10 @@ func (service *RenameFileService) Rename(c *gin.Context) (*FileResponse, error) 
 	if err != nil {
 		return nil, err
 	}
+
+	WriteAudit(c, eventtype.FileRename, "file", uri.Name(), map[string]interface{}{
+		"uri": uri.String(), "from": uri.Name(), "to": service.NewName,
+	})
 
 	return BuildFileResponse(c, user, file, dep.HashIDEncoder(), nil), nil
 }
@@ -556,6 +578,14 @@ func (s *DeleteFileService) Delete(c *gin.Context) error {
 		return fmt.Errorf("failed to delete file: %w", err)
 	}
 
+	action := eventtype.MoveToTrash
+	if s.SkipSoftDelete || s.UnlinkOnly {
+		action = eventtype.DeleteFile
+	}
+	for _, u := range uris {
+		WriteAudit(c, action, "file", u.Name(), map[string]interface{}{"uri": u.String()})
+	}
+
 	return nil
 }
 
@@ -687,6 +717,11 @@ func RedirectDirectLink(c *gin.Context, name string, download bool) error {
 		return serializer.NewError(serializer.CodeNotFound, "direct link not found", err)
 	}
 
+	// 目录直链（Pro）：现场把目录打包成 ZIP 返回，而不是跳转到单文件实体。
+	if dl.Edges.File.Type == int(types.FileTypeFolder) {
+		return serveFolderDirectLink(c, dep, dl)
+	}
+
 	m := manager.NewFileManager(dep, dl.Edges.File.Edges.Owner)
 	defer m.Recycle()
 
@@ -702,6 +737,68 @@ func RedirectDirectLink(c *gin.Context, name string, download bool) error {
 
 	c.Redirect(http.StatusFound, res)
 	c.Header("Cache-Control", fmt.Sprintf("public, max-age=%d", int(earliestExpire.Sub(time.Now()).Seconds())))
+	return nil
+}
+
+// folderLinkConcurrency 限制同时进行的目录直链打包数量，避免大量并发请求把 CPU / 内存打满。
+const folderLinkConcurrency = 4
+
+var folderLinkSemaphore = make(chan struct{}, folderLinkConcurrency)
+
+// folderUriByModel 由数据库中的文件记录还原出 storflow://my/... 路径。
+func folderUriByModel(ctx context.Context, dep dependency.Dep, owner *ent.User, target *ent.File) (*fs.URI, error) {
+	fileClient := dep.FileClient()
+	root, err := fileClient.Root(ctx, owner)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get root folder: %w", err)
+	}
+
+	elements := make([]string, 0)
+	current := target
+	for current.ID != root.ID {
+		elements = append([]string{current.Name}, elements...)
+		parent, err := fileClient.GetParentFile(ctx, current, false)
+		if err != nil {
+			return nil, fmt.Errorf("failed to get parent of file %d: %w", current.ID, err)
+		}
+		current = parent
+	}
+
+	base, err := fs.NewUriFromString(fs.NewMyUri(hashid.EncodeUserID(dep.HashIDEncoder(), owner.ID)))
+	if err != nil {
+		return nil, err
+	}
+
+	return base.Join(elements...), nil
+}
+
+// serveFolderDirectLink 处理目录直链：现场把目录打包成 ZIP 流式返回。
+// 目录没有单文件实体，因此不做 302 跳转，直接回应打包结果。
+func serveFolderDirectLink(c *gin.Context, dep dependency.Dep, dl *ent.DirectLink) error {
+	select {
+	case folderLinkSemaphore <- struct{}{}:
+		defer func() { <-folderLinkSemaphore }()
+	default:
+		return serializer.NewError(429, "Too many folder downloads in progress, please retry later", nil)
+	}
+
+	owner := dl.Edges.File.Edges.Owner
+	uri, err := folderUriByModel(c, dep, owner, dl.Edges.File)
+	if err != nil {
+		return serializer.NewError(serializer.CodeParamErr, "Failed to resolve folder path", err)
+	}
+
+	fm := manager.NewFileManager(dep, owner)
+	defer fm.Recycle()
+
+	c.Header("Content-Type", "application/zip")
+	c.Header("Content-Disposition", fmt.Sprintf("attachment; filename*=UTF-8''%s.zip", url.PathEscape(dl.Edges.File.Name)))
+	c.Header("Cache-Control", "no-store")
+
+	if _, err := fm.CreateArchive(c, []*fs.URI{uri}, c.Writer); err != nil {
+		return serializer.NewError(serializer.CodeIOFailed, "Failed to create archive", err)
+	}
+
 	return nil
 }
 

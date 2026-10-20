@@ -5,16 +5,16 @@ import (
 	"errors"
 	"fmt"
 
-	"github.com/cloudreve/Cloudreve/v4/application/constants"
-	"github.com/cloudreve/Cloudreve/v4/ent"
-	"github.com/cloudreve/Cloudreve/v4/inventory"
-	"github.com/cloudreve/Cloudreve/v4/inventory/types"
-	"github.com/cloudreve/Cloudreve/v4/pkg/boolset"
-	"github.com/cloudreve/Cloudreve/v4/pkg/cache"
-	"github.com/cloudreve/Cloudreve/v4/pkg/filemanager/fs"
-	"github.com/cloudreve/Cloudreve/v4/pkg/hashid"
-	"github.com/cloudreve/Cloudreve/v4/pkg/logging"
-	"github.com/cloudreve/Cloudreve/v4/pkg/setting"
+	"github.com/Mxucc/StorFlow/application/constants"
+	"github.com/Mxucc/StorFlow/ent"
+	"github.com/Mxucc/StorFlow/inventory"
+	"github.com/Mxucc/StorFlow/inventory/types"
+	"github.com/Mxucc/StorFlow/pkg/boolset"
+	"github.com/Mxucc/StorFlow/pkg/cache"
+	"github.com/Mxucc/StorFlow/pkg/filemanager/fs"
+	"github.com/Mxucc/StorFlow/pkg/hashid"
+	"github.com/Mxucc/StorFlow/pkg/logging"
+	"github.com/Mxucc/StorFlow/pkg/setting"
 )
 
 var sharedWithMeNavigatorCapability = &boolset.BooleanSet{}
@@ -62,8 +62,9 @@ func (t *sharedWithMeNavigator) To(ctx context.Context, path *fs.URI) (*File, er
 	}
 
 	elements := path.Elements()
-	if len(elements) > 0 {
-		// Shared with me folder is a flatten tree, only root can be accessed.
+	if len(elements) > 1 {
+		// Shared with me folder is a flatten tree, only root and one level of
+		// shortcuts can be accessed.
 		return nil, fs.ErrPathNotExist.WithError(fmt.Errorf("invalid Path %q", path))
 	}
 
@@ -82,7 +83,29 @@ func (t *sharedWithMeNavigator) To(ctx context.Context, path *fs.URI) (*File, er
 		t.root.CapabilitiesBs = t.Capabilities(false).Capability
 	}
 
-	return t.root, nil
+	if len(elements) == 0 {
+		return t.root, nil
+	}
+
+	// A single element addresses one shortcut. It is resolved into the symbolic
+	// file itself, whose redirect metadata points at the shared content; read
+	// paths follow that link (see DBFS.linkedFolderTarget).
+	fileID, err := t.hasher.Decode(elements[0], hashid.FileID)
+	if err != nil {
+		return nil, fs.ErrPathNotExist.WithError(fmt.Errorf("invalid shortcut %q", elements[0]))
+	}
+
+	model, err := t.fileClient.GetByID(ctx, fileID)
+	if err != nil {
+		return nil, fs.ErrPathNotExist.WithError(err)
+	}
+	if model.OwnerID != t.user.ID || !model.IsSymbolic {
+		return nil, fs.ErrPathNotExist.WithError(fmt.Errorf("shortcut %q does not belong to the user", elements[0]))
+	}
+
+	file := newFile(t.root, model)
+	file.Path[pathIndexUser] = path.Root()
+	return file, nil
 }
 
 func (t *sharedWithMeNavigator) Children(ctx context.Context, parent *File, args *ListArgs) (*ListResult, error) {

@@ -7,8 +7,8 @@ import (
 	"time"
 
 	"entgo.io/ent/dialect/sql"
-	"github.com/cloudreve/Cloudreve/v4/pkg/conf"
-	"github.com/cloudreve/Cloudreve/v4/pkg/hashid"
+	"github.com/Mxucc/StorFlow/pkg/conf"
+	"github.com/Mxucc/StorFlow/pkg/hashid"
 )
 
 type (

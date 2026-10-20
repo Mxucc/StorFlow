@@ -12,7 +12,7 @@ func TestRedirectURIMatches(t *testing.T) {
 		{"http://[::1]/callback", "http://[::1]:49152/callback", true},
 		{"http://127.0.0.1:8000/callback?a=1", "http://127.0.0.1:65535/callback?a=1", true},
 		{"/callback/desktop", "/callback/desktop", true},
-		{"cloudreve://mount", "cloudreve://mount", true},
+		{"storflow://mount", "storflow://mount", true},
 		{"https://app.example/callback", "https://app.example/callback", true},
 		{"http://localhost/callback", "http://localhost:49152/callback", false},
 		{"https://127.0.0.1/callback", "https://127.0.0.1:49152/callback", false},

@@ -1,9 +1,9 @@
 package controllers
 
 import (
-	"github.com/cloudreve/Cloudreve/v4/pkg/hashid"
-	"github.com/cloudreve/Cloudreve/v4/pkg/serializer"
-	"github.com/cloudreve/Cloudreve/v4/service/share"
+	"github.com/Mxucc/StorFlow/pkg/hashid"
+	"github.com/Mxucc/StorFlow/pkg/serializer"
+	"github.com/Mxucc/StorFlow/service/share"
 	"github.com/gin-gonic/gin"
 	"net/http"
 )
@@ -18,6 +18,17 @@ func CreateShare(c *gin.Context) {
 	}
 
 	c.JSON(200, serializer.Response{Data: uri})
+}
+
+// RedeemShare saves a share as a shortcut in "Shared with me"
+func RedeemShare(c *gin.Context) {
+	service := ParametersFromContext[*share.RedeemService](c, share.RedeemParamCtx{})
+	if err := service.Redeem(c); err != nil {
+		c.JSON(200, serializer.Err(c, err))
+		return
+	}
+
+	c.JSON(200, serializer.Response{})
 }
 
 // EditShare 编辑分享
@@ -61,6 +72,23 @@ func ListShare(c *gin.Context) {
 	}
 }
 
+// DiscoverShare 全站公开分享列表（ZXFile 发现页）
+func DiscoverShare(c *gin.Context) {
+	service := ParametersFromContext[*share.DiscoverService](c, share.DiscoverParamCtx{})
+	resp, err := service.List(c)
+	if err != nil {
+		c.JSON(200, serializer.Err(c, err))
+		c.Abort()
+		return
+	}
+
+	if resp != nil {
+		c.JSON(200, serializer.Response{
+			Data: resp,
+		})
+	}
+}
+
 // DeleteShare 删除分享
 func DeleteShare(c *gin.Context) {
 	err := share.DeleteShare(c, hashid.FromContext(c))
@@ -85,4 +113,27 @@ func BatchDeleteShare(c *gin.Context) {
 func ShareRedirect(c *gin.Context) {
 	service := ParametersFromContext[*share.ShortLinkRedirectService](c, share.ShortLinkRedirectParamCtx{})
 	c.Redirect(http.StatusFound, service.RedirectTo(c))
+}
+
+// ListDefaultShare 列出站点默认分享
+func ListDefaultShare(c *gin.Context) {
+	service := ParametersFromContext[*share.DefaultShareService](c, share.DefaultShareParamCtx{})
+	resp, err := service.List(c)
+	if err != nil {
+		c.JSON(200, serializer.Err(c, err))
+		c.Abort()
+		return
+	}
+
+	c.JSON(200, serializer.Response{Data: resp})
+}
+
+// SubmitAbuseReport submits an abuse report for a share (anonymous allowed)
+func SubmitAbuseReport(c *gin.Context) {
+	service := ParametersFromContext[*share.AbuseReportSubmitService](c, share.AbuseReportSubmitParamCtx{})
+	if err := service.Submit(c); err != nil {
+		c.JSON(200, serializer.Err(c, err))
+		return
+	}
+	c.JSON(200, serializer.Response{})
 }

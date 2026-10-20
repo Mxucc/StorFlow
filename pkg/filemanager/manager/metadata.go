@@ -8,13 +8,13 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/cloudreve/Cloudreve/v4/application/constants"
-	"github.com/cloudreve/Cloudreve/v4/application/dependency"
-	"github.com/cloudreve/Cloudreve/v4/inventory/types"
-	"github.com/cloudreve/Cloudreve/v4/pkg/filemanager/fs"
-	"github.com/cloudreve/Cloudreve/v4/pkg/filemanager/fs/dbfs"
-	"github.com/cloudreve/Cloudreve/v4/pkg/hashid"
-	"github.com/cloudreve/Cloudreve/v4/pkg/serializer"
+	"github.com/Mxucc/StorFlow/application/constants"
+	"github.com/Mxucc/StorFlow/application/dependency"
+	"github.com/Mxucc/StorFlow/inventory/types"
+	"github.com/Mxucc/StorFlow/pkg/filemanager/fs"
+	"github.com/Mxucc/StorFlow/pkg/filemanager/fs/dbfs"
+	"github.com/Mxucc/StorFlow/pkg/hashid"
+	"github.com/Mxucc/StorFlow/pkg/serializer"
 	"github.com/go-playground/validator/v10"
 	"github.com/samber/lo"
 )
@@ -252,6 +252,23 @@ var (
 
 							return nil
 
+						case types.CustomPropsTypeUser:
+							if patch.Value == "" {
+								return nil
+							}
+
+							// The value is the hash id of an existing user.
+							uid, err := m.hasher.Decode(patch.Value, hashid.UserID)
+							if err != nil {
+								return fmt.Errorf("value is not a valid user")
+							}
+							if m.dep != nil {
+								if _, err := m.dep.UserClient().GetByID(ctx, uid); err != nil {
+									return fmt.Errorf("user not found")
+								}
+							}
+
+							return nil
 						case types.CustomPropsTypeLink:
 							if patch.Value == "" {
 								return nil

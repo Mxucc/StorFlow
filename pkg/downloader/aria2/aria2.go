@@ -11,12 +11,12 @@ import (
 	"strings"
 	"time"
 
-	"github.com/cloudreve/Cloudreve/v4/inventory/types"
-	"github.com/cloudreve/Cloudreve/v4/pkg/downloader"
-	"github.com/cloudreve/Cloudreve/v4/pkg/downloader/aria2/rpc"
-	"github.com/cloudreve/Cloudreve/v4/pkg/logging"
-	"github.com/cloudreve/Cloudreve/v4/pkg/setting"
-	"github.com/cloudreve/Cloudreve/v4/pkg/util"
+	"github.com/Mxucc/StorFlow/inventory/types"
+	"github.com/Mxucc/StorFlow/pkg/downloader"
+	"github.com/Mxucc/StorFlow/pkg/downloader/aria2/rpc"
+	"github.com/Mxucc/StorFlow/pkg/logging"
+	"github.com/Mxucc/StorFlow/pkg/setting"
+	"github.com/Mxucc/StorFlow/pkg/util"
 	"github.com/gofrs/uuid"
 	"github.com/samber/lo"
 )

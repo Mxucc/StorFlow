@@ -15,8 +15,8 @@ import (
 	"net/url"
 	"strings"
 
-	"github.com/cloudreve/Cloudreve/v4/pkg/cache"
-	"github.com/cloudreve/Cloudreve/v4/pkg/request"
+	"github.com/Mxucc/StorFlow/pkg/cache"
+	"github.com/Mxucc/StorFlow/pkg/request"
 )
 
 const (

@@ -13,17 +13,18 @@ import (
 	"strings"
 	"time"
 
-	"github.com/cloudreve/Cloudreve/v4/ent"
-	"github.com/cloudreve/Cloudreve/v4/ent/davaccount"
-	"github.com/cloudreve/Cloudreve/v4/ent/file"
-	"github.com/cloudreve/Cloudreve/v4/ent/oauthgrant"
-	"github.com/cloudreve/Cloudreve/v4/ent/passkey"
-	"github.com/cloudreve/Cloudreve/v4/ent/schema"
-	"github.com/cloudreve/Cloudreve/v4/ent/task"
-	"github.com/cloudreve/Cloudreve/v4/ent/user"
-	"github.com/cloudreve/Cloudreve/v4/inventory/types"
-	"github.com/cloudreve/Cloudreve/v4/pkg/serializer"
-	"github.com/cloudreve/Cloudreve/v4/pkg/util"
+	"github.com/Mxucc/StorFlow/ent"
+	"github.com/Mxucc/StorFlow/ent/davaccount"
+	"github.com/Mxucc/StorFlow/ent/file"
+	"github.com/Mxucc/StorFlow/ent/oauthgrant"
+	"github.com/Mxucc/StorFlow/ent/oidcbinding"
+	"github.com/Mxucc/StorFlow/ent/passkey"
+	"github.com/Mxucc/StorFlow/ent/schema"
+	"github.com/Mxucc/StorFlow/ent/task"
+	"github.com/Mxucc/StorFlow/ent/user"
+	"github.com/Mxucc/StorFlow/inventory/types"
+	"github.com/Mxucc/StorFlow/pkg/serializer"
+	"github.com/Mxucc/StorFlow/pkg/util"
 	"github.com/go-webauthn/webauthn/webauthn"
 )
 
@@ -140,6 +141,8 @@ type (
 		GroupID       int
 		Avatar        string // Optional
 		Language      string // Optional
+		// Pined 注册时写入用户侧边栏的初始置顶项（站点级「初始分享快捷方式」）。
+		Pined []types.PinedFile // Optional
 	}
 	CreateStoragePackArgs struct {
 		UserID   int
@@ -231,6 +234,11 @@ func (c *userClient) Delete(ctx context.Context, uid int) error {
 	// OAuth grants
 	if _, err := c.client.OAuthGrant.Delete().Where(oauthgrant.UserID(uid)).Exec(schema.SkipSoftDelete(ctx)); err != nil {
 		return fmt.Errorf("failed to delete oauth grants: %w", err)
+	}
+
+	// OIDC 绑定（第三方 SSO，Pro: G6）
+	if _, err := c.client.OIDCBinding.Delete().Where(oidcbinding.UserID(uid)).Exec(schema.SkipSoftDelete(ctx)); err != nil {
+		return fmt.Errorf("failed to delete oidc bindings: %w", err)
 	}
 
 	return c.client.User.DeleteOneID(uid).Exec(schema.SkipSoftDelete(ctx))
@@ -378,7 +386,7 @@ func (c *userClient) Create(ctx context.Context, args *NewUserArgs) (*ent.User, 
 		nick = strings.Split(args.Email, "@")[0]
 	}
 
-	userSetting := &types.UserSetting{VersionRetention: true, VersionRetentionMax: 10}
+	userSetting := &types.UserSetting{VersionRetention: true, VersionRetentionMax: 10, Pined: args.Pined}
 	query := c.client.User.Create().
 		SetEmail(args.Email).
 		SetNick(nick).
@@ -578,6 +586,14 @@ func (c *userClient) Upsert(ctx context.Context, u *ent.User, password, twoFa st
 		SetAvatar(u.Avatar).
 		SetStatus(u.Status).
 		SetGroupID(u.GroupUsers)
+
+	// 换组回退字段（管理员可编辑；0/零值 = 不变，清除由到期回退任务处理）
+	if u.PreviousGroup > 0 {
+		q.SetPreviousGroup(u.PreviousGroup)
+	}
+	if !u.GroupExpires.IsZero() {
+		q.SetGroupExpires(u.GroupExpires)
+	}
 
 	if password != "" {
 		pwdDigest, err := digestPassword(password)

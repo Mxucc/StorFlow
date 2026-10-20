@@ -8,11 +8,11 @@ import (
 	"strings"
 	"time"
 
-	"github.com/cloudreve/Cloudreve/v4/ent"
-	"github.com/cloudreve/Cloudreve/v4/inventory/types"
-	"github.com/cloudreve/Cloudreve/v4/pkg/filemanager/fs"
-	"github.com/cloudreve/Cloudreve/v4/pkg/filemanager/lock"
-	"github.com/cloudreve/Cloudreve/v4/pkg/hashid"
+	"github.com/Mxucc/StorFlow/ent"
+	"github.com/Mxucc/StorFlow/inventory/types"
+	"github.com/Mxucc/StorFlow/pkg/filemanager/fs"
+	"github.com/Mxucc/StorFlow/pkg/filemanager/lock"
+	"github.com/Mxucc/StorFlow/pkg/hashid"
 	"github.com/samber/lo"
 )
 
@@ -65,6 +65,10 @@ func (f *DBFS) Lock(ctx context.Context, d time.Duration, requester *ent.User, z
 	if err != nil {
 		return nil, err
 	}
+
+	// Collaborative share: bypass the owner check when the share grants edit
+	// permission to the current requester.
+	ctx = f.shareWriteContext(ctx, uri, navigator, types.SharePermissionEdit)
 
 	ancestor, err := f.getFileByPath(ctx, navigator, uri)
 	if err != nil && !ent.IsNotFound(err) {

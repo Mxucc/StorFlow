@@ -8,6 +8,91 @@ import (
 )
 
 var (
+	// AbuseReportsColumns holds the columns for the "abuse_reports" table.
+	AbuseReportsColumns = []*schema.Column{
+		{Name: "id", Type: field.TypeInt, Increment: true},
+		{Name: "created_at", Type: field.TypeTime, SchemaType: map[string]string{"mysql": "datetime"}},
+		{Name: "updated_at", Type: field.TypeTime, SchemaType: map[string]string{"mysql": "datetime"}},
+		{Name: "deleted_at", Type: field.TypeTime, Nullable: true, SchemaType: map[string]string{"mysql": "datetime"}},
+		{Name: "share_id", Type: field.TypeInt, Nullable: true},
+		{Name: "share_url", Type: field.TypeString, Nullable: true, Size: 1024},
+		{Name: "reporter_email", Type: field.TypeString, Nullable: true, Size: 255},
+		{Name: "ip", Type: field.TypeString, Nullable: true, Size: 64},
+		{Name: "reason", Type: field.TypeString, Size: 2147483647},
+		{Name: "status", Type: field.TypeString, Size: 32, Default: "pending"},
+		{Name: "note", Type: field.TypeString, Nullable: true},
+	}
+	// AbuseReportsTable holds the schema information for the "abuse_reports" table.
+	AbuseReportsTable = &schema.Table{
+		Name:       "abuse_reports",
+		Columns:    AbuseReportsColumns,
+		PrimaryKey: []*schema.Column{AbuseReportsColumns[0]},
+		Indexes: []*schema.Index{
+			{
+				Name:    "abusereport_status",
+				Unique:  false,
+				Columns: []*schema.Column{AbuseReportsColumns[9]},
+			},
+			{
+				Name:    "abusereport_share_id",
+				Unique:  false,
+				Columns: []*schema.Column{AbuseReportsColumns[4]},
+			},
+			{
+				Name:    "abusereport_created_at",
+				Unique:  false,
+				Columns: []*schema.Column{AbuseReportsColumns[1]},
+			},
+		},
+	}
+	// AuditLogsColumns holds the columns for the "audit_logs" table.
+	AuditLogsColumns = []*schema.Column{
+		{Name: "id", Type: field.TypeInt, Increment: true},
+		{Name: "created_at", Type: field.TypeTime, SchemaType: map[string]string{"mysql": "datetime"}},
+		{Name: "updated_at", Type: field.TypeTime, SchemaType: map[string]string{"mysql": "datetime"}},
+		{Name: "deleted_at", Type: field.TypeTime, Nullable: true, SchemaType: map[string]string{"mysql": "datetime"}},
+		{Name: "user_email", Type: field.TypeString, Nullable: true, Size: 255},
+		{Name: "type", Type: field.TypeInt, Default: 0},
+		{Name: "action", Type: field.TypeString, Size: 64},
+		{Name: "object_type", Type: field.TypeString, Nullable: true, Size: 32},
+		{Name: "object_name", Type: field.TypeString, Nullable: true, Size: 1024},
+		{Name: "detail", Type: field.TypeString, Nullable: true},
+		{Name: "content", Type: field.TypeJSON, Nullable: true},
+		{Name: "ip", Type: field.TypeString, Nullable: true, Size: 64},
+		{Name: "correlation_id", Type: field.TypeString, Nullable: true, Size: 64},
+		{Name: "user_id", Type: field.TypeInt, Nullable: true},
+	}
+	// AuditLogsTable holds the schema information for the "audit_logs" table.
+	AuditLogsTable = &schema.Table{
+		Name:       "audit_logs",
+		Columns:    AuditLogsColumns,
+		PrimaryKey: []*schema.Column{AuditLogsColumns[0]},
+		ForeignKeys: []*schema.ForeignKey{
+			{
+				Symbol:     "audit_logs_users_auditlogs",
+				Columns:    []*schema.Column{AuditLogsColumns[13]},
+				RefColumns: []*schema.Column{UsersColumns[0]},
+				OnDelete:   schema.SetNull,
+			},
+		},
+		Indexes: []*schema.Index{
+			{
+				Name:    "auditlog_created_at",
+				Unique:  false,
+				Columns: []*schema.Column{AuditLogsColumns[1]},
+			},
+			{
+				Name:    "auditlog_user_id_created_at",
+				Unique:  false,
+				Columns: []*schema.Column{AuditLogsColumns[13], AuditLogsColumns[1]},
+			},
+			{
+				Name:    "auditlog_action",
+				Unique:  false,
+				Columns: []*schema.Column{AuditLogsColumns[6]},
+			},
+		},
+	}
 	// DavAccountsColumns holds the columns for the "dav_accounts" table.
 	DavAccountsColumns = []*schema.Column{
 		{Name: "id", Type: field.TypeInt, Increment: true},
@@ -189,6 +274,47 @@ var (
 			},
 		},
 	}
+	// GiftCodesColumns holds the columns for the "gift_codes" table.
+	GiftCodesColumns = []*schema.Column{
+		{Name: "id", Type: field.TypeInt, Increment: true},
+		{Name: "created_at", Type: field.TypeTime, SchemaType: map[string]string{"mysql": "datetime"}},
+		{Name: "updated_at", Type: field.TypeTime, SchemaType: map[string]string{"mysql": "datetime"}},
+		{Name: "deleted_at", Type: field.TypeTime, Nullable: true, SchemaType: map[string]string{"mysql": "datetime"}},
+		{Name: "code", Type: field.TypeString, Unique: true, Size: 64},
+		{Name: "product_type", Type: field.TypeString, Size: 32},
+		{Name: "num", Type: field.TypeInt64},
+		{Name: "name", Type: field.TypeString, Nullable: true, Size: 255},
+		{Name: "used", Type: field.TypeBool, Default: false},
+		{Name: "used_by_email", Type: field.TypeString, Nullable: true, Size: 255},
+		{Name: "created_by_email", Type: field.TypeString, Nullable: true, Size: 255},
+		{Name: "used_by", Type: field.TypeInt, Nullable: true},
+	}
+	// GiftCodesTable holds the schema information for the "gift_codes" table.
+	GiftCodesTable = &schema.Table{
+		Name:       "gift_codes",
+		Columns:    GiftCodesColumns,
+		PrimaryKey: []*schema.Column{GiftCodesColumns[0]},
+		ForeignKeys: []*schema.ForeignKey{
+			{
+				Symbol:     "gift_codes_users_giftcodes",
+				Columns:    []*schema.Column{GiftCodesColumns[11]},
+				RefColumns: []*schema.Column{UsersColumns[0]},
+				OnDelete:   schema.SetNull,
+			},
+		},
+		Indexes: []*schema.Index{
+			{
+				Name:    "giftcode_code",
+				Unique:  false,
+				Columns: []*schema.Column{GiftCodesColumns[4]},
+			},
+			{
+				Name:    "giftcode_used",
+				Unique:  false,
+				Columns: []*schema.Column{GiftCodesColumns[8]},
+			},
+		},
+	}
 	// GroupsColumns holds the columns for the "groups" table.
 	GroupsColumns = []*schema.Column{
 		{Name: "id", Type: field.TypeInt, Increment: true},
@@ -328,6 +454,38 @@ var (
 			},
 		},
 	}
+	// OidcBindingsColumns holds the columns for the "oidc_bindings" table.
+	OidcBindingsColumns = []*schema.Column{
+		{Name: "id", Type: field.TypeInt, Increment: true},
+		{Name: "created_at", Type: field.TypeTime, SchemaType: map[string]string{"mysql": "datetime"}},
+		{Name: "updated_at", Type: field.TypeTime, SchemaType: map[string]string{"mysql": "datetime"}},
+		{Name: "deleted_at", Type: field.TypeTime, Nullable: true, SchemaType: map[string]string{"mysql": "datetime"}},
+		{Name: "issuer", Type: field.TypeString},
+		{Name: "subject", Type: field.TypeString},
+		{Name: "email", Type: field.TypeString, Nullable: true},
+		{Name: "user_id", Type: field.TypeInt},
+	}
+	// OidcBindingsTable holds the schema information for the "oidc_bindings" table.
+	OidcBindingsTable = &schema.Table{
+		Name:       "oidc_bindings",
+		Columns:    OidcBindingsColumns,
+		PrimaryKey: []*schema.Column{OidcBindingsColumns[0]},
+		ForeignKeys: []*schema.ForeignKey{
+			{
+				Symbol:     "oidc_bindings_users_oidc_bindings",
+				Columns:    []*schema.Column{OidcBindingsColumns[7]},
+				RefColumns: []*schema.Column{UsersColumns[0]},
+				OnDelete:   schema.NoAction,
+			},
+		},
+		Indexes: []*schema.Index{
+			{
+				Name:    "oidcbinding_issuer_subject",
+				Unique:  true,
+				Columns: []*schema.Column{OidcBindingsColumns[4], OidcBindingsColumns[5]},
+			},
+		},
+	}
 	// PasskeysColumns holds the columns for the "passkeys" table.
 	PasskeysColumns = []*schema.Column{
 		{Name: "id", Type: field.TypeInt, Increment: true},
@@ -358,6 +516,107 @@ var (
 				Name:    "passkey_user_id_credential_id",
 				Unique:  true,
 				Columns: []*schema.Column{PasskeysColumns[8], PasskeysColumns[4]},
+			},
+		},
+	}
+	// PaymentsColumns holds the columns for the "payments" table.
+	PaymentsColumns = []*schema.Column{
+		{Name: "id", Type: field.TypeInt, Increment: true},
+		{Name: "created_at", Type: field.TypeTime, SchemaType: map[string]string{"mysql": "datetime"}},
+		{Name: "updated_at", Type: field.TypeTime, SchemaType: map[string]string{"mysql": "datetime"}},
+		{Name: "deleted_at", Type: field.TypeTime, Nullable: true, SchemaType: map[string]string{"mysql": "datetime"}},
+		{Name: "order_no", Type: field.TypeString, Unique: true, Size: 128},
+		{Name: "product_type", Type: field.TypeString, Size: 32},
+		{Name: "sku_id", Type: field.TypeInt, Nullable: true},
+		{Name: "sku_name", Type: field.TypeString, Nullable: true, Size: 255},
+		{Name: "duration_days", Type: field.TypeInt64, Default: 0},
+		{Name: "num", Type: field.TypeInt64, Nullable: true},
+		{Name: "quantity", Type: field.TypeInt, Default: 1},
+		{Name: "amount", Type: field.TypeInt64, Default: 0},
+		{Name: "currency", Type: field.TypeString, Nullable: true, Size: 16},
+		{Name: "points_used", Type: field.TypeInt64, Default: 0},
+		{Name: "channel", Type: field.TypeString, Nullable: true, Size: 32},
+		{Name: "channel_trade_no", Type: field.TypeString, Nullable: true, Size: 128},
+		{Name: "pay_url", Type: field.TypeString, Nullable: true, Size: 2048},
+		{Name: "status", Type: field.TypeString, Size: 32, Default: "unpaid"},
+		{Name: "failure_reason", Type: field.TypeString, Nullable: true, Size: 1024},
+		{Name: "email", Type: field.TypeString, Nullable: true, Size: 255},
+		{Name: "resume_ticket", Type: field.TypeString, Nullable: true, Size: 64},
+		{Name: "user_id", Type: field.TypeInt, Nullable: true},
+	}
+	// PaymentsTable holds the schema information for the "payments" table.
+	PaymentsTable = &schema.Table{
+		Name:       "payments",
+		Columns:    PaymentsColumns,
+		PrimaryKey: []*schema.Column{PaymentsColumns[0]},
+		ForeignKeys: []*schema.ForeignKey{
+			{
+				Symbol:     "payments_users_payments",
+				Columns:    []*schema.Column{PaymentsColumns[21]},
+				RefColumns: []*schema.Column{UsersColumns[0]},
+				OnDelete:   schema.SetNull,
+			},
+		},
+		Indexes: []*schema.Index{
+			{
+				Name:    "payment_user_id_created_at",
+				Unique:  false,
+				Columns: []*schema.Column{PaymentsColumns[21], PaymentsColumns[1]},
+			},
+			{
+				Name:    "payment_status",
+				Unique:  false,
+				Columns: []*schema.Column{PaymentsColumns[17]},
+			},
+			{
+				Name:    "payment_channel",
+				Unique:  false,
+				Columns: []*schema.Column{PaymentsColumns[14]},
+			},
+		},
+	}
+	// PointsLedgersColumns holds the columns for the "points_ledgers" table.
+	PointsLedgersColumns = []*schema.Column{
+		{Name: "id", Type: field.TypeInt, Increment: true},
+		{Name: "created_at", Type: field.TypeTime, SchemaType: map[string]string{"mysql": "datetime"}},
+		{Name: "updated_at", Type: field.TypeTime, SchemaType: map[string]string{"mysql": "datetime"}},
+		{Name: "deleted_at", Type: field.TypeTime, Nullable: true, SchemaType: map[string]string{"mysql": "datetime"}},
+		{Name: "delta", Type: field.TypeInt64},
+		{Name: "balance_after", Type: field.TypeInt64},
+		{Name: "reason", Type: field.TypeString, Size: 64},
+		{Name: "note", Type: field.TypeString, Nullable: true, Size: 512},
+		{Name: "payment_id", Type: field.TypeInt, Nullable: true},
+		{Name: "user_id", Type: field.TypeInt, Nullable: true},
+	}
+	// PointsLedgersTable holds the schema information for the "points_ledgers" table.
+	PointsLedgersTable = &schema.Table{
+		Name:       "points_ledgers",
+		Columns:    PointsLedgersColumns,
+		PrimaryKey: []*schema.Column{PointsLedgersColumns[0]},
+		ForeignKeys: []*schema.ForeignKey{
+			{
+				Symbol:     "points_ledgers_payments_payment",
+				Columns:    []*schema.Column{PointsLedgersColumns[8]},
+				RefColumns: []*schema.Column{PaymentsColumns[0]},
+				OnDelete:   schema.SetNull,
+			},
+			{
+				Symbol:     "points_ledgers_users_points_ledgers",
+				Columns:    []*schema.Column{PointsLedgersColumns[9]},
+				RefColumns: []*schema.Column{UsersColumns[0]},
+				OnDelete:   schema.SetNull,
+			},
+		},
+		Indexes: []*schema.Index{
+			{
+				Name:    "pointsledger_user_id_created_at",
+				Unique:  false,
+				Columns: []*schema.Column{PointsLedgersColumns[9], PointsLedgersColumns[1]},
+			},
+			{
+				Name:    "pointsledger_reason",
+				Unique:  false,
+				Columns: []*schema.Column{PointsLedgersColumns[6]},
 			},
 		},
 	}
@@ -485,6 +744,8 @@ var (
 		{Name: "two_factor_secret", Type: field.TypeString, Nullable: true},
 		{Name: "avatar", Type: field.TypeString, Nullable: true},
 		{Name: "settings", Type: field.TypeJSON, Nullable: true},
+		{Name: "previous_group", Type: field.TypeInt, Nullable: true},
+		{Name: "group_expires", Type: field.TypeTime, Nullable: true},
 		{Name: "group_users", Type: field.TypeInt},
 	}
 	// UsersTable holds the schema information for the "users" table.
@@ -495,7 +756,7 @@ var (
 		ForeignKeys: []*schema.ForeignKey{
 			{
 				Symbol:     "users_groups_users",
-				Columns:    []*schema.Column{UsersColumns[12]},
+				Columns:    []*schema.Column{UsersColumns[14]},
 				RefColumns: []*schema.Column{GroupsColumns[0]},
 				OnDelete:   schema.NoAction,
 			},
@@ -528,17 +789,23 @@ var (
 	}
 	// Tables holds all the tables in the schema.
 	Tables = []*schema.Table{
+		AbuseReportsTable,
+		AuditLogsTable,
 		DavAccountsTable,
 		DirectLinksTable,
 		EntitiesTable,
 		FilesTable,
 		FsEventsTable,
+		GiftCodesTable,
 		GroupsTable,
 		MetadataTable,
 		NodesTable,
 		OauthClientsTable,
 		OauthGrantsTable,
+		OidcBindingsTable,
 		PasskeysTable,
+		PaymentsTable,
+		PointsLedgersTable,
 		SettingsTable,
 		SharesTable,
 		StoragePoliciesTable,
@@ -549,6 +816,7 @@ var (
 )
 
 func init() {
+	AuditLogsTable.ForeignKeys[0].RefTable = UsersTable
 	DavAccountsTable.ForeignKeys[0].RefTable = UsersTable
 	DirectLinksTable.ForeignKeys[0].RefTable = FilesTable
 	EntitiesTable.ForeignKeys[0].RefTable = StoragePoliciesTable
@@ -557,11 +825,16 @@ func init() {
 	FilesTable.ForeignKeys[1].RefTable = StoragePoliciesTable
 	FilesTable.ForeignKeys[2].RefTable = UsersTable
 	FsEventsTable.ForeignKeys[0].RefTable = UsersTable
+	GiftCodesTable.ForeignKeys[0].RefTable = UsersTable
 	GroupsTable.ForeignKeys[0].RefTable = StoragePoliciesTable
 	MetadataTable.ForeignKeys[0].RefTable = FilesTable
 	OauthGrantsTable.ForeignKeys[0].RefTable = OauthClientsTable
 	OauthGrantsTable.ForeignKeys[1].RefTable = UsersTable
+	OidcBindingsTable.ForeignKeys[0].RefTable = UsersTable
 	PasskeysTable.ForeignKeys[0].RefTable = UsersTable
+	PaymentsTable.ForeignKeys[0].RefTable = UsersTable
+	PointsLedgersTable.ForeignKeys[0].RefTable = PaymentsTable
+	PointsLedgersTable.ForeignKeys[1].RefTable = UsersTable
 	SharesTable.ForeignKeys[0].RefTable = FilesTable
 	SharesTable.ForeignKeys[1].RefTable = UsersTable
 	StoragePoliciesTable.ForeignKeys[0].RefTable = NodesTable

@@ -7,11 +7,11 @@ import (
 	"strconv"
 	"time"
 
-	"github.com/cloudreve/Cloudreve/v4/application/dependency"
-	"github.com/cloudreve/Cloudreve/v4/inventory/types"
-	"github.com/cloudreve/Cloudreve/v4/pkg/cluster"
-	"github.com/cloudreve/Cloudreve/v4/pkg/queue"
-	"github.com/cloudreve/Cloudreve/v4/pkg/util"
+	"github.com/Mxucc/StorFlow/application/dependency"
+	"github.com/Mxucc/StorFlow/inventory/types"
+	"github.com/Mxucc/StorFlow/pkg/cluster"
+	"github.com/Mxucc/StorFlow/pkg/queue"
+	"github.com/Mxucc/StorFlow/pkg/util"
 )
 
 const (
@@ -21,8 +21,25 @@ const (
 
 type NodeState struct {
 	NodeID int `json:"node_id"`
+	// AllowedNodes 该任务允许使用的节点白名单（来自用户组「可用节点」设置，Pro）。
+	// 为空表示不做限制。
+	AllowedNodes []int `json:"allowed_nodes,omitempty"`
 
 	progress queue.Progresses
+}
+
+// NodeSelection 任务的节点选择参数（Pro: 可用节点 / 允许选择节点）。
+type NodeSelection struct {
+	// NodeID 用户显式选择的处理节点 ID，0 表示由系统按权重分配。
+	NodeID int
+	// AllowedNodes 用户组允许的节点白名单，为空表示不做限制。
+	AllowedNodes []int
+}
+
+// applyTo 把节点选择参数写入任务状态，供 allocateNode 使用。
+func (s NodeSelection) applyTo(state *NodeState) {
+	state.NodeID = s.NodeID
+	state.AllowedNodes = s.AllowedNodes
 }
 
 // allocateNode allocates a node for the task.
@@ -32,7 +49,7 @@ func allocateNode(ctx context.Context, dep dependency.Dep, state *NodeState, cap
 		return nil, fmt.Errorf("failed to get node pool: %w", err)
 	}
 
-	node, err := np.Get(ctx, capability, state.NodeID)
+	node, err := np.Get(ctx, capability, state.NodeID, state.AllowedNodes)
 	if err != nil {
 		return nil, fmt.Errorf("failed to get node: %w", err)
 	}

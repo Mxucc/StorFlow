@@ -1,0 +1,273 @@
+---
+import Base from "../../../layouts/Base.astro";
+import { getSiteBasic, getStorefront, type ShopStorefront } from "../../../lib/api";
+import { absoluteURL, clampText, displayMoney, resolveOrigin } from "../../../lib/format";
+
+const { slug = "" } = Astro.params;
+
+const [basic, result] = await Promise.all([getSiteBasic(), getStorefront(slug)]);
+const siteTitle = (basic.ok && basic.data?.title) || "StorFlow";
+
+if (!result.ok) {
+  const notFound = result.status === 404;
+  Astro.response.status = notFound ? 404 : result.status === 429 ? 429 : 502;
+}
+
+const shop: ShopStorefront | undefined = result.ok ? result.data : undefined;
+const origin = resolveOrigin(Astro.request, Astro.url);
+const theme = shop?.theme ?? {};
+const primary = theme.primary_color || "#2f6bff";
+const bannerImage = theme.banner || shop?.cover || "/static/img/shop/banner.jpg";
+const avatar = theme.logo || shop?.avatar || "/static/img/shop/logo.webp";
+const products = shop?.products ?? [];
+const layout = (theme.layout?.length ? theme.layout : ["banner", "notice", "products", "about", "links", "contact"]).filter(
+  (section) => ["banner", "notice", "products", "about", "links", "contact"].includes(section),
+);
+const totalSales = products.reduce((sum, product) => sum + (product.sales ?? 0), 0);
+const shopPath = `/shop/${encodeURIComponent(slug)}`;
+const pageTitle = shop ? `${shop.name} - 网盘小店` : "小店不存在";
+const pageDesc = shop
+  ? clampText(theme.slogan || shop.description || `${shop.name} 的网盘小店：${products.length} 件在售商品，付款后自动交付只读文件夹。`)
+  : "该小店不存在或已打烊。";
+
+const breadcrumbJsonLd = shop
+  ? {
+      "@context": "https://schema.org",
+      "@type": "BreadcrumbList",
+      itemListElement: [
+        { "@type": "ListItem", position: 1, name: siteTitle, item: origin },
+        { "@type": "ListItem", position: 2, name: shop.name, item: `${origin}${shopPath}` },
+      ],
+    }
+  : undefined;
+
+const shopJsonLd = shop
+  ? {
+      "@context": "https://schema.org",
+      "@type": "Store",
+      "@id": `${origin}${shopPath}`,
+      name: shop.name,
+      description: clampText(theme.slogan || shop.description || pageDesc, 300),
+      url: `${origin}${shopPath}`,
+      image: absoluteURL(bannerImage, origin),
+      logo: absoluteURL(avatar, origin),
+      currenciesAccepted: "CNY",
+      paymentAccepted: "在线支付",
+      inLanguage: "zh-CN",
+      ...(shop.owner?.nickname ? { founder: { "@type": "Person", name: shop.owner.nickname } } : {}),
+    }
+  : undefined;
+
+const productsJsonLd =
+  shop && products.length > 0
+    ? {
+        "@context": "https://schema.org",
+        "@type": "ItemList",
+        name: `${shop.name} 商品列表`,
+        numberOfItems: products.length,
+        itemListElement: products.slice(0, 30).map((product, index) => ({
+          "@type": "ListItem",
+          position: index + 1,
+          url: `${origin}${shopPath}/product/${encodeURIComponent(product.id)}`,
+          name: product.name,
+          image: absoluteURL(product.cover || "/static/img/shop/product.jpg", origin),
+        })),
+      }
+    : undefined;
+
+const jsonLd = [shopJsonLd, productsJsonLd, breadcrumbJsonLd].filter(Boolean) as Record<string, unknown>[];
+---
+
+{
+  shop ? (
+    <Base
+      title={pageTitle}
+      description={pageDesc}
+      path={shopPath}
+      siteTitle={siteTitle}
+      image={bannerImage}
+      primaryColor={primary}
+      jsonLd={jsonLd}
+      logo={absoluteURL(avatar, origin)}
+    >
+      <header class="site-header">
+        <div class="container site-header__inner">
+          <a class="brand" href={shopPath}>
+            <img src={avatar} alt={shop.name} width="32" height="32" />
+            <span>{shop.name}</span>
+          </a>
+          <nav class="site-nav" aria-label="导航">
+            <a href={shopPath}>返回小店</a>
+            <a href="/">了解本站</a>
+          </nav>
+          <div class="header-actions">
+            <a class="btn btn--ghost" href="/session">登录</a>
+            <a class="btn btn--primary" href={`/session/signup?redirect=${encodeURIComponent(shopPath)}`}>免费注册</a>
+          </div>
+        </div>
+      </header>
+
+      <main>
+        {layout.includes("banner") && (
+          <section class="shop-hero" style={`background-image:url('${bannerImage}')`}>
+            <div class="container shop-hero__inner">
+              <img class="shop-avatar" src={avatar} alt={`${shop.name} 头像`} width="88" height="88" loading="eager" />
+              <div class="shop-hero__meta">
+                <h1>{shop.name}</h1>
+                {theme.slogan && <p class="shop-hero__slogan">{theme.slogan}</p>}
+                <div class="shop-chips">
+                  <span class="chip">{products.length} 件商品</span>
+                  <span class="chip">已售 {totalSales}</span>
+                  {shop.owner?.nickname && <span class="chip">店主 {shop.owner.nickname}</span>}
+                </div>
+              </div>
+            </div>
+          </section>
+        )}
+
+        {layout.includes("notice") && theme.notice && (
+          <div class="notice-band">
+            <div class="container notice-band__inner">
+              <span aria-hidden="true">📢</span>
+              <span>{theme.notice}</span>
+            </div>
+          </div>
+        )}
+
+        <div class="shop-body">
+          <div class="container">
+            {layout.includes("products") && (
+              <section class="shop-section" id="products">
+                <h2>商品</h2>
+                {products.length === 0 ? (
+                  <div class="empty-state">店主还没有上架任何内容。</div>
+                ) : (
+                  <div class="product-grid">
+                    {products.map((product) => {
+                      const discounted = (product.final_price ?? product.price) < product.price;
+                      const href = `${shopPath}/product/${encodeURIComponent(product.id)}`;
+                      return (
+                        <a class="product-card" href={href}>
+                          <div class="product-card__cover">
+                            <img
+                              src={product.cover || "/static/img/shop/product.jpg"}
+                              alt={product.name}
+                              loading="lazy"
+                              width="480"
+                              height="360"
+                            />
+                          </div>
+                          <div class="product-card__body">
+                            <h3>{product.name}</h3>
+                            {product.summary && <p class="product-card__summary">{product.summary}</p>}
+                            {product.tags && product.tags.length > 0 && (
+                              <div class="tag-row">
+                                {product.tags.slice(0, 4).map((tag) => (
+                                  <span class="tag">{tag}</span>
+                                ))}
+                              </div>
+                            )}
+                            <div class="price-row">
+                              <span class="price">{displayMoney(product.final_price ?? product.price)}</span>
+                              {discounted && <span class="price--strike">{displayMoney(product.price)}</span>}
+                            </div>
+                            <div class="product-card__meta">
+                              <span>已售 {product.sales ?? 0}</span>
+                              <span>{product.previewable === false ? "不提供预览" : "支持预览"}</span>
+                            </div>
+                          </div>
+                        </a>
+                      );
+                    })}
+                  </div>
+                )}
+              </section>
+            )}
+
+            {layout.includes("about") && shop.description && (
+              <section class="shop-section" id="about">
+                <h2>关于本店</h2>
+                <div class="about-card">{shop.description}</div>
+              </section>
+            )}
+
+            {layout.includes("links") && theme.links && theme.links.length > 0 && (
+              <section class="shop-section" id="links">
+                <h2>相关链接</h2>
+                <div class="link-list">
+                  {theme.links.map((link) => (
+                    <a href={link.url} target="_blank" rel="noreferrer noopener">
+                      {link.label}
+                    </a>
+                  ))}
+                </div>
+              </section>
+            )}
+
+            {layout.includes("contact") && (
+              <section class="shop-section" id="contact">
+                <h2>联系店主</h2>
+                <div class="about-card">
+                  店主：{shop.owner?.nickname || "匿名"}
+                  {"\n"}
+                  购买流程：选择商品 → 登录账号 → 在线支付 → 内容自动交付到你的网盘。
+                  {"\n"}
+                  遇到问题？登录后在「我的购买」里可以申请退款。
+                </div>
+              </section>
+            )}
+          </div>
+        </div>
+      </main>
+
+      <footer class="site-footer">
+        <div class="container site-footer__inner">
+          <span>{theme.footer || `${shop.name} · 由 ${siteTitle} 提供`}</span>
+          <nav class="site-nav" aria-label="页脚导航" style="margin:0">
+            <a href="/">首页</a>
+            <a href="/session">登录</a>
+            <a href={`/sitemap.xml`}>站点地图</a>
+          </nav>
+        </div>
+      </footer>
+    </Base>
+  ) : (
+    <Base
+      title={pageTitle}
+      description={pageDesc}
+      path={shopPath}
+      siteTitle={siteTitle}
+      noindex={true}
+    >
+      <header class="site-header">
+        <div class="container site-header__inner">
+          <a class="brand" href="/">
+            <img src="/static/img/shop/logo.webp" alt={siteTitle} width="32" height="32" />
+            <span>{siteTitle}</span>
+          </a>
+          <div class="header-actions">
+            <a class="btn btn--ghost" href="/session">登录</a>
+            <a class="btn btn--primary" href="/session/signup">免费注册</a>
+          </div>
+        </div>
+      </header>
+      <main>
+        <div class="container" style="padding:96px 24px">
+          <div class="empty-state">
+            <h1 style="font-size:24px;margin-bottom:12px">
+              {result.ok ? "小店暂时不可用" : result.status === 429 ? "访问过于频繁" : "小店不存在"}
+            </h1>
+            <p class="muted" style="margin-bottom:20px">
+              {result.ok
+                ? "请稍后再试。"
+                : result.status === 429
+                  ? "该店铺访问过于频繁，请稍后重试。"
+                  : "该店铺不存在、已打烊，或链接有误。"}
+            </p>
+            <a class="btn btn--primary" href="/">返回首页</a>
+          </div>
+        </div>
+      </main>
+    </Base>
+  )
+}

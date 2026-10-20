@@ -1,11 +1,12 @@
 package explorer
 
 import (
-	"github.com/cloudreve/Cloudreve/v4/application/dependency"
-	"github.com/cloudreve/Cloudreve/v4/inventory"
-	"github.com/cloudreve/Cloudreve/v4/inventory/types"
-	"github.com/cloudreve/Cloudreve/v4/pkg/filemanager/fs"
-	"github.com/cloudreve/Cloudreve/v4/pkg/serializer"
+	"github.com/Mxucc/StorFlow/application/dependency"
+	"github.com/Mxucc/StorFlow/inventory"
+	"github.com/Mxucc/StorFlow/inventory/types"
+	"github.com/Mxucc/StorFlow/pkg/filemanager/fs"
+	"github.com/Mxucc/StorFlow/pkg/hashid"
+	"github.com/Mxucc/StorFlow/pkg/serializer"
 	"github.com/gin-gonic/gin"
 	"github.com/samber/lo"
 )
@@ -63,6 +64,18 @@ func (service *PinFileService) UnpinFile(c *gin.Context) error {
 	}
 
 	uriStr := uri.String()
+
+	// 用户组默认置顶的分享（Pro: 默认固定分享）不允许用户取消。
+	if dep := dependency.FromContext(c); dep != nil && user.Edges.Group != nil && user.Edges.Group.Settings != nil {
+		hasher := dep.HashIDEncoder()
+		for _, shareID := range user.Edges.Group.Settings.DefaultPinnedShares {
+			if shareID > 0 && fs.NewShareUri(hashid.EncodeShareID(hasher, shareID), "") == uriStr {
+				return serializer.NewError(serializer.CodeGroupNotAllowed,
+					"This pin is managed by your user group and cannot be removed", nil)
+			}
+		}
+	}
+
 	user.Settings.Pined = lo.Filter(user.Settings.Pined, func(pin types.PinedFile, index int) bool {
 		return pin.Uri != uriStr
 	})

@@ -3,22 +3,23 @@ package manager
 import (
 	"context"
 
-	"github.com/cloudreve/Cloudreve/v4/ent"
-	"github.com/cloudreve/Cloudreve/v4/inventory/types"
-	"github.com/cloudreve/Cloudreve/v4/pkg/cluster"
-	"github.com/cloudreve/Cloudreve/v4/pkg/filemanager/driver"
-	"github.com/cloudreve/Cloudreve/v4/pkg/filemanager/driver/cos"
-	"github.com/cloudreve/Cloudreve/v4/pkg/filemanager/driver/ks3"
-	"github.com/cloudreve/Cloudreve/v4/pkg/filemanager/driver/local"
-	"github.com/cloudreve/Cloudreve/v4/pkg/filemanager/driver/obs"
-	"github.com/cloudreve/Cloudreve/v4/pkg/filemanager/driver/onedrive"
-	"github.com/cloudreve/Cloudreve/v4/pkg/filemanager/driver/oss"
-	"github.com/cloudreve/Cloudreve/v4/pkg/filemanager/driver/qiniu"
-	"github.com/cloudreve/Cloudreve/v4/pkg/filemanager/driver/remote"
-	"github.com/cloudreve/Cloudreve/v4/pkg/filemanager/driver/s3"
-	"github.com/cloudreve/Cloudreve/v4/pkg/filemanager/driver/upyun"
-	"github.com/cloudreve/Cloudreve/v4/pkg/filemanager/fs"
-	"github.com/cloudreve/Cloudreve/v4/pkg/serializer"
+	"github.com/Mxucc/StorFlow/ent"
+	"github.com/Mxucc/StorFlow/inventory/types"
+	"github.com/Mxucc/StorFlow/pkg/cluster"
+	"github.com/Mxucc/StorFlow/pkg/filemanager/driver"
+	"github.com/Mxucc/StorFlow/pkg/filemanager/driver/cos"
+	"github.com/Mxucc/StorFlow/pkg/filemanager/driver/ks3"
+	"github.com/Mxucc/StorFlow/pkg/filemanager/driver/local"
+	"github.com/Mxucc/StorFlow/pkg/filemanager/driver/obs"
+	"github.com/Mxucc/StorFlow/pkg/filemanager/driver/onedrive"
+	"github.com/Mxucc/StorFlow/pkg/filemanager/driver/oss"
+	"github.com/Mxucc/StorFlow/pkg/filemanager/driver/qiniu"
+	"github.com/Mxucc/StorFlow/pkg/filemanager/driver/remote"
+	"github.com/Mxucc/StorFlow/pkg/filemanager/driver/s3"
+	"github.com/Mxucc/StorFlow/pkg/filemanager/driver/upyun"
+	"github.com/Mxucc/StorFlow/pkg/filemanager/driver/yun139"
+	"github.com/Mxucc/StorFlow/pkg/filemanager/fs"
+	"github.com/Mxucc/StorFlow/pkg/serializer"
 )
 
 func (m *manager) LocalDriver(policy *ent.StoragePolicy) driver.Handler {
@@ -84,6 +85,13 @@ func (m *manager) GetStorageDriver(ctx context.Context, policy *ent.StoragePolic
 		return upyun.New(ctx, policy, m.settings, m.config, m.l, m.dep.MimeDetector(ctx))
 	case types.PolicyTypeOd:
 		return onedrive.New(ctx, policy, m.settings, m.config, m.l, m.dep.CredManager())
+	case types.PolicyTypeYun139:
+		return yun139.New(ctx, policy, m.config, m.l)
+	case types.PolicyTypeLoadBalance:
+		// 负载均衡策略是复合策略，没有自己的 driver：实际文件总是落在被选中的子策略
+		// 上（见 fs.ResolveLoadBalancePolicy），因此这里出现 load_balance 说明调用方
+		// 漏做了解析。返回明确错误，避免继续按未知类型处理。
+		return nil, ErrLoadBalanceNotResolved
 	default:
 		return nil, ErrUnknownPolicyType
 	}

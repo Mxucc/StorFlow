@@ -1,0 +1,86 @@
+---
+import "../styles/global.css";
+import { absoluteURL, clampText, resolveOrigin } from "../lib/format";
+
+export interface Props {
+  /** 页面标题（不含站点名，Layout 会补上）。 */
+  title: string;
+  description?: string;
+  /** 当前页面路径，用于 canonical / og:url，例如 `/shop/demo`。 */
+  path: string;
+  /** 分享图（相对或绝对地址）。 */
+  image?: string;
+  type?: "website" | "product" | "profile";
+  /** 店铺主色，覆盖 CSS 变量 --primary。 */
+  primaryColor?: string;
+  /** 结构化数据（schema.org），支持单个或多个对象。 */
+  jsonLd?: Record<string, unknown> | Record<string, unknown>[];
+  noindex?: boolean;
+  siteTitle: string;
+  logo?: string;
+}
+
+const {
+  title,
+  description,
+  path,
+  image,
+  type = "website",
+  primaryColor,
+  jsonLd,
+  noindex = false,
+  siteTitle,
+  logo,
+} = Astro.props;
+
+const origin = resolveOrigin(Astro.request, Astro.url);
+const canonical = `${origin}${path === "/" ? "" : path}`;
+const fullTitle = path === "/" ? title : `${title} - ${siteTitle}`;
+const desc = clampText(description || `${siteTitle}：你的资源，不止能存。让资源流动，让价值发生。`);
+const ogImage = absoluteURL(image || "/static/img/shop/banner.jpg", origin);
+const jsonLdList = jsonLd ? (Array.isArray(jsonLd) ? jsonLd : [jsonLd]) : [];
+const themeColor = primaryColor || "#2f6bff";
+---
+
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>{fullTitle}</title>
+    <meta name="description" content={desc} />
+    <link rel="canonical" href={canonical} />
+    {noindex && <meta name="robots" content="noindex,follow" />}
+    {!noindex && <meta name="robots" content="index,follow,max-image-preview:large" />}
+    <meta name="theme-color" content={themeColor} />
+    <link rel="icon" href="/static/img/brand/favicon.ico" sizes="any" />
+    {logo && <link rel="apple-touch-icon" href={logo} />}
+
+    <meta property="og:type" content={type} />
+    <meta property="og:site_name" content={siteTitle} />
+    <meta property="og:title" content={fullTitle} />
+    <meta property="og:description" content={desc} />
+    <meta property="og:url" content={canonical} />
+    {ogImage && <meta property="og:image" content={ogImage} />}
+    {ogImage && <meta property="og:image:alt" content={title} />}
+    <meta name="twitter:card" content={ogImage ? "summary_large_image" : "summary"} />
+    <meta name="twitter:title" content={fullTitle} />
+    <meta name="twitter:description" content={desc} />
+    {ogImage && <meta name="twitter:image" content={ogImage} />}
+
+    {/* `<` 转义成 \u003c：JSON-LD 的内容来自卖家，一个 `</script>` 就能提前闭合标签。 */}
+    {
+      jsonLdList.map((item) => (
+        <script type="application/ld+json" set:html={JSON.stringify(item).replace(/</g, "\\u003c")} />
+      ))
+    }
+    {
+      primaryColor && (
+        <style set:html={`:root{--primary:${primaryColor};--primary-soft:${primaryColor}14;}`} />
+      )
+    }
+  </head>
+  <body>
+    <slot />
+  </body>
+</html>

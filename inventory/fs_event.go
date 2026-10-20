@@ -3,10 +3,10 @@ package inventory
 import (
 	"context"
 
-	"github.com/cloudreve/Cloudreve/v4/ent"
-	"github.com/cloudreve/Cloudreve/v4/ent/fsevent"
-	"github.com/cloudreve/Cloudreve/v4/ent/schema"
-	"github.com/cloudreve/Cloudreve/v4/pkg/conf"
+	"github.com/Mxucc/StorFlow/ent"
+	"github.com/Mxucc/StorFlow/ent/fsevent"
+	"github.com/Mxucc/StorFlow/ent/schema"
+	"github.com/Mxucc/StorFlow/pkg/conf"
 	"github.com/gofrs/uuid"
 	"github.com/samber/lo"
 )

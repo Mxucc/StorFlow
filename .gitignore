@@ -36,5 +36,11 @@ dist/
 data/
 tmp/
 .devcontainer/
-cloudreve
+/storflow
+/storflow-linux-*
 .DS_Store
+
+# Astro 公开站点（site/）构建产物与依赖
+site/node_modules/
+site/dist/
+site/.astro/

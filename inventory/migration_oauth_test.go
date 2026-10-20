@@ -5,9 +5,9 @@ import (
 	"path/filepath"
 	"testing"
 
-	"github.com/cloudreve/Cloudreve/v4/ent/enttest"
-	"github.com/cloudreve/Cloudreve/v4/ent/oauthclient"
-	"github.com/cloudreve/Cloudreve/v4/pkg/logging"
+	"github.com/Mxucc/StorFlow/ent/enttest"
+	"github.com/Mxucc/StorFlow/ent/oauthclient"
+	"github.com/Mxucc/StorFlow/pkg/logging"
 	"github.com/stretchr/testify/require"
 )
 
@@ -22,7 +22,7 @@ func TestBuiltinCLIOAuthMigration(t *testing.T) {
 	require.NoError(t, err)
 	cli, err := client.OAuthClient.Query().Where(oauthclient.GUID(OAuthClientCLIGUID)).Only(ctx)
 	require.NoError(t, err)
-	require.Equal(t, "Cloudreve CLI", cli.Name)
+	require.Equal(t, "StorFlow CLI", cli.Name)
 	require.Equal(t, OAuthClientCLISecret, cli.Secret)
 	require.Equal(t, []string{"http://127.0.0.1/callback"}, cli.RedirectUris)
 	require.Equal(t, desktop.Scopes, cli.Scopes)

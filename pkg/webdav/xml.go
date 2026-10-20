@@ -11,7 +11,7 @@ import (
 	"bytes"
 	"encoding/xml"
 	"fmt"
-	"github.com/cloudreve/Cloudreve/v4/pkg/filemanager/lock"
+	"github.com/Mxucc/StorFlow/pkg/filemanager/lock"
 	"io"
 	"net/http"
 	"time"
@@ -33,7 +33,7 @@ import (
 	// In the long term, this package should use the standard library's version
 	// only, and the internal fork deleted, once
 	// https://github.com/golang/go/issues/13400 is resolved.
-	ixml "github.com/cloudreve/Cloudreve/v4/pkg/webdav/internal/xml"
+	ixml "github.com/Mxucc/StorFlow/pkg/webdav/internal/xml"
 )
 
 // http://www.webdav.org/specs/rfc4918.html#ELEMENT_lockinfo

@@ -4,11 +4,11 @@ import (
 	"encoding/gob"
 	"time"
 
-	"github.com/cloudreve/Cloudreve/v4/ent"
-	"github.com/cloudreve/Cloudreve/v4/inventory"
-	"github.com/cloudreve/Cloudreve/v4/pkg/filemanager/fs"
-	"github.com/cloudreve/Cloudreve/v4/pkg/queue"
-	"github.com/cloudreve/Cloudreve/v4/pkg/setting"
+	"github.com/Mxucc/StorFlow/ent"
+	"github.com/Mxucc/StorFlow/inventory"
+	"github.com/Mxucc/StorFlow/pkg/filemanager/fs"
+	"github.com/Mxucc/StorFlow/pkg/queue"
+	"github.com/Mxucc/StorFlow/pkg/setting"
 )
 
 type ListShareResponse struct {
@@ -68,6 +68,7 @@ type GetUserResponse struct {
 	HashID       string       `json:"hash_id,omitempty"`
 	TwoFAEnabled bool         `json:"two_fa_enabled,omitempty"`
 	Capacity     *fs.Capacity `json:"capacity,omitempty"`
+	Points       int64        `json:"points"` // 积分余额（points_ledgers 账本求和）
 }
 
 type GetNodeResponse struct {

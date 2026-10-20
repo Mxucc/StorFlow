@@ -1,0 +1,352 @@
+---
+import Base from "../../../../layouts/Base.astro";
+import { getProductPreview, getSiteBasic, getStorefront, getStorefrontProduct } from "../../../../lib/api";
+import { absoluteURL, clampText, displayMoney, formatSize, resolveOrigin } from "../../../../lib/format";
+import { markdownToPlainText, renderMarkdown } from "../../../../lib/markdown";
+
+const { slug = "", id = "" } = Astro.params;
+
+const [basic, shopResult, productResult] = await Promise.all([
+  getSiteBasic(),
+  getStorefront(slug),
+  getStorefrontProduct(slug, id),
+]);
+
+const siteTitle = (basic.ok && basic.data?.title) || "StorFlow";
+const shop = shopResult.ok ? shopResult.data : undefined;
+const product = productResult.ok ? productResult.data : undefined;
+
+if (!product) {
+  Astro.response.status = productResult.status === 404 ? 404 : productResult.status === 429 ? 429 : 502;
+}
+
+// 文件夹预览对 SEO 有实际价值（描述里能看到具体内容），失败时静默降级。
+const previewResult = product ? await getProductPreview(slug, id) : undefined;
+const previewEntries = previewResult?.ok ? (previewResult.data ?? []).slice(0, 40) : [];
+
+const origin = resolveOrigin(Astro.request, Astro.url);
+
+// 商品介绍是 Markdown：教程、截图、演示视频。素材是卖家网盘文件的签名直链，
+// 因此服务端渲染时只需要把 Markdown 转成 HTML，图片/视频由浏览器直接拉取。
+const descriptionHTML = product ? renderMarkdown(product.description) : "";
+const assetVisibility = product?.description_visibility ?? "public";
+const hasEmbeddedAsset = /\/asset\//.test(product?.description ?? "");
+const assetNotice =
+  !hasEmbeddedAsset || assetVisibility === "public"
+    ? ""
+    : assetVisibility === "login"
+      ? "本页嵌入的图片与视频需要登录后查看。"
+      : "本页嵌入的图片与视频仅对已购买的用户可见。";
+
+const theme = shop?.theme ?? {};
+const primary = theme.primary_color || "#2f6bff";
+const shopPath = `/shop/${encodeURIComponent(slug)}`;
+const productPath = `${shopPath}/product/${encodeURIComponent(id)}`;
+const shopName = shop?.name || "网盘小店";
+const pageTitle = product ? `${product.name} - ${shopName}` : "商品不存在";
+const descriptionText = markdownToPlainText(product?.description);
+const pageDesc = product
+  ? clampText(
+      product.summary ||
+        descriptionText ||
+        `${shopName} 的在售商品「${product.name}」，${displayMoney(product.final_price ?? product.price)}，付款后自动交付只读文件夹。`,
+    )
+  : "该商品不存在或已下架。";
+
+const coverImage = product?.cover || "/static/img/shop/product.jpg";
+const price = product?.final_price ?? product?.price ?? 0;
+const originalPrice = product?.price ?? 0;
+
+const jsonLd: Record<string, unknown>[] = [];
+if (product) {
+  jsonLd.push(
+    {
+      "@context": "https://schema.org",
+      "@type": "Product",
+      name: product.name,
+      description: clampText(product.summary || descriptionText || product.name, 500),
+      image: [absoluteURL(coverImage, origin)],
+      sku: product.id,
+      category: "数字商品",
+      brand: { "@type": "Brand", name: shopName },
+      url: `${origin}${productPath}`,
+      offers: {
+        "@type": "Offer",
+        url: `${origin}${productPath}`,
+        priceCurrency: "CNY",
+        price: (price / 100).toFixed(2),
+        availability: "https://schema.org/InStock",
+        itemCondition: "https://schema.org/NewCondition",
+        seller: { "@type": "Organization", name: shopName, url: `${origin}${shopPath}` },
+      },
+    },
+    {
+      "@context": "https://schema.org",
+      "@type": "BreadcrumbList",
+      itemListElement: [
+        { "@type": "ListItem", position: 1, name: siteTitle, item: origin },
+        { "@type": "ListItem", position: 2, name: shopName, item: `${origin}${shopPath}` },
+        { "@type": "ListItem", position: 3, name: product.name, item: `${origin}${productPath}` },
+      ],
+    },
+  );
+}
+---
+
+{
+  product ? (
+    <Base
+      title={pageTitle}
+      description={pageDesc}
+      path={productPath}
+      siteTitle={siteTitle}
+      image={coverImage}
+      type="product"
+      primaryColor={primary}
+      jsonLd={jsonLd}
+      logo={absoluteURL(theme.logo || shop?.avatar || "/static/img/shop/logo.webp", origin)}
+    >
+      <header class="site-header">
+        <div class="container site-header__inner">
+          <a class="brand" href={shopPath}>
+            <img src={theme.logo || shop?.avatar || "/static/img/shop/logo.webp"} alt={shopName} width="32" height="32" />
+            <span>{shopName}</span>
+          </a>
+          <nav class="site-nav" aria-label="导航">
+            <a href={shopPath}>全部商品</a>
+            <a href="/">了解本站</a>
+          </nav>
+          <div class="header-actions">
+            <a class="btn btn--ghost" href="/session">登录</a>
+            <a class="btn btn--primary" href={`/session/signup?redirect=${encodeURIComponent(productPath)}`}>免费注册</a>
+          </div>
+        </div>
+      </header>
+
+      <main class="shop-body">
+        <div class="container">
+          <nav class="crumbs" aria-label="面包屑">
+            <a href={shopPath}>{shopName}</a>
+            <span aria-hidden="true">/</span>
+            <span>{product.name}</span>
+          </nav>
+
+          <div class="product-layout">
+            <div class="product-main">
+              <div class="product-cover">
+                <img src={coverImage} alt={product.name} width="960" height="540" loading="eager" />
+              </div>
+
+              <h1 class="product-title">{product.name}</h1>
+
+              {product.tags && product.tags.length > 0 && (
+                <div class="tag-row">
+                  {product.tags.map((tag) => (
+                    <span class="tag">{tag}</span>
+                  ))}
+                </div>
+              )}
+
+              {product.summary && <p class="muted">{product.summary}</p>}
+
+              <section>
+                <h2 style="font-size:17px;margin-bottom:10px">商品描述</h2>
+                {descriptionHTML ? (
+                  <>
+                    <div class="product-desc markdown-body" set:html={descriptionHTML} />
+                    {assetNotice && (
+                      <p class="muted" style="font-size:12px;margin-top:8px">
+                        {assetNotice}
+                      </p>
+                    )}
+                  </>
+                ) : (
+                  <p class="product-desc">{product.summary || "卖家暂未填写详细描述。"}</p>
+                )}
+              </section>
+
+              {product.can_preview && previewEntries.length > 0 && (
+                <section>
+                  <h2 style="font-size:17px;margin-bottom:10px">内容预览</h2>
+                  <ul class="file-list">
+                    {previewEntries.map((entry) => (
+                      <li>
+                        <span aria-hidden="true">{entry.type === "folder" ? "📁" : "📄"}</span>
+                        <span style="overflow-wrap:anywhere">{entry.name}</span>
+                        <span class="file-meta">
+                          {entry.type === "folder" ? "文件夹" : formatSize(entry.size)}
+                        </span>
+                      </li>
+                    ))}
+                  </ul>
+                  <p class="muted" style="font-size:12px;margin-top:8px">
+                    仅展示部分内容，购买后可在自己的网盘中查看完整文件夹。
+                  </p>
+                </section>
+              )}
+
+              {!product.can_preview && (
+                <p class="muted" style="font-size:13px">
+                  该商品未开放公开预览，购买后可在「我的购买」中查看内容。
+                </p>
+              )}
+            </div>
+
+            <aside class="buy-panel">
+              <div class="buy-panel__price">
+                <span class="price">{displayMoney(price)}</span>
+                {price < originalPrice && <span class="price--strike">{displayMoney(originalPrice)}</span>}
+              </div>
+              <p class="buy-panel__hint">已售 {product.sales ?? 0} · 付款后自动交付到你的网盘</p>
+
+              <button
+                class="btn btn--primary btn--block"
+                type="button"
+                data-buy
+                data-product-id={product.id}
+                data-login-url={`/session?redirect=${encodeURIComponent(productPath)}`}
+              >
+                立即购买
+              </button>
+              <p class="buy-error" data-buy-error hidden></p>
+
+              <p class="buy-panel__hint">
+                购买前请先 <a href={`/session?redirect=${encodeURIComponent(productPath)}`} style="color:var(--primary)">登录账号</a>。
+                支付完成后内容会出现在「我的购买」里，可随时重新下载。
+              </p>
+            </aside>
+          </div>
+        </div>
+      </main>
+
+      <footer class="site-footer">
+        <div class="container site-footer__inner">
+          <span>{theme.footer || `${shopName} · 由 ${siteTitle} 提供`}</span>
+          <nav class="site-nav" aria-label="页脚导航" style="margin:0">
+            <a href={shopPath}>返回小店</a>
+            <a href="/">首页</a>
+          </nav>
+        </div>
+      </footer>
+
+      <script>
+        // 购买按钮：登录态存在 localStorage（与 SPA 共用同一份 session 结构），
+        // 因此这里只做「读 token → 下单 → 跳到订单页」，不复制任何结算 UI。
+        const button = document.querySelector("[data-buy]");
+        const errorBox = document.querySelector("[data-buy-error]");
+        const SESSION_KEY = "storflow_session";
+
+        const readToken = () => {
+          try {
+            const raw = localStorage.getItem(SESSION_KEY);
+            if (!raw) return undefined;
+            const state = JSON.parse(raw);
+            const current = state.current;
+            if (!current || !state.sessions || !state.sessions[current]) return undefined;
+            const token = state.sessions[current].token;
+            if (!token || !token.access_token) return undefined;
+            const expires = token.access_expires ? Date.parse(token.access_expires) : NaN;
+            if (!Number.isNaN(expires) && expires < Date.now()) return undefined;
+            return token.access_token;
+          } catch {
+            return undefined;
+          }
+        };
+
+        const showError = (message) => {
+          if (!errorBox) return;
+          errorBox.textContent = message;
+          errorBox.hidden = false;
+        };
+
+        if (button) {
+          const productId = button.getAttribute("data-product-id");
+          const loginUrl = button.getAttribute("data-login-url") || "/session";
+
+          // 已登录时顺手确认「是否已购买」，避免重复下单。
+          const token = readToken();
+          if (token && productId) {
+            const info = document.createElement("a");
+            info.className = "btn btn--ghost btn--block";
+            info.href = `/shop/purchases`;
+            info.textContent = "前往我的购买";
+            info.hidden = true;
+            button.insertAdjacentElement("afterend", info);
+
+            fetch(`/api/v4/shop/store/${encodeURIComponent(location.pathname.split("/")[2] || "")}/product/${encodeURIComponent(productId)}`, {
+              headers: { Authorization: `Bearer ${token}`, Accept: "application/json" },
+            })
+              .then((res) => res.json())
+              .then((body) => {
+                if (body && body.code === 0 && body.data && body.data.owned) {
+                  button.hidden = true;
+                  info.hidden = false;
+                }
+              })
+              .catch(() => undefined);
+          }
+
+          button.addEventListener("click", async () => {
+            const accessToken = readToken();
+            if (!accessToken) {
+              location.href = loginUrl;
+              return;
+            }
+            button.setAttribute("disabled", "true");
+            if (errorBox) errorBox.hidden = true;
+            try {
+              const res = await fetch("/api/v4/shop/order", {
+                method: "POST",
+                headers: {
+                  "Content-Type": "application/json",
+                  Authorization: `Bearer ${accessToken}`,
+                },
+                body: JSON.stringify({ kind: "product", object_id: productId }),
+              });
+              const body = await res.json();
+              if (body && body.code === 0 && body.data && body.data.order_no) {
+                location.href = `/shop/order/${encodeURIComponent(body.data.order_no)}`;
+                return;
+              }
+              if (body && (body.code === 401 || body.code === 40001)) {
+                showError(body.msg || "请先登录后再购买。");
+              } else {
+                showError((body && body.msg) || "下单失败，请稍后重试。");
+              }
+            } catch {
+              showError("网络异常，请稍后重试。");
+            } finally {
+              button.removeAttribute("disabled");
+            }
+          });
+        }
+      </script>
+    </Base>
+  ) : (
+    <Base title={pageTitle} description={pageDesc} path={productPath} siteTitle={siteTitle} noindex={true}>
+      <header class="site-header">
+        <div class="container site-header__inner">
+          <a class="brand" href="/">
+            <img src="/static/img/shop/logo.webp" alt={siteTitle} width="32" height="32" />
+            <span>{siteTitle}</span>
+          </a>
+        </div>
+      </header>
+      <main>
+        <div class="container" style="padding:96px 24px">
+          <div class="empty-state">
+            <h1 style="font-size:24px;margin-bottom:12px">
+              {productResult.status === 429 ? "访问过于频繁" : "商品不存在"}
+            </h1>
+            <p class="muted" style="margin-bottom:20px">
+              {productResult.status === 429 ? "该页面访问过于频繁，请稍后重试。" : "该商品不存在、已下架，或链接有误。"}
+            </p>
+            <a class="btn btn--primary" href={shopPath}>
+              返回小店
+            </a>
+          </div>
+        </div>
+      </main>
+    </Base>
+  )
+}

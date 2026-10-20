@@ -7,15 +7,15 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/cloudreve/Cloudreve/v4/ent"
-	"github.com/cloudreve/Cloudreve/v4/inventory/types"
-	"github.com/cloudreve/Cloudreve/v4/pkg/cluster/routes"
-	"github.com/cloudreve/Cloudreve/v4/pkg/filemanager/driver"
-	"github.com/cloudreve/Cloudreve/v4/pkg/filemanager/fs"
-	"github.com/cloudreve/Cloudreve/v4/pkg/filemanager/fs/dbfs"
-	"github.com/cloudreve/Cloudreve/v4/pkg/filemanager/manager/entitysource"
-	"github.com/cloudreve/Cloudreve/v4/pkg/hashid"
-	"github.com/cloudreve/Cloudreve/v4/pkg/serializer"
+	"github.com/Mxucc/StorFlow/ent"
+	"github.com/Mxucc/StorFlow/inventory/types"
+	"github.com/Mxucc/StorFlow/pkg/cluster/routes"
+	"github.com/Mxucc/StorFlow/pkg/filemanager/driver"
+	"github.com/Mxucc/StorFlow/pkg/filemanager/fs"
+	"github.com/Mxucc/StorFlow/pkg/filemanager/fs/dbfs"
+	"github.com/Mxucc/StorFlow/pkg/filemanager/manager/entitysource"
+	"github.com/Mxucc/StorFlow/pkg/hashid"
+	"github.com/Mxucc/StorFlow/pkg/serializer"
 	"github.com/gofrs/uuid"
 )
 
@@ -43,7 +43,7 @@ type (
 		RecycleEntities(ctx context.Context, force bool, entityIDs ...int) error
 		// ListPhysical lists physical files in a path
 		ListPhysical(ctx context.Context, path string, policyID int, recursive bool, progress driver.ListProgressFunc) ([]fs.PhysicalObject, error)
-		// ImportPhysical imports a physical file to a Cloudreve file
+		// ImportPhysical imports a physical file to a StorFlow file
 		ImportPhysical(ctx context.Context, dst *fs.URI, policyId int, src fs.PhysicalObject, completeHook bool) error
 	}
 	DirectLink struct {
@@ -81,6 +81,24 @@ func (m *manager) GetDirectLink(ctx context.Context, urls ...*fs.URI) ([]DirectL
 		}
 
 		if file.Type() != types.FileTypeFile {
+			// 目录直链（Pro）：目录没有单文件实体，只能生成跳转链接，
+			// 访问 /f/:id/:name 时由服务端现场打包 ZIP 返回。
+			if file.Type() == types.FileTypeFolder && m.user.Edges.Group.Settings != nil &&
+				m.user.Edges.Group.Settings.FolderDirectLink {
+				reuseExisting := !m.user.Edges.Group.Permissions.Enabled(int(types.GroupPermissionUniqueRedirectDirectLink))
+				link, err := fileClient.CreateDirectLink(ctx, file.ID(), file.Name(), m.user.Edges.Group.SpeedLimit, reuseExisting)
+				if err != nil {
+					ae.Add(url.String(), err)
+					continue
+				}
+
+				res = append(res, DirectLink{
+					File: file,
+					Url:  routes.MasterDirectLink(siteUrl, hashid.EncodeSourceLinkID(m.hasher, link.ID), link.Name).String(),
+				})
+				continue
+			}
+
 			ae.Add(url.String(), fs.ErrEntityNotExist)
 			continue
 		}

@@ -1,14 +1,17 @@
 package controllers
 
 import (
-	"github.com/cloudreve/Cloudreve/v4/application/dependency"
-	"github.com/cloudreve/Cloudreve/v4/ent"
-	"github.com/cloudreve/Cloudreve/v4/inventory"
-	"github.com/cloudreve/Cloudreve/v4/pkg/hashid"
-	"github.com/cloudreve/Cloudreve/v4/pkg/serializer"
-	"github.com/cloudreve/Cloudreve/v4/pkg/util"
-	"github.com/cloudreve/Cloudreve/v4/service/share"
-	"github.com/cloudreve/Cloudreve/v4/service/user"
+	"errors"
+	"net/http"
+
+	"github.com/Mxucc/StorFlow/application/dependency"
+	"github.com/Mxucc/StorFlow/ent"
+	"github.com/Mxucc/StorFlow/inventory"
+	"github.com/Mxucc/StorFlow/pkg/hashid"
+	"github.com/Mxucc/StorFlow/pkg/serializer"
+	"github.com/Mxucc/StorFlow/pkg/util"
+	"github.com/Mxucc/StorFlow/service/share"
+	"github.com/Mxucc/StorFlow/service/user"
 	"github.com/gin-gonic/gin"
 	"github.com/samber/lo"
 )
@@ -189,7 +192,7 @@ func UserSignOut(c *gin.Context) {
 func UserMe(c *gin.Context) {
 	dep := dependency.FromContext(c)
 	c.JSON(200, serializer.Response{
-		Data: user.BuildUser(inventory.UserFromContext(c), dep.HashIDEncoder()),
+		Data: user.BuildUserWithGroupPins(c, dep, inventory.UserFromContext(c), dep.HashIDEncoder()),
 	})
 }
 
@@ -353,6 +356,72 @@ func UserPrepareLogin(c *gin.Context) {
 	}
 
 	c.JSON(200, serializer.Response{Data: res})
+}
+
+// SSOConfig 返回登录页所需的 SSO（OIDC）公开配置
+func SSOConfig(c *gin.Context) {
+	service := &user.SSOConfigService{}
+	res, err := service.Config(c)
+	if err != nil {
+		c.JSON(200, serializer.Err(c, err))
+		c.Abort()
+		return
+	}
+
+	c.JSON(200, serializer.Response{Data: res})
+}
+
+// OIDCAuthorize 生成 state / nonce 并跳转到 IdP 的授权端点
+func OIDCAuthorize(c *gin.Context) {
+	service := ParametersFromContext[*user.OIDCAuthorizeService](c, user.OIDCAuthorizeParamCtx{})
+	if err := service.Authorize(c); err != nil {
+		c.JSON(200, serializer.Err(c, err))
+		c.Abort()
+		return
+	}
+}
+
+// redirectSSOCallbackError 把 SSO（OIDC / QQ）回调错误统一转成前端登录页的 302 目标
+func redirectSSOCallbackError(c *gin.Context, err error) {
+	var callbackErr *user.OIDCCallbackError
+	if !errors.As(err, &callbackErr) {
+		callbackErr = user.NewOIDCCallbackError(serializer.CodeInternalSetting, err.Error())
+	}
+	c.Redirect(http.StatusFound, callbackErr.LoginLocation())
+}
+
+// OIDCCallback 处理 IdP 回调，成功与失败都以 302 返回（前端路由负责消费结果）
+func OIDCCallback(c *gin.Context) {
+	service := ParametersFromContext[*user.OIDCCallbackService](c, user.OIDCCallbackParamCtx{})
+	res, err := service.Callback(c)
+	if err != nil {
+		redirectSSOCallbackError(c, err)
+		return
+	}
+
+	c.Redirect(http.StatusFound, res.Location)
+}
+
+// QQAuthorize 生成 state 并跳转到 QQ 的授权端点
+func QQAuthorize(c *gin.Context) {
+	service := ParametersFromContext[*user.QQAuthorizeService](c, user.QQAuthorizeParamCtx{})
+	if err := service.Authorize(c); err != nil {
+		c.JSON(200, serializer.Err(c, err))
+		c.Abort()
+		return
+	}
+}
+
+// QQCallback 处理 QQ 回调，成功与失败都以 302 返回（复用 OIDC 的前端回调路由）
+func QQCallback(c *gin.Context) {
+	service := ParametersFromContext[*user.QQCallbackService](c, user.QQCallbackParamCtx{})
+	res, err := service.Callback(c)
+	if err != nil {
+		redirectSSOCallbackError(c, err)
+		return
+	}
+
+	c.Redirect(http.StatusFound, res.Location)
 }
 
 // UserSearch Search user by keyword

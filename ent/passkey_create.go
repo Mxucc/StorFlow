@@ -11,8 +11,8 @@ import (
 	"entgo.io/ent/dialect/sql"
 	"entgo.io/ent/dialect/sql/sqlgraph"
 	"entgo.io/ent/schema/field"
-	"github.com/cloudreve/Cloudreve/v4/ent/passkey"
-	"github.com/cloudreve/Cloudreve/v4/ent/user"
+	"github.com/Mxucc/StorFlow/ent/passkey"
+	"github.com/Mxucc/StorFlow/ent/user"
 	"github.com/go-webauthn/webauthn/webauthn"
 )
 

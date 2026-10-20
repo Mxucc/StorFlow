@@ -9,16 +9,16 @@ import (
 	"path/filepath"
 	"time"
 
-	"github.com/cloudreve/Cloudreve/v4/ent"
-	"github.com/cloudreve/Cloudreve/v4/pkg/auth"
-	"github.com/cloudreve/Cloudreve/v4/pkg/boolset"
-	"github.com/cloudreve/Cloudreve/v4/pkg/conf"
-	"github.com/cloudreve/Cloudreve/v4/pkg/filemanager/driver"
-	"github.com/cloudreve/Cloudreve/v4/pkg/filemanager/fs"
-	"github.com/cloudreve/Cloudreve/v4/pkg/logging"
-	"github.com/cloudreve/Cloudreve/v4/pkg/request"
-	"github.com/cloudreve/Cloudreve/v4/pkg/serializer"
-	"github.com/cloudreve/Cloudreve/v4/pkg/util"
+	"github.com/Mxucc/StorFlow/ent"
+	"github.com/Mxucc/StorFlow/pkg/auth"
+	"github.com/Mxucc/StorFlow/pkg/boolset"
+	"github.com/Mxucc/StorFlow/pkg/conf"
+	"github.com/Mxucc/StorFlow/pkg/filemanager/driver"
+	"github.com/Mxucc/StorFlow/pkg/filemanager/fs"
+	"github.com/Mxucc/StorFlow/pkg/logging"
+	"github.com/Mxucc/StorFlow/pkg/request"
+	"github.com/Mxucc/StorFlow/pkg/serializer"
+	"github.com/Mxucc/StorFlow/pkg/util"
 )
 
 const (
@@ -229,9 +229,9 @@ func (handler *Driver) Token(ctx context.Context, uploadSession *fs.UploadSessio
 	} else {
 		// When disk pre-allocation is disabled, concurrent chunk uploads must be 1
 		// to avoid disk fragmentation and write contention on local storage.
- 		settings := *handler.Policy.Settings
- 		settings.ChunkConcurrency = 1
- 		handler.Policy.Settings = &settings
+		settings := *handler.Policy.Settings
+		settings.ChunkConcurrency = 1
+		handler.Policy.Settings = &settings
 	}
 
 	return &fs.UploadCredential{

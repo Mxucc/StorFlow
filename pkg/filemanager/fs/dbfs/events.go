@@ -5,10 +5,10 @@ import (
 	"path"
 	"strings"
 
-	"github.com/cloudreve/Cloudreve/v4/pkg/auth/requestinfo"
-	"github.com/cloudreve/Cloudreve/v4/pkg/filemanager/eventhub"
-	"github.com/cloudreve/Cloudreve/v4/pkg/filemanager/fs"
-	"github.com/cloudreve/Cloudreve/v4/pkg/hashid"
+	"github.com/Mxucc/StorFlow/pkg/auth/requestinfo"
+	"github.com/Mxucc/StorFlow/pkg/filemanager/eventhub"
+	"github.com/Mxucc/StorFlow/pkg/filemanager/fs"
+	"github.com/Mxucc/StorFlow/pkg/hashid"
 	"github.com/samber/lo"
 )
 

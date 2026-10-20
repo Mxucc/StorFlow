@@ -6,7 +6,7 @@ import (
 	"net/http"
 	"testing"
 
-	"github.com/cloudreve/Cloudreve/v4/pkg/filemanager/fs"
+	"github.com/Mxucc/StorFlow/pkg/filemanager/fs"
 )
 
 type copyMoveOperationsStub struct {
@@ -59,8 +59,8 @@ func TestParseOverwrite(t *testing.T) {
 }
 
 func TestPerformCopyMove(t *testing.T) {
-	src := mustWebDAVTestURI(t, "cloudreve://my/source.temp")
-	dst := mustWebDAVTestURI(t, "cloudreve://my/source.txt")
+	src := mustWebDAVTestURI(t, "storflow://my/source.temp")
+	dst := mustWebDAVTestURI(t, "storflow://my/source.txt")
 	dstFolder := dst.DirUri()
 
 	t.Run("overwrite disabled", func(t *testing.T) {

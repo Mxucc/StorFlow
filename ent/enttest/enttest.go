@@ -5,12 +5,12 @@ package enttest
 import (
 	"context"
 
-	"github.com/cloudreve/Cloudreve/v4/ent"
+	"github.com/Mxucc/StorFlow/ent"
 	// required by schema hooks.
-	_ "github.com/cloudreve/Cloudreve/v4/ent/runtime"
+	_ "github.com/Mxucc/StorFlow/ent/runtime"
 
 	"entgo.io/ent/dialect/sql/schema"
-	"github.com/cloudreve/Cloudreve/v4/ent/migrate"
+	"github.com/Mxucc/StorFlow/ent/migrate"
 )
 
 type (

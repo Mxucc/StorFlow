@@ -1,8 +1,8 @@
 package controllers
 
 import (
-	"github.com/cloudreve/Cloudreve/v4/pkg/serializer"
-	"github.com/cloudreve/Cloudreve/v4/service/setting"
+	"github.com/Mxucc/StorFlow/pkg/serializer"
+	"github.com/Mxucc/StorFlow/service/setting"
 	"github.com/gin-gonic/gin"
 )
 

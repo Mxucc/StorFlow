@@ -2,26 +2,105 @@ package explorer
 
 import (
 	"encoding/gob"
-	"github.com/cloudreve/Cloudreve/v4/pkg/hashid"
+	"github.com/Mxucc/StorFlow/pkg/hashid"
 	"time"
 
-	"github.com/cloudreve/Cloudreve/v4/application/dependency"
-	"github.com/cloudreve/Cloudreve/v4/ent"
-	"github.com/cloudreve/Cloudreve/v4/ent/task"
-	"github.com/cloudreve/Cloudreve/v4/inventory"
-	"github.com/cloudreve/Cloudreve/v4/inventory/types"
-	"github.com/cloudreve/Cloudreve/v4/pkg/downloader"
-	"github.com/cloudreve/Cloudreve/v4/pkg/filemanager/fs"
-	"github.com/cloudreve/Cloudreve/v4/pkg/filemanager/fs/dbfs"
-	"github.com/cloudreve/Cloudreve/v4/pkg/filemanager/manager"
-	"github.com/cloudreve/Cloudreve/v4/pkg/filemanager/workflows"
-	"github.com/cloudreve/Cloudreve/v4/pkg/queue"
-	"github.com/cloudreve/Cloudreve/v4/pkg/serializer"
+	"github.com/Mxucc/StorFlow/application/dependency"
+	"github.com/Mxucc/StorFlow/ent"
+	"github.com/Mxucc/StorFlow/ent/task"
+	"github.com/Mxucc/StorFlow/inventory"
+	"github.com/Mxucc/StorFlow/inventory/types"
+	"github.com/Mxucc/StorFlow/pkg/downloader"
+	"github.com/Mxucc/StorFlow/pkg/filemanager/fs"
+	"github.com/Mxucc/StorFlow/pkg/filemanager/fs/dbfs"
+	"github.com/Mxucc/StorFlow/pkg/filemanager/manager"
+	"github.com/Mxucc/StorFlow/pkg/filemanager/workflows"
+	"github.com/Mxucc/StorFlow/pkg/queue"
+	"github.com/Mxucc/StorFlow/pkg/serializer"
 	"github.com/gin-gonic/gin"
 	"github.com/gofrs/uuid"
 	"github.com/samber/lo"
 	"golang.org/x/tools/container/intsets"
 )
+
+
+// resolveNodeSelection 解析并校验用户显式选择的处理节点（Pro: 可用节点 / 允许选择节点）。
+// 未指定节点时返回用户组的可用节点白名单，任务会按权重在白名单内分配节点。
+func resolveNodeSelection(c *gin.Context, user *ent.User, nodeIDHash string) (workflows.NodeSelection, error) {
+	sel := workflows.NodeSelection{}
+	if user != nil && user.Edges.Group != nil && user.Edges.Group.Settings != nil {
+		sel.AllowedNodes = user.Edges.Group.Settings.AllowedNodes
+	}
+
+	if nodeIDHash == "" {
+		return sel, nil
+	}
+
+	if user == nil || user.Edges.Group == nil || user.Edges.Group.Settings == nil ||
+		!user.Edges.Group.Settings.AllowSelectNode {
+		return sel, serializer.NewError(serializer.CodeGroupNotAllowed,
+			"Your group is not allowed to select the processing node", nil)
+	}
+
+	dep := dependency.FromContext(c)
+	nodeID, err := dep.HashIDEncoder().Decode(nodeIDHash, hashid.NodeID)
+	if err != nil {
+		return sel, serializer.NewError(serializer.CodeParamErr, "Unknown node ID", err)
+	}
+
+	if len(sel.AllowedNodes) > 0 && !lo.Contains(sel.AllowedNodes, nodeID) {
+		return sel, serializer.NewError(serializer.CodeGroupNotAllowed,
+			"The selected node is not available for your group", nil)
+	}
+
+	sel.NodeID = nodeID
+	return sel, nil
+}
+// NodeResponse 用户可选的可用节点（Pro: 允许选择节点）。
+type NodeResponse struct {
+	ID   string `json:"id"`
+	Name string `json:"name"`
+}
+
+type ListAvailableNodesResponse struct {
+	Nodes []*NodeResponse `json:"nodes"`
+}
+
+// ListAvailableNodes 返回用户组可选的可用节点列表。
+// 未开启「允许选择节点」时返回空列表，前端据此隐藏节点选择器。
+func ListAvailableNodes(c *gin.Context) (*ListAvailableNodesResponse, error) {
+	dep := dependency.FromContext(c)
+	user := inventory.UserFromContext(c)
+	res := &ListAvailableNodesResponse{Nodes: make([]*NodeResponse, 0)}
+
+	var allowed []int
+	allowSelect := false
+	if user != nil && user.Edges.Group != nil && user.Edges.Group.Settings != nil {
+		allowed = user.Edges.Group.Settings.AllowedNodes
+		allowSelect = user.Edges.Group.Settings.AllowSelectNode
+	}
+	if !allowSelect {
+		return res, nil
+	}
+
+	nodes, err := dep.NodeClient().ListActiveNodes(c, nil)
+	if err != nil {
+		return nil, serializer.NewError(serializer.CodeDBError, "Failed to list nodes", err)
+	}
+
+	encoder := dep.HashIDEncoder()
+	for _, node := range nodes {
+		if len(allowed) > 0 && !lo.Contains(allowed, node.ID) {
+			continue
+		}
+		res.Nodes = append(res.Nodes, &NodeResponse{
+			ID:   hashid.EncodeNodeID(encoder, node.ID),
+			Name: node.Name,
+		})
+	}
+
+	return res, nil
+}
 
 // ItemMoveService 处理多文件/目录移动
 type ItemMoveService struct {
@@ -74,6 +153,8 @@ type (
 		Src     []string `json:"src"`
 		SrcFile string   `json:"src_file"`
 		Dst     string   `json:"dst" binding:"required"`
+		// NodeID 用户显式选择的处理节点（hash id，Pro: 允许选择节点）。
+		NodeID string `json:"node_id"`
 	}
 	CreateDownloadParamCtx struct{}
 )
@@ -129,6 +210,11 @@ func (service *DownloadWorkflowService) CreateDownloadTask(c *gin.Context) ([]*T
 		}
 	}
 
+	// 处理节点选择（Pro: 可用节点 / 允许选择节点）
+	sel, err := resolveNodeSelection(c, user, service.NodeID)
+	if err != nil {
+		return nil, err
+	}
 	// batch creating tasks
 	ae := serializer.NewAggregateError()
 	tasks := make([]queue.Task, 0, len(service.Src))
@@ -137,7 +223,7 @@ func (service *DownloadWorkflowService) CreateDownloadTask(c *gin.Context) ([]*T
 			continue
 		}
 
-		t, err := workflows.NewRemoteDownloadTask(c, src, service.SrcFile, service.Dst)
+		t, err := workflows.NewRemoteDownloadTask(c, src, service.SrcFile, service.Dst, sel)
 		if err != nil {
 			ae.Add(src, err)
 			continue
@@ -151,7 +237,7 @@ func (service *DownloadWorkflowService) CreateDownloadTask(c *gin.Context) ([]*T
 	}
 
 	if service.SrcFile != "" {
-		t, err := workflows.NewRemoteDownloadTask(c, "", service.SrcFile, service.Dst)
+		t, err := workflows.NewRemoteDownloadTask(c, "", service.SrcFile, service.Dst, sel)
 		if err != nil {
 			ae.Add(service.SrcFile, err)
 		}
@@ -175,6 +261,8 @@ type (
 		Encoding string   `json:"encoding"`
 		Password string   `json:"password"`
 		FileMask []string `json:"file_mask"`
+		// NodeID 用户显式选择的处理节点（hash id，Pro: 允许选择节点）。
+		NodeID string `json:"node_id"`
 	}
 	CreateArchiveParamCtx struct{}
 )
@@ -205,7 +293,12 @@ func (service *ArchiveWorkflowService) CreateExtractTask(c *gin.Context) (*TaskR
 	}
 
 	// Create task
-	t, err := workflows.NewExtractArchiveTask(c, service.Src[0], service.Dst, service.Encoding, service.Password, service.FileMask)
+	sel, err := resolveNodeSelection(c, user, service.NodeID)
+	if err != nil {
+		return nil, err
+	}
+
+	t, err := workflows.NewExtractArchiveTask(c, service.Src[0], service.Dst, service.Encoding, service.Password, service.FileMask, sel)
 	if err != nil {
 		return nil, serializer.NewError(serializer.CodeCreateTaskError, "Failed to create task", err)
 	}
@@ -249,7 +342,12 @@ func (service *ArchiveWorkflowService) CreateCompressTask(c *gin.Context) (*Task
 	m.OnUploadFailed(c, session)
 
 	// Create task
-	t, err := workflows.NewCreateArchiveTask(c, service.Src, service.Dst)
+	sel, err := resolveNodeSelection(c, user, service.NodeID)
+	if err != nil {
+		return nil, err
+	}
+
+	t, err := workflows.NewCreateArchiveTask(c, service.Src, service.Dst, sel)
 	if err != nil {
 		return nil, serializer.NewError(serializer.CodeCreateTaskError, "Failed to create task", err)
 	}
@@ -301,6 +399,57 @@ func (service *ImportWorkflowService) CreateImportTask(c *gin.Context) (*TaskRes
 
 	// Create task
 	t, err := workflows.NewImportTask(c, owner, service.Src, service.Recursive, dst.Join(service.Dst).String(), service.PolicyID)
+	if err != nil {
+		return nil, serializer.NewError(serializer.CodeCreateTaskError, "Failed to create task", err)
+	}
+
+	if err := dep.IoIntenseQueue(c).QueueTask(c, t); err != nil {
+		return nil, serializer.NewError(serializer.CodeCreateTaskError, "Failed to queue task", err)
+	}
+
+	return BuildTaskResponse(t, nil, hasher), nil
+}
+
+type (
+	RelocateWorkflowService struct {
+		// Src / FileIDs 二选一；gin 的 required_without + min 组合会误伤（空字段仍触发 min），
+		// 因此去掉 binding，改为服务内手工校验
+		Src         []string `json:"src"`
+		FileIDs     []int    `json:"file_ids"`
+		DstPolicyID int      `json:"dst_policy_id" binding:"required"`
+	}
+	CreateRelocateParamCtx struct{}
+)
+
+func (service *RelocateWorkflowService) CreateRelocateTask(c *gin.Context) (*TaskResponse, error) {
+	dep := dependency.FromContext(c)
+	user := inventory.UserFromContext(c)
+	hasher := dep.HashIDEncoder()
+	// Relocating files is either an administrator action or a permission that a
+	// group may grant to its members (Pro: 存储策略转移). The task itself runs as
+	// the requesting user, so a member can only move their own files.
+	group := user.Edges.Group
+	if group == nil {
+		return nil, serializer.NewError(serializer.CodeGroupNotAllowed, "Group permission denied", nil)
+	}
+	if !group.Permissions.Enabled(int(types.GroupPermissionIsAdmin)) {
+		if !group.Permissions.Enabled(int(types.GroupPermissionMigratePolicy)) {
+			return nil, serializer.NewError(serializer.CodeGroupNotAllowed, "Group permission denied", nil)
+		}
+		// 迁移目的地必须落在用户组的可用存储策略范围内：既不能绕过用户组的存储
+		// 策略限制，也不会因为组配置了多个可用策略而互相冲突。
+		allowed := types.AllowedStoragePolicies(group.Settings, group.StoragePolicyID)
+		if len(allowed) > 0 && !lo.Contains(allowed, service.DstPolicyID) {
+			return nil, serializer.NewError(serializer.CodeGroupNotAllowed,
+				"You can only relocate files to the storage policies available for your group", nil)
+		}
+	}
+
+	if len(service.Src) == 0 && len(service.FileIDs) == 0 {
+		return nil, serializer.NewError(serializer.CodeParamErr, "Src 或 FileIDs 至少提供一个", nil)
+	}
+
+	t, err := workflows.NewRelocateTask(c, user, service.Src, service.FileIDs, service.DstPolicyID)
 	if err != nil {
 		return nil, serializer.NewError(serializer.CodeCreateTaskError, "Failed to create task", err)
 	}

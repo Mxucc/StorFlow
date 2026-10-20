@@ -4,16 +4,17 @@ import (
 	"context"
 	"fmt"
 
-	"github.com/cloudreve/Cloudreve/v4/application/dependency"
-	"github.com/cloudreve/Cloudreve/v4/ent"
-	"github.com/cloudreve/Cloudreve/v4/ent/user"
-	"github.com/cloudreve/Cloudreve/v4/inventory"
-	"github.com/cloudreve/Cloudreve/v4/pkg/auth"
-	"github.com/cloudreve/Cloudreve/v4/pkg/cluster/routes"
-	"github.com/cloudreve/Cloudreve/v4/pkg/email"
-	"github.com/cloudreve/Cloudreve/v4/pkg/hashid"
-	"github.com/cloudreve/Cloudreve/v4/pkg/serializer"
-	"github.com/cloudreve/Cloudreve/v4/pkg/util"
+	"github.com/Mxucc/StorFlow/application/dependency"
+	"github.com/Mxucc/StorFlow/ent"
+	"github.com/Mxucc/StorFlow/ent/user"
+	"github.com/Mxucc/StorFlow/inventory"
+	"github.com/Mxucc/StorFlow/pkg/auth"
+	"github.com/Mxucc/StorFlow/pkg/cluster/routes"
+	"github.com/Mxucc/StorFlow/pkg/email"
+	"github.com/Mxucc/StorFlow/pkg/eventtype"
+	"github.com/Mxucc/StorFlow/pkg/hashid"
+	"github.com/Mxucc/StorFlow/pkg/serializer"
+	"github.com/Mxucc/StorFlow/pkg/util"
 	"github.com/gin-gonic/gin"
 	"github.com/gofrs/uuid"
 	"github.com/pquerna/otp/totp"
@@ -140,8 +141,15 @@ func (service *UserLoginService) Login(c *gin.Context) (*ent.User, string, error
 	}
 
 	if err != nil {
+		var known *ent.User
+		if expectedUser != nil && expectedUser.ID > 0 {
+			known = expectedUser
+		}
+		WriteAuthAudit(c, eventtype.UserLoginFailed, known, service.UserName, err)
 		return nil, "", err
 	}
+
+	WriteAuthAudit(c, eventtype.UserLogin, expectedUser, expectedUser.Email, nil)
 
 	if expectedUser.TwoFactorSecret != "" {
 		twoFaSessionID := uuid.Must(uuid.NewV4())
@@ -168,7 +176,7 @@ func IssueToken(c *gin.Context) (*BuiltinLoginResponse, error) {
 	}
 
 	return &BuiltinLoginResponse{
-		User:  BuildUser(u, dep.HashIDEncoder()),
+		User:  BuildUserWithGroupPins(c, dep, u, dep.HashIDEncoder()),
 		Token: *token,
 	}, nil
 }
@@ -261,5 +269,6 @@ func (service *PrepareLoginService) Prepare(c *gin.Context) (*PrepareLoginRespon
 	return &PrepareLoginResponse{
 		WebAuthnEnabled: len(expectedUser.Edges.Passkey) > 0,
 		PasswordEnabled: expectedUser.Password != "",
+		SSOEnabled:      dep.SettingProvider().OIDC(c).Enabled,
 	}, nil
 }

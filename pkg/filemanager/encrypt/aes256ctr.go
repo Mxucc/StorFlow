@@ -79,7 +79,7 @@ import (
 	"fmt"
 	"io"
 
-	"github.com/cloudreve/Cloudreve/v4/inventory/types"
+	"github.com/Mxucc/StorFlow/inventory/types"
 )
 
 // AES256CTR provides both encryption and decryption for AES-256-CTR.

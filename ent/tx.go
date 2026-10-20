@@ -14,6 +14,10 @@ import (
 // Tx is a transactional client that is created by calling Client.Tx().
 type Tx struct {
 	config
+	// AbuseReport is the client for interacting with the AbuseReport builders.
+	AbuseReport *AbuseReportClient
+	// AuditLog is the client for interacting with the AuditLog builders.
+	AuditLog *AuditLogClient
 	// DavAccount is the client for interacting with the DavAccount builders.
 	DavAccount *DavAccountClient
 	// DirectLink is the client for interacting with the DirectLink builders.
@@ -24,6 +28,8 @@ type Tx struct {
 	File *FileClient
 	// FsEvent is the client for interacting with the FsEvent builders.
 	FsEvent *FsEventClient
+	// GiftCode is the client for interacting with the GiftCode builders.
+	GiftCode *GiftCodeClient
 	// Group is the client for interacting with the Group builders.
 	Group *GroupClient
 	// Metadata is the client for interacting with the Metadata builders.
@@ -34,8 +40,14 @@ type Tx struct {
 	OAuthClient *OAuthClientClient
 	// OAuthGrant is the client for interacting with the OAuthGrant builders.
 	OAuthGrant *OAuthGrantClient
+	// OIDCBinding is the client for interacting with the OIDCBinding builders.
+	OIDCBinding *OIDCBindingClient
 	// Passkey is the client for interacting with the Passkey builders.
 	Passkey *PasskeyClient
+	// Payment is the client for interacting with the Payment builders.
+	Payment *PaymentClient
+	// PointsLedger is the client for interacting with the PointsLedger builders.
+	PointsLedger *PointsLedgerClient
 	// Setting is the client for interacting with the Setting builders.
 	Setting *SettingClient
 	// Share is the client for interacting with the Share builders.
@@ -177,17 +189,23 @@ func (tx *Tx) Client() *Client {
 }
 
 func (tx *Tx) init() {
+	tx.AbuseReport = NewAbuseReportClient(tx.config)
+	tx.AuditLog = NewAuditLogClient(tx.config)
 	tx.DavAccount = NewDavAccountClient(tx.config)
 	tx.DirectLink = NewDirectLinkClient(tx.config)
 	tx.Entity = NewEntityClient(tx.config)
 	tx.File = NewFileClient(tx.config)
 	tx.FsEvent = NewFsEventClient(tx.config)
+	tx.GiftCode = NewGiftCodeClient(tx.config)
 	tx.Group = NewGroupClient(tx.config)
 	tx.Metadata = NewMetadataClient(tx.config)
 	tx.Node = NewNodeClient(tx.config)
 	tx.OAuthClient = NewOAuthClientClient(tx.config)
 	tx.OAuthGrant = NewOAuthGrantClient(tx.config)
+	tx.OIDCBinding = NewOIDCBindingClient(tx.config)
 	tx.Passkey = NewPasskeyClient(tx.config)
+	tx.Payment = NewPaymentClient(tx.config)
+	tx.PointsLedger = NewPointsLedgerClient(tx.config)
 	tx.Setting = NewSettingClient(tx.config)
 	tx.Share = NewShareClient(tx.config)
 	tx.StoragePolicy = NewStoragePolicyClient(tx.config)
@@ -202,7 +220,7 @@ func (tx *Tx) init() {
 // of them in order to commit or rollback the transaction.
 //
 // If a closed transaction is embedded in one of the generated entities, and the entity
-// applies a query, for example: DavAccount.QueryXXX(), the query will be executed
+// applies a query, for example: AbuseReport.QueryXXX(), the query will be executed
 // through the driver which created this transaction.
 //
 // Note that txDriver is not goroutine safe.

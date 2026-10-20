@@ -1,0 +1,189 @@
+name: Build & Publish Docker images
+
+# 什么时候跑：
+#   - 推 tag（v1.2.3 / 1.2.3 之类）→ 构建并推送带版本号的镜像 + latest
+#   - 手动触发 → 只构建并推送 sha 标签（可勾选也推 latest）
+#   - PR 只构建不推送，用来验证构建链路没坏
+on:
+  push:
+    tags:
+      - "v*"
+      - "[0-9]*"
+  pull_request:
+    branches:
+      - master
+      - main
+  workflow_dispatch:
+    inputs:
+      push:
+        description: "推送镜像到 GHCR"
+        type: boolean
+        default: true
+      latest:
+        description: "同时更新 latest 标签"
+        type: boolean
+        default: false
+
+env:
+  REGISTRY: ghcr.io
+  IMAGE_BACKEND: ghcr.io/mxucc/storflow
+  IMAGE_SITE: ghcr.io/mxucc/storflow-site
+  GO_VERSION: "1.26.5"
+  NODE_VERSION: "22"
+
+permissions:
+  contents: read
+  packages: write
+
+jobs:
+  # ── 1. 编译产物：前端 SPA + Go 二进制 ─────────────────────────────────────
+  #
+  # 单独一个 job 的好处：镜像构建失败时仍然能拿到可下载的二进制，
+  # 而且 Go 的模块缓存、yarn 的依赖缓存都能被 GitHub Actions 缓存复用。
+  build:
+    name: Build binary
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          # assets 是子模块（StorFlow-frontend），不带 recursive 前端源码是空的。
+          submodules: recursive
+          fetch-depth: 0
+
+      - name: Set up Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: yarn
+          cache-dependency-path: assets/yarn.lock
+
+      - name: Set up Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: ${{ env.GO_VERSION }}
+          cache: true
+
+      - name: Build frontend
+        working-directory: assets
+        run: |
+          # yarn 1 与 assets/yarn.lock（v1 格式）配套；package.json 没有
+          # packageManager 字段，corepack 的默认版本可能随 Node 变化。
+          corepack enable && corepack prepare yarn@1.22.22 --activate || npm i -g yarn@1.22.22
+          yarn install --frozen-lockfile --network-timeout 1000000
+          yarn run build
+
+      # 前端产物以 zip 内嵌进二进制（application/statics/assets.zip 是 go:embed 目标）。
+      - name: Pack frontend assets
+        run: |
+          rm -f application/statics/assets.zip
+          zip -r - assets/build > application/statics/assets.zip
+          ls -lh application/statics/assets.zip
+
+      # 镜像同时出 amd64 / arm64，二进制必须按架构各编译一份：
+      # Dockerfile 用 TARGETARCH 挑 storflow-linux-<arch>，否则 arm64 镜像里会塞进 amd64 二进制。
+      - name: Build backend
+        run: |
+          VERSION="${GITHUB_REF_NAME}"
+          if [ "${GITHUB_REF_TYPE}" != "tag" ]; then VERSION="dev-${GITHUB_SHA::7}"; fi
+          for ARCH in amd64 arm64; do
+            CGO_ENABLED=0 GOOS=linux GOARCH="${ARCH}" go build -trimpath \
+              -ldflags "-s -w \
+                -X 'github.com/Mxucc/StorFlow/application/constants.BackendVersion=${VERSION}' \
+                -X 'github.com/Mxucc/StorFlow/application/constants.LastCommit=${GITHUB_SHA::7}'" \
+              -o "storflow-linux-${ARCH}" .
+          done
+          ls -lh storflow-linux-*
+          # 冒烟检查：二进制能跑起来（没有 --version，用 --help 验证）。
+          ./storflow-linux-amd64 --help > /dev/null
+
+      - name: Upload binaries
+        uses: actions/upload-artifact@v4
+        with:
+          name: storflow-binaries
+          path: storflow-linux-*
+          retention-days: 7
+
+  # ── 2. 镜像 ───────────────────────────────────────────────────────────────
+  docker:
+    name: Docker images
+    runs-on: ubuntu-latest
+    needs: build
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          submodules: recursive
+
+      - name: Download binaries
+        uses: actions/download-artifact@v4
+        with:
+          name: storflow-binaries
+
+      - name: Make binaries executable
+        run: chmod +x storflow-linux-*
+
+      - name: Set up QEMU
+        uses: docker/setup-qemu-action@v3
+
+      - name: Set up Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Log in to GHCR
+        # PR 不推送，也就没必要登录。
+        if: github.event_name != 'pull_request'
+        uses: docker/login-action@v3
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      # 后端镜像的标签规则：
+      #   tag 触发   → <tag>、latest、sha-<7>
+      #   手动触发   → sha-<7>（勾了 latest 再加 latest）
+      #   PR         → 不打标签（只构建）
+      - name: Backend metadata
+        id: meta-backend
+        uses: docker/metadata-action@v5
+        with:
+          images: ${{ env.IMAGE_BACKEND }}
+          tags: |
+            type=ref,event=tag
+            type=sha,prefix=sha-,format=short
+            type=raw,value=latest,enable=${{ github.event_name == 'push' && startsWith(github.ref, 'refs/tags/') || inputs.latest }}
+
+      - name: Site metadata
+        id: meta-site
+        uses: docker/metadata-action@v5
+        with:
+          images: ${{ env.IMAGE_SITE }}
+          tags: |
+            type=ref,event=tag
+            type=sha,prefix=sha-,format=short
+            type=raw,value=latest,enable=${{ github.event_name == 'push' && startsWith(github.ref, 'refs/tags/') || inputs.latest }}
+
+      # Dockerfile 只打包，二进制由上一步的 artifact 提供。
+      - name: Build & push backend
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: ./Dockerfile
+          platforms: linux/amd64,linux/arm64
+          push: ${{ github.event_name != 'pull_request' && (github.event_name != 'workflow_dispatch' || inputs.push) }}
+          tags: ${{ steps.meta-backend.outputs.tags }}
+          labels: ${{ steps.meta-backend.outputs.labels }}
+          cache-from: type=gha,scope=backend
+          cache-to: type=gha,mode=max,scope=backend
+
+      # 站点镜像是自包含的（site/Dockerfile 里 npm ci + astro build）。
+      - name: Build & push site
+        uses: docker/build-push-action@v6
+        with:
+          context: ./site
+          file: ./site/Dockerfile
+          platforms: linux/amd64,linux/arm64
+          push: ${{ github.event_name != 'pull_request' && (github.event_name != 'workflow_dispatch' || inputs.push) }}
+          tags: ${{ steps.meta-site.outputs.tags }}
+          labels: ${{ steps.meta-site.outputs.labels }}
+          cache-from: type=gha,scope=site
+          cache-to: type=gha,mode=max,scope=site

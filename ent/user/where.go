@@ -7,7 +7,7 @@ import (
 
 	"entgo.io/ent/dialect/sql"
 	"entgo.io/ent/dialect/sql/sqlgraph"
-	"github.com/cloudreve/Cloudreve/v4/ent/predicate"
+	"github.com/Mxucc/StorFlow/ent/predicate"
 )
 
 // ID filters vertices based on their ID field.
@@ -103,6 +103,16 @@ func Avatar(v string) predicate.User {
 // GroupUsers applies equality check predicate on the "group_users" field. It's identical to GroupUsersEQ.
 func GroupUsers(v int) predicate.User {
 	return predicate.User(sql.FieldEQ(FieldGroupUsers, v))
+}
+
+// PreviousGroup applies equality check predicate on the "previous_group" field. It's identical to PreviousGroupEQ.
+func PreviousGroup(v int) predicate.User {
+	return predicate.User(sql.FieldEQ(FieldPreviousGroup, v))
+}
+
+// GroupExpires applies equality check predicate on the "group_expires" field. It's identical to GroupExpiresEQ.
+func GroupExpires(v time.Time) predicate.User {
+	return predicate.User(sql.FieldEQ(FieldGroupExpires, v))
 }
 
 // CreatedAtEQ applies the EQ predicate on the "created_at" field.
@@ -680,6 +690,106 @@ func GroupUsersNotIn(vs ...int) predicate.User {
 	return predicate.User(sql.FieldNotIn(FieldGroupUsers, vs...))
 }
 
+// PreviousGroupEQ applies the EQ predicate on the "previous_group" field.
+func PreviousGroupEQ(v int) predicate.User {
+	return predicate.User(sql.FieldEQ(FieldPreviousGroup, v))
+}
+
+// PreviousGroupNEQ applies the NEQ predicate on the "previous_group" field.
+func PreviousGroupNEQ(v int) predicate.User {
+	return predicate.User(sql.FieldNEQ(FieldPreviousGroup, v))
+}
+
+// PreviousGroupIn applies the In predicate on the "previous_group" field.
+func PreviousGroupIn(vs ...int) predicate.User {
+	return predicate.User(sql.FieldIn(FieldPreviousGroup, vs...))
+}
+
+// PreviousGroupNotIn applies the NotIn predicate on the "previous_group" field.
+func PreviousGroupNotIn(vs ...int) predicate.User {
+	return predicate.User(sql.FieldNotIn(FieldPreviousGroup, vs...))
+}
+
+// PreviousGroupGT applies the GT predicate on the "previous_group" field.
+func PreviousGroupGT(v int) predicate.User {
+	return predicate.User(sql.FieldGT(FieldPreviousGroup, v))
+}
+
+// PreviousGroupGTE applies the GTE predicate on the "previous_group" field.
+func PreviousGroupGTE(v int) predicate.User {
+	return predicate.User(sql.FieldGTE(FieldPreviousGroup, v))
+}
+
+// PreviousGroupLT applies the LT predicate on the "previous_group" field.
+func PreviousGroupLT(v int) predicate.User {
+	return predicate.User(sql.FieldLT(FieldPreviousGroup, v))
+}
+
+// PreviousGroupLTE applies the LTE predicate on the "previous_group" field.
+func PreviousGroupLTE(v int) predicate.User {
+	return predicate.User(sql.FieldLTE(FieldPreviousGroup, v))
+}
+
+// PreviousGroupIsNil applies the IsNil predicate on the "previous_group" field.
+func PreviousGroupIsNil() predicate.User {
+	return predicate.User(sql.FieldIsNull(FieldPreviousGroup))
+}
+
+// PreviousGroupNotNil applies the NotNil predicate on the "previous_group" field.
+func PreviousGroupNotNil() predicate.User {
+	return predicate.User(sql.FieldNotNull(FieldPreviousGroup))
+}
+
+// GroupExpiresEQ applies the EQ predicate on the "group_expires" field.
+func GroupExpiresEQ(v time.Time) predicate.User {
+	return predicate.User(sql.FieldEQ(FieldGroupExpires, v))
+}
+
+// GroupExpiresNEQ applies the NEQ predicate on the "group_expires" field.
+func GroupExpiresNEQ(v time.Time) predicate.User {
+	return predicate.User(sql.FieldNEQ(FieldGroupExpires, v))
+}
+
+// GroupExpiresIn applies the In predicate on the "group_expires" field.
+func GroupExpiresIn(vs ...time.Time) predicate.User {
+	return predicate.User(sql.FieldIn(FieldGroupExpires, vs...))
+}
+
+// GroupExpiresNotIn applies the NotIn predicate on the "group_expires" field.
+func GroupExpiresNotIn(vs ...time.Time) predicate.User {
+	return predicate.User(sql.FieldNotIn(FieldGroupExpires, vs...))
+}
+
+// GroupExpiresGT applies the GT predicate on the "group_expires" field.
+func GroupExpiresGT(v time.Time) predicate.User {
+	return predicate.User(sql.FieldGT(FieldGroupExpires, v))
+}
+
+// GroupExpiresGTE applies the GTE predicate on the "group_expires" field.
+func GroupExpiresGTE(v time.Time) predicate.User {
+	return predicate.User(sql.FieldGTE(FieldGroupExpires, v))
+}
+
+// GroupExpiresLT applies the LT predicate on the "group_expires" field.
+func GroupExpiresLT(v time.Time) predicate.User {
+	return predicate.User(sql.FieldLT(FieldGroupExpires, v))
+}
+
+// GroupExpiresLTE applies the LTE predicate on the "group_expires" field.
+func GroupExpiresLTE(v time.Time) predicate.User {
+	return predicate.User(sql.FieldLTE(FieldGroupExpires, v))
+}
+
+// GroupExpiresIsNil applies the IsNil predicate on the "group_expires" field.
+func GroupExpiresIsNil() predicate.User {
+	return predicate.User(sql.FieldIsNull(FieldGroupExpires))
+}
+
+// GroupExpiresNotNil applies the NotNil predicate on the "group_expires" field.
+func GroupExpiresNotNil() predicate.User {
+	return predicate.User(sql.FieldNotNull(FieldGroupExpires))
+}
+
 // HasGroup applies the HasEdge predicate on the "group" edge.
 func HasGroup() predicate.User {
 	return predicate.User(func(s *sql.Selector) {
@@ -841,6 +951,98 @@ func HasFseventsWith(preds ...predicate.FsEvent) predicate.User {
 	})
 }
 
+// HasAuditlogs applies the HasEdge predicate on the "auditlogs" edge.
+func HasAuditlogs() predicate.User {
+	return predicate.User(func(s *sql.Selector) {
+		step := sqlgraph.NewStep(
+			sqlgraph.From(Table, FieldID),
+			sqlgraph.Edge(sqlgraph.O2M, false, AuditlogsTable, AuditlogsColumn),
+		)
+		sqlgraph.HasNeighbors(s, step)
+	})
+}
+
+// HasAuditlogsWith applies the HasEdge predicate on the "auditlogs" edge with a given conditions (other predicates).
+func HasAuditlogsWith(preds ...predicate.AuditLog) predicate.User {
+	return predicate.User(func(s *sql.Selector) {
+		step := newAuditlogsStep()
+		sqlgraph.HasNeighborsWith(s, step, func(s *sql.Selector) {
+			for _, p := range preds {
+				p(s)
+			}
+		})
+	})
+}
+
+// HasPayments applies the HasEdge predicate on the "payments" edge.
+func HasPayments() predicate.User {
+	return predicate.User(func(s *sql.Selector) {
+		step := sqlgraph.NewStep(
+			sqlgraph.From(Table, FieldID),
+			sqlgraph.Edge(sqlgraph.O2M, false, PaymentsTable, PaymentsColumn),
+		)
+		sqlgraph.HasNeighbors(s, step)
+	})
+}
+
+// HasPaymentsWith applies the HasEdge predicate on the "payments" edge with a given conditions (other predicates).
+func HasPaymentsWith(preds ...predicate.Payment) predicate.User {
+	return predicate.User(func(s *sql.Selector) {
+		step := newPaymentsStep()
+		sqlgraph.HasNeighborsWith(s, step, func(s *sql.Selector) {
+			for _, p := range preds {
+				p(s)
+			}
+		})
+	})
+}
+
+// HasPointsLedgers applies the HasEdge predicate on the "points_ledgers" edge.
+func HasPointsLedgers() predicate.User {
+	return predicate.User(func(s *sql.Selector) {
+		step := sqlgraph.NewStep(
+			sqlgraph.From(Table, FieldID),
+			sqlgraph.Edge(sqlgraph.O2M, false, PointsLedgersTable, PointsLedgersColumn),
+		)
+		sqlgraph.HasNeighbors(s, step)
+	})
+}
+
+// HasPointsLedgersWith applies the HasEdge predicate on the "points_ledgers" edge with a given conditions (other predicates).
+func HasPointsLedgersWith(preds ...predicate.PointsLedger) predicate.User {
+	return predicate.User(func(s *sql.Selector) {
+		step := newPointsLedgersStep()
+		sqlgraph.HasNeighborsWith(s, step, func(s *sql.Selector) {
+			for _, p := range preds {
+				p(s)
+			}
+		})
+	})
+}
+
+// HasGiftcodes applies the HasEdge predicate on the "giftcodes" edge.
+func HasGiftcodes() predicate.User {
+	return predicate.User(func(s *sql.Selector) {
+		step := sqlgraph.NewStep(
+			sqlgraph.From(Table, FieldID),
+			sqlgraph.Edge(sqlgraph.O2M, false, GiftcodesTable, GiftcodesColumn),
+		)
+		sqlgraph.HasNeighbors(s, step)
+	})
+}
+
+// HasGiftcodesWith applies the HasEdge predicate on the "giftcodes" edge with a given conditions (other predicates).
+func HasGiftcodesWith(preds ...predicate.GiftCode) predicate.User {
+	return predicate.User(func(s *sql.Selector) {
+		step := newGiftcodesStep()
+		sqlgraph.HasNeighborsWith(s, step, func(s *sql.Selector) {
+			for _, p := range preds {
+				p(s)
+			}
+		})
+	})
+}
+
 // HasEntities applies the HasEdge predicate on the "entities" edge.
 func HasEntities() predicate.User {
 	return predicate.User(func(s *sql.Selector) {
@@ -879,6 +1081,29 @@ func HasOauthGrants() predicate.User {
 func HasOauthGrantsWith(preds ...predicate.OAuthGrant) predicate.User {
 	return predicate.User(func(s *sql.Selector) {
 		step := newOauthGrantsStep()
+		sqlgraph.HasNeighborsWith(s, step, func(s *sql.Selector) {
+			for _, p := range preds {
+				p(s)
+			}
+		})
+	})
+}
+
+// HasOidcBindings applies the HasEdge predicate on the "oidc_bindings" edge.
+func HasOidcBindings() predicate.User {
+	return predicate.User(func(s *sql.Selector) {
+		step := sqlgraph.NewStep(
+			sqlgraph.From(Table, FieldID),
+			sqlgraph.Edge(sqlgraph.O2M, false, OidcBindingsTable, OidcBindingsColumn),
+		)
+		sqlgraph.HasNeighbors(s, step)
+	})
+}
+
+// HasOidcBindingsWith applies the HasEdge predicate on the "oidc_bindings" edge with a given conditions (other predicates).
+func HasOidcBindingsWith(preds ...predicate.OIDCBinding) predicate.User {
+	return predicate.User(func(s *sql.Selector) {
+		step := newOidcBindingsStep()
 		sqlgraph.HasNeighborsWith(s, step, func(s *sql.Selector) {
 			for _, p := range preds {
 				p(s)

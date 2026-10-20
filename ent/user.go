@@ -10,9 +10,9 @@ import (
 
 	"entgo.io/ent"
 	"entgo.io/ent/dialect/sql"
-	"github.com/cloudreve/Cloudreve/v4/ent/group"
-	"github.com/cloudreve/Cloudreve/v4/ent/user"
-	"github.com/cloudreve/Cloudreve/v4/inventory/types"
+	"github.com/Mxucc/StorFlow/ent/group"
+	"github.com/Mxucc/StorFlow/ent/user"
+	"github.com/Mxucc/StorFlow/inventory/types"
 )
 
 // User is the model entity for the User schema.
@@ -44,6 +44,10 @@ type User struct {
 	Settings *types.UserSetting `json:"settings,omitempty"`
 	// GroupUsers holds the value of the "group_users" field.
 	GroupUsers int `json:"group_users,omitempty"`
+	// PreviousGroup holds the value of the "previous_group" field.
+	PreviousGroup int `json:"previous_group,omitempty"`
+	// GroupExpires holds the value of the "group_expires" field.
+	GroupExpires time.Time `json:"group_expires,omitempty"`
 	// Edges holds the relations/edges for other nodes in the graph.
 	// The values are being populated by the UserQuery when eager-loading is set.
 	Edges        UserEdges `json:"edges"`
@@ -66,13 +70,23 @@ type UserEdges struct {
 	Tasks []*Task `json:"tasks,omitempty"`
 	// Fsevents holds the value of the fsevents edge.
 	Fsevents []*FsEvent `json:"fsevents,omitempty"`
+	// Auditlogs holds the value of the auditlogs edge.
+	Auditlogs []*AuditLog `json:"auditlogs,omitempty"`
+	// Payments holds the value of the payments edge.
+	Payments []*Payment `json:"payments,omitempty"`
+	// PointsLedgers holds the value of the points_ledgers edge.
+	PointsLedgers []*PointsLedger `json:"points_ledgers,omitempty"`
+	// Giftcodes holds the value of the giftcodes edge.
+	Giftcodes []*GiftCode `json:"giftcodes,omitempty"`
 	// Entities holds the value of the entities edge.
 	Entities []*Entity `json:"entities,omitempty"`
 	// OauthGrants holds the value of the oauth_grants edge.
 	OauthGrants []*OAuthGrant `json:"oauth_grants,omitempty"`
+	// OidcBindings holds the value of the oidc_bindings edge.
+	OidcBindings []*OIDCBinding `json:"oidc_bindings,omitempty"`
 	// loadedTypes holds the information for reporting if a
 	// type was loaded (or requested) in eager-loading or not.
-	loadedTypes [9]bool
+	loadedTypes [14]bool
 }
 
 // GroupOrErr returns the Group value or an error if the edge
@@ -142,10 +156,46 @@ func (e UserEdges) FseventsOrErr() ([]*FsEvent, error) {
 	return nil, &NotLoadedError{edge: "fsevents"}
 }
 
+// AuditlogsOrErr returns the Auditlogs value or an error if the edge
+// was not loaded in eager-loading.
+func (e UserEdges) AuditlogsOrErr() ([]*AuditLog, error) {
+	if e.loadedTypes[7] {
+		return e.Auditlogs, nil
+	}
+	return nil, &NotLoadedError{edge: "auditlogs"}
+}
+
+// PaymentsOrErr returns the Payments value or an error if the edge
+// was not loaded in eager-loading.
+func (e UserEdges) PaymentsOrErr() ([]*Payment, error) {
+	if e.loadedTypes[8] {
+		return e.Payments, nil
+	}
+	return nil, &NotLoadedError{edge: "payments"}
+}
+
+// PointsLedgersOrErr returns the PointsLedgers value or an error if the edge
+// was not loaded in eager-loading.
+func (e UserEdges) PointsLedgersOrErr() ([]*PointsLedger, error) {
+	if e.loadedTypes[9] {
+		return e.PointsLedgers, nil
+	}
+	return nil, &NotLoadedError{edge: "points_ledgers"}
+}
+
+// GiftcodesOrErr returns the Giftcodes value or an error if the edge
+// was not loaded in eager-loading.
+func (e UserEdges) GiftcodesOrErr() ([]*GiftCode, error) {
+	if e.loadedTypes[10] {
+		return e.Giftcodes, nil
+	}
+	return nil, &NotLoadedError{edge: "giftcodes"}
+}
+
 // EntitiesOrErr returns the Entities value or an error if the edge
 // was not loaded in eager-loading.
 func (e UserEdges) EntitiesOrErr() ([]*Entity, error) {
-	if e.loadedTypes[7] {
+	if e.loadedTypes[11] {
 		return e.Entities, nil
 	}
 	return nil, &NotLoadedError{edge: "entities"}
@@ -154,10 +204,19 @@ func (e UserEdges) EntitiesOrErr() ([]*Entity, error) {
 // OauthGrantsOrErr returns the OauthGrants value or an error if the edge
 // was not loaded in eager-loading.
 func (e UserEdges) OauthGrantsOrErr() ([]*OAuthGrant, error) {
-	if e.loadedTypes[8] {
+	if e.loadedTypes[12] {
 		return e.OauthGrants, nil
 	}
 	return nil, &NotLoadedError{edge: "oauth_grants"}
+}
+
+// OidcBindingsOrErr returns the OidcBindings value or an error if the edge
+// was not loaded in eager-loading.
+func (e UserEdges) OidcBindingsOrErr() ([]*OIDCBinding, error) {
+	if e.loadedTypes[13] {
+		return e.OidcBindings, nil
+	}
+	return nil, &NotLoadedError{edge: "oidc_bindings"}
 }
 
 // scanValues returns the types for scanning values from sql.Rows.
@@ -167,11 +226,11 @@ func (*User) scanValues(columns []string) ([]any, error) {
 		switch columns[i] {
 		case user.FieldSettings:
 			values[i] = new([]byte)
-		case user.FieldID, user.FieldStorage, user.FieldGroupUsers:
+		case user.FieldID, user.FieldStorage, user.FieldGroupUsers, user.FieldPreviousGroup:
 			values[i] = new(sql.NullInt64)
 		case user.FieldEmail, user.FieldNick, user.FieldPassword, user.FieldStatus, user.FieldTwoFactorSecret, user.FieldAvatar:
 			values[i] = new(sql.NullString)
-		case user.FieldCreatedAt, user.FieldUpdatedAt, user.FieldDeletedAt:
+		case user.FieldCreatedAt, user.FieldUpdatedAt, user.FieldDeletedAt, user.FieldGroupExpires:
 			values[i] = new(sql.NullTime)
 		default:
 			values[i] = new(sql.UnknownType)
@@ -269,6 +328,18 @@ func (u *User) assignValues(columns []string, values []any) error {
 			} else if value.Valid {
 				u.GroupUsers = int(value.Int64)
 			}
+		case user.FieldPreviousGroup:
+			if value, ok := values[i].(*sql.NullInt64); !ok {
+				return fmt.Errorf("unexpected type %T for field previous_group", values[i])
+			} else if value.Valid {
+				u.PreviousGroup = int(value.Int64)
+			}
+		case user.FieldGroupExpires:
+			if value, ok := values[i].(*sql.NullTime); !ok {
+				return fmt.Errorf("unexpected type %T for field group_expires", values[i])
+			} else if value.Valid {
+				u.GroupExpires = value.Time
+			}
 		default:
 			u.selectValues.Set(columns[i], values[i])
 		}
@@ -317,6 +388,26 @@ func (u *User) QueryFsevents() *FsEventQuery {
 	return NewUserClient(u.config).QueryFsevents(u)
 }
 
+// QueryAuditlogs queries the "auditlogs" edge of the User entity.
+func (u *User) QueryAuditlogs() *AuditLogQuery {
+	return NewUserClient(u.config).QueryAuditlogs(u)
+}
+
+// QueryPayments queries the "payments" edge of the User entity.
+func (u *User) QueryPayments() *PaymentQuery {
+	return NewUserClient(u.config).QueryPayments(u)
+}
+
+// QueryPointsLedgers queries the "points_ledgers" edge of the User entity.
+func (u *User) QueryPointsLedgers() *PointsLedgerQuery {
+	return NewUserClient(u.config).QueryPointsLedgers(u)
+}
+
+// QueryGiftcodes queries the "giftcodes" edge of the User entity.
+func (u *User) QueryGiftcodes() *GiftCodeQuery {
+	return NewUserClient(u.config).QueryGiftcodes(u)
+}
+
 // QueryEntities queries the "entities" edge of the User entity.
 func (u *User) QueryEntities() *EntityQuery {
 	return NewUserClient(u.config).QueryEntities(u)
@@ -325,6 +416,11 @@ func (u *User) QueryEntities() *EntityQuery {
 // QueryOauthGrants queries the "oauth_grants" edge of the User entity.
 func (u *User) QueryOauthGrants() *OAuthGrantQuery {
 	return NewUserClient(u.config).QueryOauthGrants(u)
+}
+
+// QueryOidcBindings queries the "oidc_bindings" edge of the User entity.
+func (u *User) QueryOidcBindings() *OIDCBindingQuery {
+	return NewUserClient(u.config).QueryOidcBindings(u)
 }
 
 // Update returns a builder for updating this User.
@@ -385,6 +481,12 @@ func (u *User) String() string {
 	builder.WriteString(", ")
 	builder.WriteString("group_users=")
 	builder.WriteString(fmt.Sprintf("%v", u.GroupUsers))
+	builder.WriteString(", ")
+	builder.WriteString("previous_group=")
+	builder.WriteString(fmt.Sprintf("%v", u.PreviousGroup))
+	builder.WriteString(", ")
+	builder.WriteString("group_expires=")
+	builder.WriteString(u.GroupExpires.Format(time.ANSIC))
 	builder.WriteByte(')')
 	return builder.String()
 }
@@ -431,16 +533,46 @@ func (e *User) SetFsevents(v []*FsEvent) {
 	e.Edges.loadedTypes[6] = true
 }
 
+// SetAuditlogs manually set the edge as loaded state.
+func (e *User) SetAuditlogs(v []*AuditLog) {
+	e.Edges.Auditlogs = v
+	e.Edges.loadedTypes[7] = true
+}
+
+// SetPayments manually set the edge as loaded state.
+func (e *User) SetPayments(v []*Payment) {
+	e.Edges.Payments = v
+	e.Edges.loadedTypes[8] = true
+}
+
+// SetPointsLedgers manually set the edge as loaded state.
+func (e *User) SetPointsLedgers(v []*PointsLedger) {
+	e.Edges.PointsLedgers = v
+	e.Edges.loadedTypes[9] = true
+}
+
+// SetGiftcodes manually set the edge as loaded state.
+func (e *User) SetGiftcodes(v []*GiftCode) {
+	e.Edges.Giftcodes = v
+	e.Edges.loadedTypes[10] = true
+}
+
 // SetEntities manually set the edge as loaded state.
 func (e *User) SetEntities(v []*Entity) {
 	e.Edges.Entities = v
-	e.Edges.loadedTypes[7] = true
+	e.Edges.loadedTypes[11] = true
 }
 
 // SetOauthGrants manually set the edge as loaded state.
 func (e *User) SetOauthGrants(v []*OAuthGrant) {
 	e.Edges.OauthGrants = v
-	e.Edges.loadedTypes[8] = true
+	e.Edges.loadedTypes[12] = true
+}
+
+// SetOidcBindings manually set the edge as loaded state.
+func (e *User) SetOidcBindings(v []*OIDCBinding) {
+	e.Edges.OidcBindings = v
+	e.Edges.loadedTypes[13] = true
 }
 
 // Users is a parsable slice of User.

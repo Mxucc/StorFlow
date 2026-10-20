@@ -4,10 +4,10 @@ import (
 	"context"
 	"fmt"
 
-	"github.com/cloudreve/Cloudreve/v4/application/migrator/model"
-	"github.com/cloudreve/Cloudreve/v4/inventory/types"
-	"github.com/cloudreve/Cloudreve/v4/pkg/boolset"
-	"github.com/cloudreve/Cloudreve/v4/pkg/conf"
+	"github.com/Mxucc/StorFlow/application/migrator/model"
+	"github.com/Mxucc/StorFlow/inventory/types"
+	"github.com/Mxucc/StorFlow/pkg/boolset"
+	"github.com/Mxucc/StorFlow/pkg/conf"
 )
 
 func (m *Migrator) migrateWebdav() error {
@@ -64,7 +64,7 @@ func (m *Migrator) migrateWebdav() error {
 				SetUpdatedAt(formatTime(webdavAccount.UpdatedAt)).
 				SetRawID(int(webdavAccount.ID)).
 				SetName(webdavAccount.Name).
-				SetURI("cloudreve://my" + webdavAccount.Root).
+				SetURI("storflow://my" + webdavAccount.Root).
 				SetPassword(webdavAccount.Password).
 				SetProps(&props).
 				SetOptions(&options).

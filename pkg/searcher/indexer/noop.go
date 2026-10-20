@@ -3,7 +3,7 @@ package indexer
 import (
 	"context"
 
-	"github.com/cloudreve/Cloudreve/v4/pkg/searcher"
+	"github.com/Mxucc/StorFlow/pkg/searcher"
 )
 
 // NoopIndexer is a no-op implementation of SearchIndexer, used when FTS is disabled.

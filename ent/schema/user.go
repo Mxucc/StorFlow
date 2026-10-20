@@ -4,7 +4,7 @@ import (
 	"entgo.io/ent"
 	"entgo.io/ent/schema/edge"
 	"entgo.io/ent/schema/field"
-	"github.com/cloudreve/Cloudreve/v4/inventory/types"
+	"github.com/Mxucc/StorFlow/inventory/types"
 )
 
 // User holds the schema definition for the User entity.
@@ -36,6 +36,11 @@ func (User) Fields() []ent.Field {
 			Default(&types.UserSetting{}).
 			Optional(),
 		field.Int("group_users"),
+		// 换组回退：购买用户组商品前的原始用户组 + 到期时间（nil = 永久/未在会员组）
+		field.Int("previous_group").
+			Optional(),
+		field.Time("group_expires").
+			Optional(),
 	}
 }
 
@@ -52,8 +57,13 @@ func (User) Edges() []ent.Edge {
 		edge.To("passkey", Passkey.Type),
 		edge.To("tasks", Task.Type),
 		edge.To("fsevents", FsEvent.Type),
+		edge.To("auditlogs", AuditLog.Type),
+		edge.To("payments", Payment.Type),
+		edge.To("points_ledgers", PointsLedger.Type),
+		edge.To("giftcodes", GiftCode.Type),
 		edge.To("entities", Entity.Type),
 		edge.To("oauth_grants", OAuthGrant.Type),
+		edge.To("oidc_bindings", OIDCBinding.Type),
 	}
 }
 

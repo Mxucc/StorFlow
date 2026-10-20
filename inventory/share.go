@@ -5,16 +5,16 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/cloudreve/Cloudreve/v4/inventory/types"
+	"github.com/Mxucc/StorFlow/inventory/types"
 
 	"entgo.io/ent/dialect/sql"
-	"github.com/cloudreve/Cloudreve/v4/ent"
-	"github.com/cloudreve/Cloudreve/v4/ent/file"
-	"github.com/cloudreve/Cloudreve/v4/ent/predicate"
-	"github.com/cloudreve/Cloudreve/v4/ent/share"
-	"github.com/cloudreve/Cloudreve/v4/ent/user"
-	"github.com/cloudreve/Cloudreve/v4/pkg/conf"
-	"github.com/cloudreve/Cloudreve/v4/pkg/hashid"
+	"github.com/Mxucc/StorFlow/ent"
+	"github.com/Mxucc/StorFlow/ent/file"
+	"github.com/Mxucc/StorFlow/ent/predicate"
+	"github.com/Mxucc/StorFlow/ent/share"
+	"github.com/Mxucc/StorFlow/ent/user"
+	"github.com/Mxucc/StorFlow/pkg/conf"
+	"github.com/Mxucc/StorFlow/pkg/hashid"
 	"github.com/samber/lo"
 )
 
@@ -74,6 +74,7 @@ type (
 		UserID     int
 		FileID     int
 		PublicOnly bool
+		OnlyValid  bool
 		ShareIDs   []int
 	}
 	ListShareResult struct {
@@ -355,6 +356,22 @@ func (c *shareClient) listQuery(args *ListShareArgs) *ent.ShareQuery {
 
 	if args.PublicOnly {
 		query.Where(share.PasswordIsNil())
+	}
+
+	// OnlyValid filters out expired shares, inactive owners and deleted
+	// source files in SQL, used by public listing endpoints (discover).
+	if args.OnlyValid {
+		validPreds := []predicate.Share{
+			share.Or(
+				share.ExpiresIsNil(),
+				share.ExpiresGT(time.Now()),
+			),
+			share.Or(
+				share.RemainDownloadsIsNil(),
+				share.RemainDownloadsGT(0),
+			),
+		}
+		query.Where(validPreds...)
 	}
 
 	if args.FileID > 0 {

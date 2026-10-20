@@ -12,20 +12,20 @@ import (
 	"sync/atomic"
 	"time"
 
-	"github.com/cloudreve/Cloudreve/v4/application/dependency"
-	"github.com/cloudreve/Cloudreve/v4/ent"
-	"github.com/cloudreve/Cloudreve/v4/ent/task"
-	"github.com/cloudreve/Cloudreve/v4/inventory"
-	"github.com/cloudreve/Cloudreve/v4/inventory/types"
-	"github.com/cloudreve/Cloudreve/v4/pkg/cluster"
-	"github.com/cloudreve/Cloudreve/v4/pkg/filemanager/encrypt"
-	"github.com/cloudreve/Cloudreve/v4/pkg/filemanager/fs"
-	"github.com/cloudreve/Cloudreve/v4/pkg/filemanager/manager"
-	"github.com/cloudreve/Cloudreve/v4/pkg/filemanager/manager/entitysource"
-	"github.com/cloudreve/Cloudreve/v4/pkg/hashid"
-	"github.com/cloudreve/Cloudreve/v4/pkg/logging"
-	"github.com/cloudreve/Cloudreve/v4/pkg/queue"
-	"github.com/cloudreve/Cloudreve/v4/pkg/util"
+	"github.com/Mxucc/StorFlow/application/dependency"
+	"github.com/Mxucc/StorFlow/ent"
+	"github.com/Mxucc/StorFlow/ent/task"
+	"github.com/Mxucc/StorFlow/inventory"
+	"github.com/Mxucc/StorFlow/inventory/types"
+	"github.com/Mxucc/StorFlow/pkg/cluster"
+	"github.com/Mxucc/StorFlow/pkg/filemanager/encrypt"
+	"github.com/Mxucc/StorFlow/pkg/filemanager/fs"
+	"github.com/Mxucc/StorFlow/pkg/filemanager/manager"
+	"github.com/Mxucc/StorFlow/pkg/filemanager/manager/entitysource"
+	"github.com/Mxucc/StorFlow/pkg/hashid"
+	"github.com/Mxucc/StorFlow/pkg/logging"
+	"github.com/Mxucc/StorFlow/pkg/queue"
+	"github.com/Mxucc/StorFlow/pkg/util"
 	"github.com/gofrs/uuid"
 )
 
@@ -75,12 +75,12 @@ func init() {
 }
 
 // NewCreateArchiveTask creates a new CreateArchiveTask
-func NewCreateArchiveTask(ctx context.Context, src []string, dst string) (queue.Task, error) {
+func NewCreateArchiveTask(ctx context.Context, src []string, dst string, sel NodeSelection) (queue.Task, error) {
 	state := &CreateArchiveTaskState{
-		Uris:      src,
-		Dst:       dst,
-		NodeState: NodeState{},
+		Uris: src,
+		Dst:  dst,
 	}
+	sel.applyTo(&state.NodeState)
 	stateBytes, err := json.Marshal(state)
 	if err != nil {
 		return nil, fmt.Errorf("failed to marshal state: %w", err)

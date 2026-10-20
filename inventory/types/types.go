@@ -17,6 +17,10 @@ type (
 		DisableViewSync     bool                     `json:"disable_view_sync,omitempty"`
 		FsViewMap           map[string]ExplorerView  `json:"fs_view_map,omitempty"`
 		ShareLinksInProfile ShareLinksInProfileLevel `json:"share_links_in_profile,omitempty"`
+		// ExtraStorage is purchased capacity (bytes) from storage packs.
+		ExtraStorage int64 `json:"extra_storage,omitempty"`
+		// Points balance cache; the points ledger table is the source of truth.
+		Points int64 `json:"points,omitempty"`
 	}
 
 	ShareLinksInProfileLevel string
@@ -24,6 +28,8 @@ type (
 	PinedFile struct {
 		Uri  string `json:"uri"`
 		Name string `json:"name,omitempty"`
+		// Locked 为 true 时该置顶项来自用户组默认置顶（Pro: 默认固定分享），用户无法取消。
+		Locked bool `json:"locked,omitempty"`
 	}
 
 	// GroupSetting 用户组其他配置
@@ -36,6 +42,20 @@ type (
 		MaxWalkedFiles        int                    `json:"max_walked_files,omitempty"`
 		TrashRetention        int                    `json:"trash_retention,omitempty"`
 		RedirectedSource      bool                   `json:"redirected_source,omitempty"`
+		// AvailablePolicies 用户组可用的存储策略 ID 列表（Pro: 可用存储策略多选）。
+		// 为空表示不做限制，只使用用户组绑定的默认策略。
+		AvailablePolicies []int `json:"available_policies,omitempty"`
+		// DefaultPinnedShares 用户组默认置顶的分享 ID 列表（数字 ID，Pro: 默认固定分享）。
+		// 组内用户登录后会在侧边栏顶部看到这些分享，且无法取消置顶。
+		DefaultPinnedShares []int `json:"default_pinned_shares,omitempty"`
+		// FolderDirectLink 允许组内用户为目录生成直链（Pro: 目录直链）。
+		// 目录直链访问时由服务端现场打包 ZIP 返回。
+		FolderDirectLink bool `json:"folder_direct_link,omitempty"`
+		// AllowedNodes 用户组可用的任务处理节点 ID 列表（数字 ID，Pro: 可用节点）。
+		// 为空表示不做限制；覆盖的任务范围：离线下载、压缩/解压缩、存储策略转移。
+		AllowedNodes []int `json:"allowed_nodes,omitempty"`
+		// AllowSelectNode 允许组内用户在创建任务前自行选择处理节点（Pro: 允许选择节点）。
+		AllowSelectNode bool `json:"allow_select_node,omitempty"`
 	}
 
 	// PolicySetting 非公有的存储策略属性
@@ -54,9 +74,20 @@ type (
 		OauthRedirect string `json:"od_redirect,omitempty"`
 		// CustomProxy whether to use custom-proxy to get file content
 		CustomProxy bool `json:"custom_proxy,omitempty"`
+		// Yun139 (China Mobile Cloud Drive) credentials. The access token is
+		// refreshed by the yun139_token_refresh cron when username/password or
+		// mail cookies are configured.
+		Yun139Token        string `json:"yun139_token,omitempty"`
+		Yun139Username     string `json:"yun139_username,omitempty"`
+		Yun139Password     string `json:"yun139_password,omitempty"`
+		Yun139MailCookies  string `json:"yun139_mail_cookies,omitempty"`
+		Yun139RootFolderID string `json:"yun139_root_folder_id,omitempty"`
+		// LoadBalanceSubPolicies 负载均衡策略的子策略与权重（Pro: 负载均衡存储策略）。
+		// 每次上传按权重随机挑选一个子策略，实际文件落在被选中的子策略上。
+		LoadBalanceSubPolicies []LoadBalanceSubPolicy `json:"load_balance_sub_policies,omitempty"`
 		// ProxyServer 反代地址
 		ProxyServer string `json:"proxy_server,omitempty"`
-		// InternalProxy whether to use Cloudreve internal proxy to get file content
+		// InternalProxy whether to use StorFlow internal proxy to get file content
 		InternalProxy bool `json:"internal_proxy,omitempty"`
 		// OdDriver OneDrive 驱动器定位符
 		OdDriver string `json:"od_driver,omitempty"`
@@ -105,6 +136,13 @@ type (
 		ChunkConcurrency int `json:"chunk_concurrency,omitempty"`
 		// Whether to enable file encryption.
 		Encryption bool `json:"encryption,omitempty"`
+	}
+
+	// LoadBalanceSubPolicy 是负载均衡策略的子策略条目：实际文件会落在 PolicyID 上，
+	// Weight 决定被选中的相对概率（<=0 时按 1 处理）。
+	LoadBalanceSubPolicy struct {
+		PolicyID int `json:"policy_id"`
+		Weight   int `json:"weight"`
 	}
 
 	FileType         int
@@ -225,8 +263,29 @@ type (
 		ShareView bool `json:"share_view,omitempty"`
 		// Whether to automatically show readme file in share view
 		ShowReadMe bool `json:"show_read_me,omitempty"`
+		// Permission applied to everyone visiting this share, including
+		// anonymous visitors. Empty value means read-only.
+		Permission SharePermission `json:"permission,omitempty"`
+		// Grants overrides Permission for specific users, enabling
+		// collaborative shares with per-user permission.
+		Grants []ShareGrant `json:"grants,omitempty"`
+		// PayEnabled marks this share as a paid share: visitors can read the
+		// listing metadata but must own an entitlement issued by the shop
+		// before the content can be listed, downloaded or saved.
+		PayEnabled bool `json:"pay_enabled,omitempty"`
+		// Price is the one-time price of the share in cents.
+		Price int64 `json:"price,omitempty"`
+		// PayCurrency is the currency of Price, defaults to CNY.
+		PayCurrency string `json:"pay_currency,omitempty"`
+		// IsDefault marks the share as a site default share. Newly registered
+		// users can discover default shares on their home page.
+		IsDefault bool `json:"is_default,omitempty"`
+		// Internal marks a share that belongs to another subsystem (the shop
+		// module) rather than to a user. Internal shares are hidden from the
+		// share management UI and cannot be deleted by hand: deleting one would
+		// break the deliveries of the subsystem that owns it.
+		Internal bool `json:"internal,omitempty"`
 	}
-
 	OAuthClientProps struct {
 		Description     string `json:"description,omitempty"`
 		Icon            string `json:"icon,omitempty"`
@@ -242,6 +301,51 @@ type (
 	}
 )
 
+// AllowedStoragePolicies 返回用户组允许使用的存储策略 ID 列表。
+// defaultPolicyID 是用户组绑定的默认策略；当 available_policies 未配置时，
+// 退回为「只允许默认策略」的旧行为。返回空列表表示不做限制。
+func AllowedStoragePolicies(setting *GroupSetting, defaultPolicyID int) []int {
+	if setting != nil && len(setting.AvailablePolicies) > 0 {
+		return setting.AvailablePolicies
+	}
+
+	if defaultPolicyID > 0 {
+		return []int{defaultPolicyID}
+	}
+
+	return nil
+}
+
+// SharePermission is the collaboration level of a share link.
+type SharePermission string
+
+// ShareGrant overrides the share-wide permission for one user. UserID is the
+// hash encoded user ID.
+type ShareGrant struct {
+	UserID     string          `json:"user_id"`
+	Permission SharePermission `json:"permission"`
+}
+
+// SharePermission levels of a collaborative share.
+const (
+	// SharePermissionRead only allows reading the shared tree.
+	SharePermissionRead SharePermission = "read"
+	// SharePermissionUpload allows reading and uploading new files.
+	SharePermissionUpload SharePermission = "upload"
+	// SharePermissionEdit allows full collaboration: upload, rename, delete.
+	SharePermissionEdit SharePermission = "edit"
+)
+
+// NormalizeSharePermission falls back to read for unknown values.
+func NormalizeSharePermission(p SharePermission) SharePermission {
+	switch p {
+	case SharePermissionUpload, SharePermissionEdit:
+		return p
+	default:
+		return SharePermissionRead
+	}
+}
+
 const (
 	GroupPermissionIsAdmin = GroupPermission(iota)
 	GroupPermissionIsAnonymous
@@ -251,12 +355,20 @@ const (
 	GroupPermissionArchiveTask
 	GroupPermissionWebDAVProxy
 	GroupPermissionShareDownload
-	GroupPermission_CommunityPlaceholder1
+	// GroupPermissionShareFree lets members open any paid share without buying
+	// it (Pro: 无需购买分享链接). Keep the numeric layout stable: the value is
+	// persisted in the group permission bit set and mirrored by the frontend
+	// enum `GroupPermission` in assets/src/api/user.ts.
+	GroupPermissionShareFree
 	GroupPermissionRemoteDownload
-	GroupPermission_CommunityPlaceholder2
+	// GroupPermissionMigratePolicy lets members create storage policy migration
+	// tasks for their own files (Pro: 存储策略转移).
+	GroupPermissionMigratePolicy
 	GroupPermissionRedirectedSource // not used
 	GroupPermissionAdvanceDelete
-	GroupPermission_CommunityPlaceholder3
+	// GroupPermissionEscalateAnonymity lets members grant more than read-only
+	// permission to anonymous share visitors (Pro: 提升匿名用户权限).
+	GroupPermissionEscalateAnonymity
 	GroupPermission_CommunityPlaceholder4
 	GroupPermissionSetExplicitUser_placeholder
 	GroupPermissionIgnoreFileOwnership // not used
@@ -309,6 +421,11 @@ const (
 	PolicyTypeOd     = "onedrive"
 	PolicyTypeRemote = "remote"
 	PolicyTypeObs    = "obs"
+	// PolicyTypeYun139 is the China Mobile Cloud Drive (139) policy.
+	PolicyTypeYun139 = "yun139"
+	// PolicyTypeLoadBalance is a composite policy that picks one of its sub
+	// policies for each upload (Pro: 负载均衡存储策略).
+	PolicyTypeLoadBalance = "load_balance"
 )
 
 const (
@@ -380,6 +497,8 @@ const (
 	CustomPropsTypeMultiSelect = "multi_select"
 	CustomPropsTypeLink        = "link"
 	CustomPropsTypeRating      = "rating"
+	// CustomPropsTypeUser stores the hash id of a site user.
+	CustomPropsTypeUser = "user"
 )
 
 const (
@@ -405,6 +524,8 @@ const (
 	ScopeWorkflowWrite         = "Workflow.Write"
 	ScopeAdminRead             = "Admin.Read"
 	ScopeAdminWrite            = "Admin.Write"
+	ScopeVASRead               = "VAS.Read"
+	ScopeVASWrite              = "VAS.Write"
 	ScopeFilesRead             = "Files.Read"
 	ScopeFilesWrite            = "Files.Write"
 	ScopeSharesRead            = "Shares.Read"

@@ -1,8 +1,8 @@
 package controllers
 
 import (
-	"github.com/cloudreve/Cloudreve/v4/pkg/serializer"
-	"github.com/cloudreve/Cloudreve/v4/service/admin"
+	"github.com/Mxucc/StorFlow/pkg/serializer"
+	"github.com/Mxucc/StorFlow/service/admin"
 	"github.com/gin-gonic/gin"
 )
 
@@ -437,6 +437,17 @@ func AdminListFiles(c *gin.Context) {
 	c.JSON(200, serializer.Response{Data: res})
 }
 
+// AdminFileStats aggregates site-wide file usage metrics.
+func AdminFileStats(c *gin.Context) {
+	service := admin.FileStatsService{}
+	res, err := service.Get(c)
+	if err != nil {
+		c.JSON(200, serializer.Err(c, err))
+		return
+	}
+	c.JSON(200, serializer.Response{Data: res})
+}
+
 func AdminGetFile(c *gin.Context) {
 	service := ParametersFromContext[*admin.SingleFileService](c, admin.SingleFileParamCtx{})
 	res, err := service.Get(c)
@@ -599,6 +610,18 @@ func AdminCalibrateStorage(c *gin.Context) {
 	c.JSON(200, serializer.Response{Data: res})
 }
 
+// AdminUserAdjustPoints 管理员调整用户积分（差额入账本）
+func AdminUserAdjustPoints(c *gin.Context) {
+	service := ParametersFromContext[*admin.UserAdjustPointsService](c, admin.UserAdjustPointsParamCtx{})
+	body := ParametersFromContext[*admin.UserAdjustPointsBody](c, admin.UserAdjustPointsBodyParamCtx{})
+	res, err := service.Adjust(c, body)
+	if err != nil {
+		c.JSON(200, serializer.Err(c, err))
+		return
+	}
+	c.JSON(200, serializer.Response{Data: res})
+}
+
 // AdminListOAuthClients lists OAuth clients
 func AdminListOAuthClients(c *gin.Context) {
 	service := ParametersFromContext[*admin.AdminListService](c, admin.AdminListServiceParamsCtx{})
@@ -659,6 +682,80 @@ func AdminBatchDeleteOAuthClient(c *gin.Context) {
 	service := ParametersFromContext[*admin.BatchOAuthClientService](c, admin.BatchOAuthClientParamCtx{})
 	err := service.Delete(c)
 	if err != nil {
+		c.JSON(200, serializer.Err(c, err))
+		return
+	}
+	c.JSON(200, serializer.Response{})
+}
+
+// AdminAuditList lists site-wide audit logs
+func AdminAuditList(c *gin.Context) {
+	service := ParametersFromContext[*admin.AuditListService](c, admin.AuditListParamCtx{})
+	res, err := service.List(c)
+	if err != nil {
+		c.JSON(200, serializer.Err(c, err))
+		return
+	}
+	c.JSON(200, serializer.Response{Data: res})
+}
+
+// AdminAbuseList lists abuse reports
+func AdminAbuseList(c *gin.Context) {
+	service := ParametersFromContext[*admin.AbuseListService](c, admin.AbuseListParamCtx{})
+	res, err := service.List(c)
+	if err != nil {
+		c.JSON(200, serializer.Err(c, err))
+		return
+	}
+	c.JSON(200, serializer.Response{Data: res})
+}
+
+// AdminAbuseHandle updates an abuse report
+func AdminAbuseHandle(c *gin.Context) {
+	service := ParametersFromContext[*admin.AbuseHandleService](c, admin.AbuseHandleParamCtx{})
+	body := ParametersFromContext[*admin.AbuseHandleBodyService](c, admin.AbuseHandleBodyParamCtx{})
+	if err := service.Handle(c, body); err != nil {
+		c.JSON(200, serializer.Err(c, err))
+		return
+	}
+	c.JSON(200, serializer.Response{})
+}
+
+// AdminAbuseDelete batch deletes abuse reports
+func AdminAbuseDelete(c *gin.Context) {
+	service := ParametersFromContext[*admin.AbuseDeleteService](c, admin.AbuseDeleteParamCtx{})
+	if err := service.Delete(c); err != nil {
+		c.JSON(200, serializer.Err(c, err))
+		return
+	}
+	c.JSON(200, serializer.Response{})
+}
+
+// AdminGetAudit returns a single audit event
+func AdminGetAudit(c *gin.Context) {
+	service := ParametersFromContext[*admin.SingleAuditService](c, admin.SingleAuditParamCtx{})
+	res, err := service.Get(c)
+	if err != nil {
+		c.JSON(200, serializer.Err(c, err))
+		return
+	}
+	c.JSON(200, serializer.Response{Data: res})
+}
+
+// AdminAuditBatchDelete batch deletes audit events
+func AdminAuditBatchDelete(c *gin.Context) {
+	service := ParametersFromContext[*admin.AuditBatchDeleteService](c, admin.AuditBatchDeleteParamCtx{})
+	if err := service.BatchDelete(c); err != nil {
+		c.JSON(200, serializer.Err(c, err))
+		return
+	}
+	c.JSON(200, serializer.Response{})
+}
+
+// AdminAuditCleanup cleans up old audit events
+func AdminAuditCleanup(c *gin.Context) {
+	service := ParametersFromContext[*admin.AuditCleanupService](c, admin.AuditCleanupParamCtx{})
+	if err := service.Cleanup(c); err != nil {
 		c.JSON(200, serializer.Err(c, err))
 		return
 	}

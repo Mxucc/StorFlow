@@ -7,15 +7,15 @@ import (
 	"slices"
 	"strings"
 
-	"github.com/cloudreve/Cloudreve/v4/pkg/logging"
-	"github.com/cloudreve/Cloudreve/v4/pkg/searcher"
-	"github.com/cloudreve/Cloudreve/v4/pkg/setting"
+	"github.com/Mxucc/StorFlow/pkg/logging"
+	"github.com/Mxucc/StorFlow/pkg/searcher"
+	"github.com/Mxucc/StorFlow/pkg/setting"
 	"github.com/meilisearch/meilisearch-go"
 )
 
 const (
-	indexName         = "cloudreve_files"
-	embedderName      = "cr-text"
+	indexName         = "storflow_files"
+	embedderName      = "sf-text"
 	embeddingTemplate = "Chunk #{{doc.chunk_idx}} in a file named '{{doc.file_name}}': {{ doc.text }}"
 )
 

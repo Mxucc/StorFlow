@@ -1,7 +1,7 @@
 package conf
 
 import (
-	"github.com/cloudreve/Cloudreve/v4/pkg/util"
+	"github.com/Mxucc/StorFlow/pkg/util"
 	"github.com/stretchr/testify/assert"
 	"io/ioutil"
 	"os"

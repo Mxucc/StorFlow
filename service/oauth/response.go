@@ -3,7 +3,7 @@ package oauth
 import (
 	"encoding/gob"
 
-	"github.com/cloudreve/Cloudreve/v4/ent"
+	"github.com/Mxucc/StorFlow/ent"
 )
 
 const (

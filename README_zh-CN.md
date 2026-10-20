@@ -1,77 +1,153 @@
-[English Version](https://github.com/cloudreve/cloudreve/blob/master/README.md)
+[English Version](./README.md)
 
 <h1 align="center">
   <br>
-  <a href="https://cloudreve.org/" alt="logo" ><img src="https://raw.githubusercontent.com/cloudreve/frontend/master/public/static/img/logo192.png" width="150"/></a>
+  <img src="https://raw.githubusercontent.com/Mxucc/StorFlow-frontend/master/public/static/img/brand/icon-192.png" width="150" alt="StorFlow"/>
   <br>
-  Cloudreve
+  StorFlow
   <br>
 </h1>
 
-<h4 align="center">支持多家云存储驱动的公有云文件系统.</h4>
+<h4 align="center">你的资源，不止能存。让资源流动，让价值发生。</h4>
 
 <p align="center">
-  <a href="https://dev.azure.com/abslantliu/cloudreve/_build?definitionId=6">
-    <img src="https://img.shields.io/github/check-runs/cloudreve/cloudreve/master"
-         alt="Azure pipelines">
+  <a href="https://github.com/Mxucc/StorFlow/pkgs/container/storflow">
+    <img src="https://img.shields.io/badge/GHCR-storflow-blue" alt="GHCR"/>
   </a>
-  <a href="https://github.com/cloudreve/cloudreve/releases">
-    <img src="https://img.shields.io/github/v/release/cloudreve/cloudreve?include_prereleases" />
-  </a>
-  <a href="https://github.com/cloudreve/cloudreve/releases">
-     <img src="https://badgen.net/static/release%20size/34%20MB/blue"/>
-  </a>
-  <a href="https://hub.docker.com/r/cloudreve/cloudreve">
-  <img alt="Docker Pulls" src="https://img.shields.io/docker/pulls/cloudreve/cloudreve" />
+  <a href="./LICENSE">
+    <img src="https://img.shields.io/badge/license-GPLv3-blue" alt="License"/>
   </a>
 </p>
-<p align="center">
-  <a href="https://cloudreve.org">主页</a> •
-  <a href="https://demo.cloudreve.org">演示</a> •
-  <a href="https://github.com/cloudreve/cloudreve/discussions">讨论</a> •
-  <a href="https://docs.cloudreve.org">文档</a> •
-  <a href="https://github.com/cloudreve/cloudreve/releases">下载</a> •
-  <a href="https://t.me/cloudreve_official">Telegram</a> •
-  <a href="https://discord.com/invite/WTpMFpZT76">Discord</a>
-</p>
 
-![Screenshot](https://raw.githubusercontent.com/cloudreve/docs/master/images/homepage.png)
+StorFlow 是一套自托管的网盘 + 小店系统：文件存好、看得见，然后把其中值得的东西
+卖出去。除网盘能力外，还提供小店、增值服务与公开站点（SEO）。
 
-## :sparkles: 特性
+## 能做什么
 
-- :cloud: 支持本机、从机、七牛 Kodo、阿里云 OSS、腾讯云 COS、华为云 OBS、金山云 KS3、又拍云、OneDrive (包括世纪互联版) 、S3 兼容协议 作为存储端
-- :outbox_tray: 上传/下载 支持客户端直传，支持下载限速
-- 💾 可对接 Aria2/qBittorrent 离线下载，可使用多个从机节点分担下载任务
-- 📚 在线 压缩/解压缩/压缩包预览、多文件打包下载
-- 💻 覆盖全部存储策略的 WebDAV 协议支持
-- :zap: 拖拽上传、目录上传、并行分片上传
-- :card_file_box: 提取媒体元数据，通过元数据或标签搜索文件
-- :family_woman_girl_boy: 多用户、用户组、多存储策略
-- :link: 创建文件、目录的分享链接，可设定自动过期
-- :eye_speech_bubble: 视频、图像、音频、 ePub 在线预览，文本、Office 文档在线编辑
-- :art: 自定义配色、黑暗模式、PWA 应用、全站单页应用、国际化支持
-- :rocket: All-in-One 打包，开箱即用
-- 🌈 ... ...
+**网盘**
 
-## :hammer_and_wrench: 部署
+- 多存储策略：本地、从机节点、OneDrive、S3 兼容、七牛、阿里云 OSS、腾讯云 COS、华为云 OBS、金山云 KS3、又拍云
+- 客户端直传直下，拖拽上传、分片与断点续传
+- 全格式在线预览：文档、表格、PDF、Office、Markdown、代码、图片、音视频、压缩包
+- 压缩 / 解压 / 批量下载，媒体元数据提取与按标签搜索
+- WebDAV 覆盖全部存储策略，桌面客户端与移动端可用
+- 分享链接、密码与有效期、只读文件夹
+- 多用户多用户组、容量配额、回收站、离线下载（Aria2 / qBittorrent）
 
-你可以参考 [快速开始](https://docs.cloudreve.org/overview/quickstart) 启动一个本地实例进行体验、测试。
+**网盘小店**
 
-当你准备好将 Cloudreve 部署到生产环境时，可以参考 [部署](https://docs.cloudreve.org/overview/deploy/) 进行完整部署。
+- 把网盘里的文件夹直接上架成商品，买家付款后自动拿到只读链接文件夹
+- 商品介绍是 **Markdown 商品页**：教程、表格、截图、演示视频都能放；素材直接引用
+  卖家网盘里的文件，不复制、不额外占空间，替换同名文件后立刻生效
+- 介绍素材可见范围三选一：任何人 / 仅登录用户 / 仅已购买用户
+- 在线支付（易支付等渠道）、优惠券、返利、订单查询
+- 卖家余额、提现申请与审批、退款申请与审批、平台佣金对账
+- 店铺装修：主色、标语、公告、背景、banner、logo、页脚、自定义导航
 
-## :gear: 构建
+**增值服务**
 
-你可以参考 [构建](https://docs.cloudreve.org/overview/build/) 从源代码构建 Cloudreve。
+- 套餐 / 容量包 / 积分 / 兑换码，管理员可配置商品与权益
+- 用户侧「商店」页：购买、积分流水、兑换、订单
 
-## :rocket: 贡献
+**公开站点（SEO）**
 
-如果你有兴趣为 Cloudreve 贡献代码，请参考 [贡献](https://docs.cloudreve.org/api/contributing/) 了解如何贡献。
+- `/` 与 `/shop/:slug`、`/shop/:slug/product/:id` 由 Astro 服务端渲染，
+  带 canonical、Open Graph、Twitter Card 与 JSON-LD 结构化数据
+- `/robots.txt` 与 `/sitemap.xml` 动态生成，含所有上架店铺与商品
+- 登录后的控制台、结算、后台仍由内嵌 React SPA 提供，两者按路径分工
 
-## :alembic: 技术栈
+## 部署
 
-- [Go](https://golang.org/) + [Gin](https://github.com/gin-gonic/gin) + [ent](https://github.com/ent/ent)
-- [React](https://github.com/facebook/react) + [Redux](https://github.com/reduxjs/redux) + [Material-UI](https://github.com/mui-org/material-ui)
+用预构建镜像（推荐）：
 
-## :scroll: 许可证
+```bash
+docker compose up -d
+```
 
-GPL V3
+镜像由 GitHub Actions 产出：
+
+| 镜像 | 说明 |
+| --- | --- |
+| `ghcr.io/mxucc/storflow` | 后端（含内嵌前端） |
+| `ghcr.io/mxucc/storflow-site` | 公开站点（Astro SSR） |
+
+单独跑后端：
+
+```bash
+docker run -d --name storflow \
+  -p 5212:5212 -p 6888:6888 -p 6888:6888/udp \
+  -v /path/to/data:/storflow/data \
+  ghcr.io/mxucc/storflow:latest
+```
+
+首次启动后访问 `http://localhost:5212`，按向导完成初始化。
+
+## 从源码构建
+
+前置：Go 1.26+、Node 22+、yarn。
+
+```bash
+# 前端是 git 子模块，clone 时必须带 --recursive
+git clone --recursive https://github.com/Mxucc/StorFlow.git
+cd StorFlow
+
+# 1. 构建前端并打包进 application/statics/assets.zip
+chmod +x .build/build-assets.sh
+./.build/build-assets.sh 1.0.0
+
+# 2. 编译后端
+CGO_ENABLED=0 go build -o storflow .
+
+# 3. 运行
+./storflow -c conf.ini server
+```
+
+一条命令出 Docker 镜像（不依赖本地 Go / Node）：
+
+```bash
+docker build -f Dockerfile.allinone -t storflow:dev .
+```
+
+公开站点是独立的 Astro 应用，见 [`site/`](./site)：
+
+```bash
+cd site
+npm ci
+npm run build
+PORT=4321 HOST=127.0.0.1 node ./dist/server/entry.mjs
+```
+
+然后让后端把公开页面代理过去，临时启动可以用环境变量：
+
+```bash
+CR_SITE_ORIGIN=http://127.0.0.1:4321 ./storflow -c conf.ini server
+```
+
+想让它跟着配置文件一直生效（两者都设置时环境变量优先）：
+
+```ini
+[System]
+SiteOrigin = http://127.0.0.1:4321
+```
+
+两者都不设置时不会启用代理，首页与店铺页仍由内嵌 SPA 渲染——此时访问 `/`
+会被跳到控制台或登录页。详见 [`docs/shop/site-seo.md`](./docs/shop/site-seo.md)。
+
+## 文档
+
+- [公开站点与 SEO](./docs/shop/site-seo.md)
+- [商品介绍（Markdown + 网盘素材直连）](./docs/shop/product-page.md)
+- [小店前端接口](./docs/shop/frontend-api.md)
+
+## 技术栈
+
+- 后端：[Go](https://golang.org/) + [Gin](https://github.com/gin-gonic/gin) + [ent](https://github.com/ent/ent)
+- 前端：[React](https://github.com/facebook/react) + [Redux](https://github.com/reduxjs/redux) + [MUI](https://mui.com/)
+- 公开站点：[Astro](https://astro.build/)
+
+## 许可
+
+GPL V3，见 [LICENSE](./LICENSE)。
+
+版权归 StorFlow 的作者、贡献者，以及本项目所基于代码的原作者所有。
+其他项目的文档站与 Issue 追踪不代表本项目的支持范围，请使用本仓库的 Issue。

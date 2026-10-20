@@ -2,19 +2,21 @@ package dbfs
 
 import (
 	"context"
+	"errors"
 	"fmt"
 
-	"github.com/cloudreve/Cloudreve/v4/application/constants"
-	"github.com/cloudreve/Cloudreve/v4/ent"
-	"github.com/cloudreve/Cloudreve/v4/inventory"
-	"github.com/cloudreve/Cloudreve/v4/inventory/types"
-	"github.com/cloudreve/Cloudreve/v4/pkg/boolset"
-	"github.com/cloudreve/Cloudreve/v4/pkg/cache"
-	"github.com/cloudreve/Cloudreve/v4/pkg/filemanager/fs"
-	"github.com/cloudreve/Cloudreve/v4/pkg/hashid"
-	"github.com/cloudreve/Cloudreve/v4/pkg/logging"
-	"github.com/cloudreve/Cloudreve/v4/pkg/serializer"
-	"github.com/cloudreve/Cloudreve/v4/pkg/setting"
+	"github.com/Mxucc/StorFlow/application/constants"
+	"github.com/Mxucc/StorFlow/ent"
+	"github.com/Mxucc/StorFlow/inventory"
+	"github.com/Mxucc/StorFlow/inventory/types"
+	"github.com/Mxucc/StorFlow/pkg/boolset"
+	"github.com/Mxucc/StorFlow/pkg/cache"
+	"github.com/Mxucc/StorFlow/pkg/filemanager/fs"
+	"github.com/Mxucc/StorFlow/pkg/hashid"
+	"github.com/Mxucc/StorFlow/pkg/logging"
+	"github.com/Mxucc/StorFlow/pkg/serializer"
+	"github.com/Mxucc/StorFlow/pkg/setting"
+	"github.com/Mxucc/StorFlow/pkg/sharegate"
 )
 
 var (
@@ -26,7 +28,73 @@ const (
 	PurchaseTicketHeader = constants.CrHeaderPrefix + "Purchase-Ticket"
 )
 
-var shareNavigatorCapability = &boolset.BooleanSet{}
+var (
+	shareNavigatorCapability = &boolset.BooleanSet{}
+	// shareUploadCapability extends the read-only set with the ability to
+	// upload new files into a collaborated folder.
+	shareUploadCapability = &boolset.BooleanSet{}
+	// shareEditCapability grants full collaboration on a shared folder.
+	shareEditCapability = &boolset.BooleanSet{}
+)
+
+func init() {
+	boolset.Sets(map[NavigatorCapability]bool{
+		NavigatorCapabilityUploadFile: true,
+		NavigatorCapabilityCreateFile: true,
+	}, shareUploadCapability)
+	boolset.Sets(map[NavigatorCapability]bool{
+		NavigatorCapabilityUploadFile:     true,
+		NavigatorCapabilityCreateFile:     true,
+		NavigatorCapabilityRenameFile:     true,
+		NavigatorCapabilityDeleteFile:     true,
+		NavigatorCapabilitySoftDelete:     true,
+		NavigatorCapabilityUpdateMetadata: true,
+	}, shareEditCapability)
+
+	// Both write capability sets inherit every read-only capability.
+	for _, extended := range []*boolset.BooleanSet{shareUploadCapability, shareEditCapability} {
+		for i := 0; i < len(*shareNavigatorCapability)*8; i++ {
+			if shareNavigatorCapability.Enabled(i) {
+				boolset.Set(NavigatorCapability(i), true, extended)
+			}
+		}
+	}
+}
+
+// resolveSharePermission resolves the effective collaboration permission of
+// the share for the current user. Per-user grants override the share wide
+// default and the share owner always gets full access.
+func (n *shareNavigator) resolveSharePermission() types.SharePermission {
+	share := n.share
+	if share == nil {
+		return types.SharePermissionRead
+	}
+
+	if p, ok := sharegate.GrantPermission(share, n.user.ID, func(raw string) (int, bool) {
+		uid, err := n.hasher.Decode(raw, hashid.UserID)
+		if err != nil {
+			return 0, false
+		}
+		return uid, true
+	}); ok {
+		return p
+	}
+
+	// Anonymous visitors cannot be part of per-user grants.
+	return sharegate.Permission(share, n.user)
+}
+
+// shareCapabilityFor returns the navigator capability set of a permission.
+func shareCapabilityFor(p types.SharePermission) *boolset.BooleanSet {
+	switch p {
+	case types.SharePermissionEdit:
+		return shareEditCapability
+	case types.SharePermissionUpload:
+		return shareUploadCapability
+	default:
+		return shareNavigatorCapability
+	}
+}
 
 // NewShareNavigator creates a navigator for user's "shared" file system.
 func NewShareNavigator(u *ent.User, fileClient inventory.FileClient, shareClient inventory.ShareClient,
@@ -131,7 +199,17 @@ func (n *shareNavigator) Root(ctx context.Context, path *fs.URI) (*File, error) 
 		return nil, ErrShareIncorrectPassword
 	}
 
+	// Enforce the paywall of paid shares. The owner always keeps access, and
+	// entitlements are resolved by the registered share gate (shop module).
+	if err := sharegate.CheckAccess(ctx, share, n.user); err != nil {
+		if errors.Is(err, sharegate.ErrPaymentRequired) {
+			return nil, ErrNotPurchased
+		}
+		return nil, err
+	}
+
 	// Share permission setting should overwrite root folder's permission
+	n.share = share
 	n.shareRoot = newFile(nil, share.Edges.File)
 
 	// Find the user side root of the file.
@@ -261,7 +339,7 @@ func (n *shareNavigator) latestSharedSingleFile(ctx context.Context) (*File, err
 
 func (n *shareNavigator) Capabilities(isSearching bool) *fs.NavigatorProps {
 	res := &fs.NavigatorProps{
-		Capability:            shareNavigatorCapability,
+		Capability:            shareCapabilityFor(n.resolveSharePermission()),
 		OrderDirectionOptions: fullOrderDirectionOption,
 		OrderByOptions:        fullOrderByOption,
 		MaxPageSize:           n.config.MaxPageSize,

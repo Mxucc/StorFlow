@@ -1,7 +1,7 @@
 package admin
 
 import (
-	"github.com/cloudreve/Cloudreve/v4/pkg/serializer"
+	"github.com/Mxucc/StorFlow/pkg/serializer"
 )
 
 // AdminListService 仪表盘列条目服务

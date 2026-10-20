@@ -6,8 +6,8 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/cloudreve/Cloudreve/v4/pkg/filemanager/lock"
-	"github.com/cloudreve/Cloudreve/v4/pkg/logging"
+	"github.com/Mxucc/StorFlow/pkg/filemanager/lock"
+	"github.com/Mxucc/StorFlow/pkg/logging"
 	"github.com/gin-gonic/gin"
 	"github.com/samber/lo"
 )
@@ -199,7 +199,7 @@ const (
 	CodeSaveOwnShare = 40059
 	// 从机无法向主机发送回调请求
 	CodeSlavePingMaster = 40060
-	// Cloudreve 版本不一致
+	// StorFlow 版本不一致
 	CodeVersionMismatch = 40061
 	// 积分不足
 	CodeInsufficientCredit = 40062

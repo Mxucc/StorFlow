@@ -13,20 +13,20 @@ import (
 	"sync/atomic"
 	"time"
 
-	"github.com/cloudreve/Cloudreve/v4/application/dependency"
-	"github.com/cloudreve/Cloudreve/v4/ent"
-	"github.com/cloudreve/Cloudreve/v4/ent/task"
-	"github.com/cloudreve/Cloudreve/v4/inventory"
-	"github.com/cloudreve/Cloudreve/v4/inventory/types"
-	"github.com/cloudreve/Cloudreve/v4/pkg/cluster"
-	"github.com/cloudreve/Cloudreve/v4/pkg/downloader"
-	"github.com/cloudreve/Cloudreve/v4/pkg/filemanager/fs"
-	"github.com/cloudreve/Cloudreve/v4/pkg/filemanager/manager"
-	"github.com/cloudreve/Cloudreve/v4/pkg/hashid"
-	"github.com/cloudreve/Cloudreve/v4/pkg/logging"
-	"github.com/cloudreve/Cloudreve/v4/pkg/queue"
-	"github.com/cloudreve/Cloudreve/v4/pkg/request"
-	"github.com/cloudreve/Cloudreve/v4/pkg/serializer"
+	"github.com/Mxucc/StorFlow/application/dependency"
+	"github.com/Mxucc/StorFlow/ent"
+	"github.com/Mxucc/StorFlow/ent/task"
+	"github.com/Mxucc/StorFlow/inventory"
+	"github.com/Mxucc/StorFlow/inventory/types"
+	"github.com/Mxucc/StorFlow/pkg/cluster"
+	"github.com/Mxucc/StorFlow/pkg/downloader"
+	"github.com/Mxucc/StorFlow/pkg/filemanager/fs"
+	"github.com/Mxucc/StorFlow/pkg/filemanager/manager"
+	"github.com/Mxucc/StorFlow/pkg/hashid"
+	"github.com/Mxucc/StorFlow/pkg/logging"
+	"github.com/Mxucc/StorFlow/pkg/queue"
+	"github.com/Mxucc/StorFlow/pkg/request"
+	"github.com/Mxucc/StorFlow/pkg/serializer"
 	"github.com/samber/lo"
 )
 
@@ -82,13 +82,13 @@ func init() {
 }
 
 // NewRemoteDownloadTask creates a new RemoteDownloadTask
-func NewRemoteDownloadTask(ctx context.Context, src string, srcFile, dst string) (queue.Task, error) {
+func NewRemoteDownloadTask(ctx context.Context, src string, srcFile, dst string, sel NodeSelection) (queue.Task, error) {
 	state := &RemoteDownloadTaskState{
 		SrcUri:     src,
 		SrcFileUri: srcFile,
 		Dst:        dst,
-		NodeState:  NodeState{},
 	}
+	sel.applyTo(&state.NodeState)
 	stateBytes, err := json.Marshal(state)
 	if err != nil {
 		return nil, fmt.Errorf("failed to marshal state: %w", err)
@@ -182,7 +182,7 @@ func (m *RemoteDownloadTask) createDownloadTask(ctx context.Context, dep depende
 	// Validate the user-supplied URL (m.state.SrcUri) against the assigned
 	// node's URLValidation policy, with the operator-configured site URL
 	// host(s) always added to the allowlist. We don't validate SrcFileUri
-	// resolution because that's a Cloudreve-internal entity URL pointing at
+	// resolution because that's a StorFlow-internal entity URL pointing at
 	// the user's own torrent file.
 	if m.state.SrcUri != "" {
 		opt := buildSSRFOptions(ctx, dep, m.node.Settings(ctx))
@@ -227,7 +227,7 @@ func (m *RemoteDownloadTask) createDownloadTask(ctx context.Context, dep depende
 
 // buildSSRFOptions composes the SSRF policy for a download: the assigned
 // node's URLValidation settings, plus the operator-configured site URL hosts
-// (always allowlisted so users can fetch files served by Cloudreve itself).
+// (always allowlisted so users can fetch files served by StorFlow itself).
 func buildSSRFOptions(ctx context.Context, dep dependency.Dep, node *types.NodeSetting) request.SSRFOptions {
 	opt := request.SSRFOptions{}
 	if node != nil && node.URLValidation != nil {

@@ -2,11 +2,13 @@ package callback
 
 import (
 	"fmt"
-	"github.com/cloudreve/Cloudreve/v4/application/dependency"
-	"github.com/cloudreve/Cloudreve/v4/inventory"
-	"github.com/cloudreve/Cloudreve/v4/pkg/filemanager/driver/onedrive"
-	"github.com/cloudreve/Cloudreve/v4/pkg/filemanager/fs"
-	"github.com/cloudreve/Cloudreve/v4/pkg/filemanager/manager"
+	"github.com/Mxucc/StorFlow/application/dependency"
+	"github.com/Mxucc/StorFlow/inventory"
+	"github.com/Mxucc/StorFlow/pkg/eventtype"
+	"github.com/Mxucc/StorFlow/pkg/filemanager/driver/onedrive"
+	"github.com/Mxucc/StorFlow/pkg/filemanager/fs"
+	"github.com/Mxucc/StorFlow/pkg/filemanager/manager"
+	"github.com/Mxucc/StorFlow/service/explorer"
 	"github.com/gin-gonic/gin"
 )
 
@@ -54,6 +56,11 @@ func ProcessCallback(c *gin.Context) error {
 	_, err := m.CompleteUpload(c, uploadSession)
 	if err != nil {
 		return fmt.Errorf("failed to complete upload: %w", err)
+	}
+
+	if uploadSession.Props != nil {
+		explorer.WriteAudit(c, eventtype.EntityUploaded, "file", uploadSession.Props.Uri.Name(),
+			map[string]interface{}{"uri": uploadSession.Props.Uri.String(), "size": uploadSession.Props.Size})
 	}
 
 	return nil

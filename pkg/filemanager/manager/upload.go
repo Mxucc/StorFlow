@@ -8,17 +8,17 @@ import (
 	"sync"
 	"time"
 
-	"github.com/cloudreve/Cloudreve/v4/application/dependency"
-	"github.com/cloudreve/Cloudreve/v4/ent"
-	"github.com/cloudreve/Cloudreve/v4/ent/task"
-	"github.com/cloudreve/Cloudreve/v4/inventory"
-	"github.com/cloudreve/Cloudreve/v4/inventory/types"
-	"github.com/cloudreve/Cloudreve/v4/pkg/cluster"
-	"github.com/cloudreve/Cloudreve/v4/pkg/filemanager/driver"
-	"github.com/cloudreve/Cloudreve/v4/pkg/filemanager/fs"
-	"github.com/cloudreve/Cloudreve/v4/pkg/logging"
-	"github.com/cloudreve/Cloudreve/v4/pkg/queue"
-	"github.com/cloudreve/Cloudreve/v4/pkg/serializer"
+	"github.com/Mxucc/StorFlow/application/dependency"
+	"github.com/Mxucc/StorFlow/ent"
+	"github.com/Mxucc/StorFlow/ent/task"
+	"github.com/Mxucc/StorFlow/inventory"
+	"github.com/Mxucc/StorFlow/inventory/types"
+	"github.com/Mxucc/StorFlow/pkg/cluster"
+	"github.com/Mxucc/StorFlow/pkg/filemanager/driver"
+	"github.com/Mxucc/StorFlow/pkg/filemanager/fs"
+	"github.com/Mxucc/StorFlow/pkg/logging"
+	"github.com/Mxucc/StorFlow/pkg/queue"
+	"github.com/Mxucc/StorFlow/pkg/serializer"
 	"github.com/gofrs/uuid"
 	"github.com/samber/lo"
 )
@@ -201,7 +201,7 @@ func (m *manager) ConfirmUploadSession(ctx context.Context, session *fs.UploadSe
 		ctx = fs.LockSessionToContext(ctx, ls)
 	}
 
-	// Make sure this storage policy is OK to receive data from clients to Cloudreve server.
+	// Make sure this storage policy is OK to receive data from clients to StorFlow server.
 	if session.Policy.Type != types.PolicyTypeLocal && !session.Policy.Settings.Relay {
 		return nil, serializer.NewError(serializer.CodePolicyNotAllowed, "", nil)
 	}

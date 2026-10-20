@@ -3,19 +3,22 @@ package user
 import (
 	"context"
 	"errors"
+	"slices"
 	"strings"
 	"time"
 
-	"github.com/cloudreve/Cloudreve/v4/application/dependency"
-	"github.com/cloudreve/Cloudreve/v4/ent"
-	"github.com/cloudreve/Cloudreve/v4/ent/user"
-	"github.com/cloudreve/Cloudreve/v4/inventory"
-	"github.com/cloudreve/Cloudreve/v4/pkg/auth"
-	"github.com/cloudreve/Cloudreve/v4/pkg/cluster/routes"
-	"github.com/cloudreve/Cloudreve/v4/pkg/email"
-	"github.com/cloudreve/Cloudreve/v4/pkg/hashid"
-	"github.com/cloudreve/Cloudreve/v4/pkg/serializer"
-	"github.com/cloudreve/Cloudreve/v4/pkg/util"
+	"github.com/Mxucc/StorFlow/application/dependency"
+	"github.com/Mxucc/StorFlow/ent"
+	"github.com/Mxucc/StorFlow/ent/user"
+	"github.com/Mxucc/StorFlow/inventory"
+	"github.com/Mxucc/StorFlow/pkg/auth"
+	"github.com/Mxucc/StorFlow/pkg/cluster/routes"
+	"github.com/Mxucc/StorFlow/pkg/email"
+	"github.com/Mxucc/StorFlow/pkg/hashid"
+	"github.com/Mxucc/StorFlow/pkg/serializer"
+	"github.com/Mxucc/StorFlow/pkg/setting"
+	"github.com/Mxucc/StorFlow/pkg/shoplink"
+	"github.com/Mxucc/StorFlow/pkg/util"
 	"github.com/gin-gonic/gin"
 )
 
@@ -27,6 +30,8 @@ type UserRegisterService struct {
 	UserName string `form:"email" json:"email" binding:"required,email"`
 	Password string `form:"password" json:"password" binding:"required,min=6,max=128"`
 	Language string `form:"language" json:"language"`
+	// Ref is the inviter hash id carried by a share link (网盘小店返利).
+	Ref string `form:"ref" json:"ref"`
 }
 
 // Register 新用户注册
@@ -42,8 +47,32 @@ func (service *UserRegisterService) Register(c *gin.Context) serializer.Response
 		GroupID:       settings.DefaultGroup(c),
 		Language:      service.Language,
 	}
+
+	// Pro：注册邮箱域过滤与子地址限制，仅作用于注册流程；SSO 登录、重置密码不受影响。
+	if settings.DisableSubAddressEmail(c) && strings.Contains(args.Email, "+") {
+		return serializer.ErrWithDetails(c, serializer.CodeEmailProviderBaned,
+			"Email addresses containing '+' are not allowed for registration", nil)
+	}
+	if mode := settings.FilterEmailProvider(c); mode != setting.EmailProviderFilterDisabled {
+		if rule := settings.FilterEmailProviderRule(c); len(rule) > 0 {
+			domain := ""
+			if at := strings.LastIndex(args.Email, "@"); at >= 0 {
+				domain = args.Email[at+1:]
+			}
+			matched := slices.Contains(rule, domain)
+			if (mode == setting.EmailProviderFilterWhitelist && !matched) ||
+				(mode == setting.EmailProviderFilterBlacklist && matched) {
+				return serializer.ErrWithDetails(c, serializer.CodeEmailProviderBaned,
+					"Registration with this email domain is not allowed", nil)
+			}
+		}
+	}
 	if isEmailRequired {
 		args.Status = user.StatusInactive
+	}
+	// 站点级「初始分享快捷方式」：注册时把这些分享写进新用户的侧边栏置顶。
+	if pined := ResolveSiteDefaultPins(c, dep, settings.DefaultSymbolics(c)); len(pined) > 0 {
+		args.Pined = pined
 	}
 
 	userClient := dep.UserClient()
@@ -77,6 +106,11 @@ func (service *UserRegisterService) Register(c *gin.Context) serializer.Response
 	if err := inventory.Commit(tx); err != nil {
 		return serializer.DBErr(c, "Failed to commit user row", err)
 	}
+
+	// 网盘小店：记录邀请关系（资源页注册的用户视为邀请，享受后续返利）。
+	// 通过 shoplink 钩子转发，避免 service/user 反向依赖 shop 包；
+	// 未安装钩子（未启用小店）时为空操作。
+	shoplink.BindReferral(c, service.Ref, expectedUser.ID)
 
 	if isEmailRequired {
 		if err := sendActivationEmail(c, dep, expectedUser); err != nil {

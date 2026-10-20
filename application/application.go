@@ -10,29 +10,30 @@ import (
 	"os"
 	"time"
 
-	"github.com/cloudreve/Cloudreve/v4/application/constants"
-	"github.com/cloudreve/Cloudreve/v4/application/dependency"
-	"github.com/cloudreve/Cloudreve/v4/ent"
-	"github.com/cloudreve/Cloudreve/v4/pkg/cache"
-	"github.com/cloudreve/Cloudreve/v4/pkg/conf"
-	"github.com/cloudreve/Cloudreve/v4/pkg/crontab"
-	"github.com/cloudreve/Cloudreve/v4/pkg/email"
-	"github.com/cloudreve/Cloudreve/v4/pkg/filemanager/driver/onedrive"
-	"github.com/cloudreve/Cloudreve/v4/pkg/logging"
-	"github.com/cloudreve/Cloudreve/v4/pkg/setting"
-	"github.com/cloudreve/Cloudreve/v4/pkg/util"
-	"github.com/cloudreve/Cloudreve/v4/routers"
+	"github.com/Mxucc/StorFlow/application/constants"
+	"github.com/Mxucc/StorFlow/application/dependency"
+	"github.com/Mxucc/StorFlow/ent"
+	"github.com/Mxucc/StorFlow/pkg/cache"
+	"github.com/Mxucc/StorFlow/pkg/conf"
+	"github.com/Mxucc/StorFlow/pkg/crontab"
+	"github.com/Mxucc/StorFlow/pkg/email"
+	"github.com/Mxucc/StorFlow/pkg/filemanager/driver/onedrive"
+	"github.com/Mxucc/StorFlow/pkg/logging"
+	"github.com/Mxucc/StorFlow/pkg/setting"
+	"github.com/Mxucc/StorFlow/pkg/util"
+	"github.com/Mxucc/StorFlow/routers"
+	"github.com/Mxucc/StorFlow/shop"
 	"github.com/gin-gonic/gin"
 )
 
 type Server interface {
-	// Start starts the Cloudreve server.
+	// Start starts the StorFlow server.
 	Start() error
 	PrintBanner()
 	Close()
 }
 
-// NewServer constructs a new Cloudreve server instance with given dependency.
+// NewServer constructs a new StorFlow server instance with given dependency.
 func NewServer(dep dependency.Dep) Server {
 	return &server{
 		dep:    dep,
@@ -82,6 +83,12 @@ func (s *server) Start() error {
 	// TODO: make sure redis is connected in dep before user traffic.
 	if s.config.System().Mode == conf.MasterMode {
 		s.dbClient = s.dep.DBClient()
+
+		// Initialize the cloud drive shop module: create its own tables, load
+		// its settings and install the paid share gate.
+		if _, err := shop.Init(s.dep); err != nil {
+			return fmt.Errorf("failed to initialize the shop module: %w", err)
+		}
 		// TODO: make sure all dep is initialized before server start.
 		s.dep.LockSystem()
 		s.dep.UAParser()

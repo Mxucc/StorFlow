@@ -6,8 +6,32 @@ import (
 	"context"
 	"fmt"
 
-	"github.com/cloudreve/Cloudreve/v4/ent"
+	"github.com/Mxucc/StorFlow/ent"
 )
+
+// The AbuseReportFunc type is an adapter to allow the use of ordinary
+// function as AbuseReport mutator.
+type AbuseReportFunc func(context.Context, *ent.AbuseReportMutation) (ent.Value, error)
+
+// Mutate calls f(ctx, m).
+func (f AbuseReportFunc) Mutate(ctx context.Context, m ent.Mutation) (ent.Value, error) {
+	if mv, ok := m.(*ent.AbuseReportMutation); ok {
+		return f(ctx, mv)
+	}
+	return nil, fmt.Errorf("unexpected mutation type %T. expect *ent.AbuseReportMutation", m)
+}
+
+// The AuditLogFunc type is an adapter to allow the use of ordinary
+// function as AuditLog mutator.
+type AuditLogFunc func(context.Context, *ent.AuditLogMutation) (ent.Value, error)
+
+// Mutate calls f(ctx, m).
+func (f AuditLogFunc) Mutate(ctx context.Context, m ent.Mutation) (ent.Value, error) {
+	if mv, ok := m.(*ent.AuditLogMutation); ok {
+		return f(ctx, mv)
+	}
+	return nil, fmt.Errorf("unexpected mutation type %T. expect *ent.AuditLogMutation", m)
+}
 
 // The DavAccountFunc type is an adapter to allow the use of ordinary
 // function as DavAccount mutator.
@@ -67,6 +91,18 @@ func (f FsEventFunc) Mutate(ctx context.Context, m ent.Mutation) (ent.Value, err
 		return f(ctx, mv)
 	}
 	return nil, fmt.Errorf("unexpected mutation type %T. expect *ent.FsEventMutation", m)
+}
+
+// The GiftCodeFunc type is an adapter to allow the use of ordinary
+// function as GiftCode mutator.
+type GiftCodeFunc func(context.Context, *ent.GiftCodeMutation) (ent.Value, error)
+
+// Mutate calls f(ctx, m).
+func (f GiftCodeFunc) Mutate(ctx context.Context, m ent.Mutation) (ent.Value, error) {
+	if mv, ok := m.(*ent.GiftCodeMutation); ok {
+		return f(ctx, mv)
+	}
+	return nil, fmt.Errorf("unexpected mutation type %T. expect *ent.GiftCodeMutation", m)
 }
 
 // The GroupFunc type is an adapter to allow the use of ordinary
@@ -129,6 +165,18 @@ func (f OAuthGrantFunc) Mutate(ctx context.Context, m ent.Mutation) (ent.Value, 
 	return nil, fmt.Errorf("unexpected mutation type %T. expect *ent.OAuthGrantMutation", m)
 }
 
+// The OIDCBindingFunc type is an adapter to allow the use of ordinary
+// function as OIDCBinding mutator.
+type OIDCBindingFunc func(context.Context, *ent.OIDCBindingMutation) (ent.Value, error)
+
+// Mutate calls f(ctx, m).
+func (f OIDCBindingFunc) Mutate(ctx context.Context, m ent.Mutation) (ent.Value, error) {
+	if mv, ok := m.(*ent.OIDCBindingMutation); ok {
+		return f(ctx, mv)
+	}
+	return nil, fmt.Errorf("unexpected mutation type %T. expect *ent.OIDCBindingMutation", m)
+}
+
 // The PasskeyFunc type is an adapter to allow the use of ordinary
 // function as Passkey mutator.
 type PasskeyFunc func(context.Context, *ent.PasskeyMutation) (ent.Value, error)
@@ -139,6 +187,30 @@ func (f PasskeyFunc) Mutate(ctx context.Context, m ent.Mutation) (ent.Value, err
 		return f(ctx, mv)
 	}
 	return nil, fmt.Errorf("unexpected mutation type %T. expect *ent.PasskeyMutation", m)
+}
+
+// The PaymentFunc type is an adapter to allow the use of ordinary
+// function as Payment mutator.
+type PaymentFunc func(context.Context, *ent.PaymentMutation) (ent.Value, error)
+
+// Mutate calls f(ctx, m).
+func (f PaymentFunc) Mutate(ctx context.Context, m ent.Mutation) (ent.Value, error) {
+	if mv, ok := m.(*ent.PaymentMutation); ok {
+		return f(ctx, mv)
+	}
+	return nil, fmt.Errorf("unexpected mutation type %T. expect *ent.PaymentMutation", m)
+}
+
+// The PointsLedgerFunc type is an adapter to allow the use of ordinary
+// function as PointsLedger mutator.
+type PointsLedgerFunc func(context.Context, *ent.PointsLedgerMutation) (ent.Value, error)
+
+// Mutate calls f(ctx, m).
+func (f PointsLedgerFunc) Mutate(ctx context.Context, m ent.Mutation) (ent.Value, error) {
+	if mv, ok := m.(*ent.PointsLedgerMutation); ok {
+		return f(ctx, mv)
+	}
+	return nil, fmt.Errorf("unexpected mutation type %T. expect *ent.PointsLedgerMutation", m)
 }
 
 // The SettingFunc type is an adapter to allow the use of ordinary

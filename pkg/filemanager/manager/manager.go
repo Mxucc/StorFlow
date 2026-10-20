@@ -5,24 +5,29 @@ import (
 	"io"
 	"time"
 
-	"github.com/cloudreve/Cloudreve/v4/application/dependency"
-	"github.com/cloudreve/Cloudreve/v4/ent"
-	"github.com/cloudreve/Cloudreve/v4/inventory"
-	"github.com/cloudreve/Cloudreve/v4/inventory/types"
-	"github.com/cloudreve/Cloudreve/v4/pkg/auth"
-	"github.com/cloudreve/Cloudreve/v4/pkg/cache"
-	"github.com/cloudreve/Cloudreve/v4/pkg/conf"
-	"github.com/cloudreve/Cloudreve/v4/pkg/filemanager/driver"
-	"github.com/cloudreve/Cloudreve/v4/pkg/filemanager/fs"
-	"github.com/cloudreve/Cloudreve/v4/pkg/filemanager/fs/dbfs"
-	"github.com/cloudreve/Cloudreve/v4/pkg/hashid"
-	"github.com/cloudreve/Cloudreve/v4/pkg/logging"
-	"github.com/cloudreve/Cloudreve/v4/pkg/serializer"
-	"github.com/cloudreve/Cloudreve/v4/pkg/setting"
+	"github.com/Mxucc/StorFlow/application/dependency"
+	"github.com/Mxucc/StorFlow/ent"
+	"github.com/Mxucc/StorFlow/inventory"
+	"github.com/Mxucc/StorFlow/inventory/types"
+	"github.com/Mxucc/StorFlow/pkg/auth"
+	"github.com/Mxucc/StorFlow/pkg/cache"
+	"github.com/Mxucc/StorFlow/pkg/conf"
+	"github.com/Mxucc/StorFlow/pkg/filemanager/driver"
+	"github.com/Mxucc/StorFlow/pkg/filemanager/fs"
+	"github.com/Mxucc/StorFlow/pkg/filemanager/fs/dbfs"
+	"github.com/Mxucc/StorFlow/pkg/hashid"
+	"github.com/Mxucc/StorFlow/pkg/logging"
+	"github.com/Mxucc/StorFlow/pkg/serializer"
+	"github.com/Mxucc/StorFlow/pkg/setting"
 )
 
 var (
 	ErrUnknownPolicyType = serializer.NewError(serializer.CodeInternalSetting, "Unknown policy type", nil)
+	// ErrLoadBalanceNotResolved is returned when a load_balance composite policy
+	// reaches the driver layer. The caller must resolve it to a sub policy first
+	// (see fs.ResolveLoadBalancePolicy).
+	ErrLoadBalanceNotResolved = serializer.NewError(serializer.CodeInternalSetting,
+		"Load balance policy must be resolved to a sub storage policy before use", nil)
 )
 
 const (
@@ -123,6 +128,15 @@ type (
 		Expire          *time.Time
 		ShareView       bool
 		ShowReadMe      bool
+		Permission      types.SharePermission
+		Grants          []types.ShareGrant
+		// PayEnabled/Price turn the share into a paid share.
+		PayEnabled bool
+		Price      int64
+		// IsDefault publishes the share on the site default share list.
+		IsDefault bool
+		// Internal marks the share as owned by another subsystem.
+		Internal bool
 	}
 
 	FullTextSearchResults struct {

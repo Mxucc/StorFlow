@@ -1,0 +1,21 @@
+{
+  "name": "storflow-site",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "description": "StorFlow public site: marketing home page and shop storefront (Astro SSR).",
+  "scripts": {
+    "dev": "astro dev",
+    "build": "astro build && node ./scripts/copy-public.mjs",
+    "start": "node ./dist/server/entry.mjs",
+    "preview": "astro preview"
+  },
+  "dependencies": {
+    "@astrojs/node": "^11.1.8",
+    "astro": "^7.4.0",
+    "marked": "^18.1.1"
+  },
+  "engines": {
+    "node": ">=20"
+  }
+}

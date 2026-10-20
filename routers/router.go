@@ -2,27 +2,30 @@ package routers
 
 import (
 	"net/http"
+	"os"
 
-	"github.com/cloudreve/Cloudreve/v4/application/constants"
-	"github.com/cloudreve/Cloudreve/v4/application/dependency"
-	"github.com/cloudreve/Cloudreve/v4/inventory/types"
-	"github.com/cloudreve/Cloudreve/v4/middleware"
-	"github.com/cloudreve/Cloudreve/v4/pkg/cluster"
-	"github.com/cloudreve/Cloudreve/v4/pkg/conf"
-	"github.com/cloudreve/Cloudreve/v4/pkg/downloader/slave"
-	"github.com/cloudreve/Cloudreve/v4/pkg/filemanager/fs"
-	"github.com/cloudreve/Cloudreve/v4/pkg/hashid"
-	"github.com/cloudreve/Cloudreve/v4/pkg/logging"
-	"github.com/cloudreve/Cloudreve/v4/pkg/webdav"
-	"github.com/cloudreve/Cloudreve/v4/routers/controllers"
-	adminsvc "github.com/cloudreve/Cloudreve/v4/service/admin"
-	"github.com/cloudreve/Cloudreve/v4/service/basic"
-	"github.com/cloudreve/Cloudreve/v4/service/explorer"
-	"github.com/cloudreve/Cloudreve/v4/service/node"
-	"github.com/cloudreve/Cloudreve/v4/service/oauth"
-	"github.com/cloudreve/Cloudreve/v4/service/setting"
-	sharesvc "github.com/cloudreve/Cloudreve/v4/service/share"
-	usersvc "github.com/cloudreve/Cloudreve/v4/service/user"
+	"github.com/Mxucc/StorFlow/application/constants"
+	"github.com/Mxucc/StorFlow/application/dependency"
+	"github.com/Mxucc/StorFlow/inventory/types"
+	"github.com/Mxucc/StorFlow/middleware"
+	"github.com/Mxucc/StorFlow/pkg/cluster"
+	"github.com/Mxucc/StorFlow/pkg/conf"
+	"github.com/Mxucc/StorFlow/pkg/downloader/slave"
+	"github.com/Mxucc/StorFlow/pkg/filemanager/fs"
+	"github.com/Mxucc/StorFlow/pkg/hashid"
+	"github.com/Mxucc/StorFlow/pkg/logging"
+	"github.com/Mxucc/StorFlow/pkg/webdav"
+	"github.com/Mxucc/StorFlow/routers/controllers"
+	adminsvc "github.com/Mxucc/StorFlow/service/admin"
+	"github.com/Mxucc/StorFlow/service/basic"
+	"github.com/Mxucc/StorFlow/service/explorer"
+	"github.com/Mxucc/StorFlow/service/node"
+	"github.com/Mxucc/StorFlow/service/oauth"
+	"github.com/Mxucc/StorFlow/service/setting"
+	sharesvc "github.com/Mxucc/StorFlow/service/share"
+	usersvc "github.com/Mxucc/StorFlow/service/user"
+	vassvc "github.com/Mxucc/StorFlow/service/vas"
+	"github.com/Mxucc/StorFlow/shop"
 	"github.com/gin-contrib/cors"
 	"github.com/gin-contrib/gzip"
 	"github.com/gin-gonic/gin"
@@ -193,7 +196,7 @@ func initCORS(l logging.Logger, config conf.ConfigProvider, router *gin.Engine) 
 
 	// slave模式下未启动跨域的警告
 	if config.System().Mode == conf.SlaveMode {
-		l.Warning("You are running Cloudreve as slave node, if you are using slave storage policy, please enable CORS feature in config file, otherwise file cannot be uploaded from Master basic.")
+		l.Warning("You are running StorFlow as slave node, if you are using slave storage policy, please enable CORS feature in config file, otherwise file cannot be uploaded from Master basic.")
 	}
 }
 
@@ -208,6 +211,18 @@ func initMasterRouter(dep dependency.Dep) *gin.Engine {
 	*/
 	r.Use(gzip.Gzip(gzip.DefaultCompression, gzip.WithExcludedPaths([]string{"/api/"})))
 	r.Use(middleware.SharePreview(dep))
+	// 公开站点（首页 / 小店前台）由 Astro SSR 渲染，便于搜索引擎收录。
+	// 地址优先取环境变量 CR_SITE_ORIGIN，其次取配置文件 [System] SiteOrigin；
+	// 两者都为空时该中间件为 nil，行为与纯 SPA 部署一致。
+	siteOrigin := os.Getenv(middleware.EnvOrigin)
+	if siteOrigin == "" {
+		siteOrigin = dep.ConfigProvider().System().SiteOrigin
+	}
+	if siteOrigin != "" {
+		if siteProxy := middleware.New(siteOrigin); siteProxy != nil {
+			r.Use(siteProxy)
+		}
+	}
 	r.Use(middleware.FrontendFileHandler(dep))
 	r.GET("manifest.json", controllers.Manifest)
 
@@ -316,6 +331,25 @@ func initMasterRouter(dep dependency.Dep) *gin.Engine {
 			session.GET("prepare",
 				controllers.FromQuery[usersvc.PrepareLoginService](usersvc.PrepareLoginParameterCtx{}),
 				controllers.UserPrepareLogin,
+			)
+
+			// SSO / OIDC 登录（公开接口，未启用时由服务层返回参数错误）
+			session.GET("sso", controllers.SSOConfig)
+			session.GET("oidc/authorize",
+				controllers.FromQuery[usersvc.OIDCAuthorizeService](usersvc.OIDCAuthorizeParamCtx{}),
+				controllers.OIDCAuthorize,
+			)
+			session.GET("oidc/callback",
+				controllers.FromQuery[usersvc.OIDCCallbackService](usersvc.OIDCCallbackParamCtx{}),
+				controllers.OIDCCallback,
+			)
+			session.GET("qq/authorize",
+				controllers.FromQuery[usersvc.QQAuthorizeService](usersvc.QQAuthorizeParamCtx{}),
+				controllers.QQAuthorize,
+			)
+			session.GET("qq/callback",
+				controllers.FromQuery[usersvc.QQCallbackService](usersvc.QQCallbackParamCtx{}),
+				controllers.QQCallback,
 			)
 
 			oauthRouter := session.Group("oauth")
@@ -565,6 +599,10 @@ func initMasterRouter(dep dependency.Dep) *gin.Engine {
 				middleware.HashID(hashid.TaskID),
 				controllers.GetTaskPhaseProgress,
 			)
+			// ListAvailableNodes 返回当前用户组可选的可用节点
+			wf.GET("nodes",
+				controllers.ListAvailableNodes,
+			)
 			// Create task to create an archive file
 			wf.POST("archive",
 				middleware.RequiredScopes(types.ScopeWorkflowWrite),
@@ -764,6 +802,15 @@ func initMasterRouter(dep dependency.Dep) *gin.Engine {
 				controllers.FromJSON[explorer.ImportWorkflowService](explorer.CreateImportParamCtx{}),
 				controllers.ImportFiles,
 			)
+			// Create task to relocate files to another storage policy. Members of a
+			// group with the migrate_policy permission may relocate their own files
+			// (checked inside the service, which also restricts the destination
+			// policy to the one assigned to the group).
+			wf.POST("relocate",
+				middleware.RequiredScopes(types.ScopeWorkflowWrite, types.ScopeAdminWrite),
+				controllers.FromJSON[explorer.RelocateWorkflowService](explorer.CreateRelocateParamCtx{}),
+				controllers.RelocateFiles,
+			)
 			// Create task to import files
 			wf.POST("rebuildFtsIndex",
 				middleware.IsAdmin(),
@@ -813,6 +860,36 @@ func initMasterRouter(dep dependency.Dep) *gin.Engine {
 			)
 		}
 
+		// 网盘小店（独立模块，路由由 shop 包自行注册；鉴权中间件由这里注入）
+		shop.RegisterRoutes(v4, middleware.LoginRequired(), middleware.IsAdmin(), func() int {
+			if svc := shop.Service(); svc != nil {
+				return svc.Settings().RateLimitPerMinute
+			}
+			return 0
+		})
+
+		// 增值服务（VAS）：支付回调与匿名可访问的订单状态
+		v4.GET("vas/payment/status", controllers.VASPaymentStatus)
+		v4.POST("payment/notify/epay/:pid", controllers.VASEpayNotify)
+		v4.GET("payment/notify/epay/:pid", controllers.VASEpayNotify)
+		v4.GET("payment/notify/custom/:pid", controllers.VASCustomNotify)
+
+		// 举报（匿名可提交）
+		v4.POST("site/abuse",
+			controllers.FromJSON[sharesvc.AbuseReportSubmitService](sharesvc.AbuseReportSubmitParamCtx{}),
+			controllers.SubmitAbuseReport,
+		)
+		v4.POST("s/report",
+			controllers.FromJSON[sharesvc.AbuseReportSubmitService](sharesvc.AbuseReportSubmitParamCtx{}),
+			controllers.SubmitAbuseReport,
+		)
+
+		// 默认分享（Pro：默认分享列表，注册后可直接看到）
+		v4.GET("share/default",
+			controllers.FromQuery[sharesvc.DefaultShareService](sharesvc.DefaultShareParamCtx{}),
+			controllers.ListDefaultShare,
+		)
+
 		// 分享相关
 		share := v4.Group("share")
 		share.Use(middleware.RequiredScopes(types.ScopeSharesRead))
@@ -857,6 +934,24 @@ func initMasterRouter(dep dependency.Dep) *gin.Engine {
 				controllers.FromJSON[sharesvc.BatchDeleteShareService](sharesvc.BatchDeleteParamCtx{}),
 				controllers.BatchDeleteShare,
 			)
+			// 举报分享
+			share.POST("report",
+				controllers.FromJSON[sharesvc.AbuseReportSubmitService](sharesvc.AbuseReportSubmitParamCtx{}),
+				controllers.SubmitAbuseReport,
+			)
+			// 把分享保存为“与我共享”快捷方式
+			share.POST("redeem",
+				middleware.LoginRequired(),
+				middleware.RequiredScopes(types.ScopeSharesWrite),
+				controllers.FromJSON[sharesvc.RedeemService](sharesvc.RedeemParamCtx{}),
+				controllers.RedeemShare,
+			)
+			// 全站公开分享列表
+			share.GET("discover",
+				middleware.LoginRequired(),
+				controllers.FromQuery[sharesvc.DiscoverService](sharesvc.DiscoverParamCtx{}),
+				controllers.DiscoverShare,
+			)
 			//// 获取README文本文件内容
 			//share.GET("readme/:id",
 			//	middleware.CheckShareUnlocked(),
@@ -873,10 +968,113 @@ func initMasterRouter(dep dependency.Dep) *gin.Engine {
 		auth := v4.Group("")
 		auth.Use(middleware.LoginRequired())
 		{
+			// 增值服务：我的订单与积分
+			auth.GET("user/payments", controllers.VASListMyPayments)
+			vasGroup := auth.Group("vas", middleware.RequiredScopes(types.ScopeVASRead))
+			{
+				vasGroup.PUT("payment",
+					middleware.RequiredScopes(types.ScopeVASWrite),
+					controllers.VASCreatePayment,
+				)
+				vasGroup.GET("payment/status/:order/:channel", controllers.VASPaymentStatus)
+				// 用户侧商店：只返回上架商品与支付渠道（不返回网关配置）。
+				vasGroup.GET("skus", controllers.VASListShopSKUs)
+				vasGroup.GET("providers", controllers.VASListShopProviders)
+				vasGroup.POST("giftcode/redeem",
+					middleware.RequiredScopes(types.ScopeVASWrite),
+					controllers.VASRedeemGiftCode,
+				)
+				vasGroup.GET("points", controllers.VASGetPoints)
+			}
+
 			// 管理
 			admin := auth.Group("admin", middleware.IsAdmin())
 			admin.Use(middleware.RequiredScopes(types.ScopeAdminRead))
 			{
+				// 审计日志
+				admin.POST("audit",
+					controllers.FromJSON[adminsvc.AuditListService](adminsvc.AuditListParamCtx{}),
+					controllers.AdminAuditList,
+				)
+				event := admin.Group("event")
+				{
+					event.POST("",
+						controllers.FromJSON[adminsvc.AuditListService](adminsvc.AuditListParamCtx{}),
+						controllers.AdminAuditList,
+					)
+					event.GET(":id",
+						controllers.FromUri[adminsvc.SingleAuditService](adminsvc.SingleAuditParamCtx{}),
+						controllers.AdminGetAudit,
+					)
+					event.POST("batch/delete",
+						middleware.RequiredScopes(types.ScopeAdminWrite),
+						controllers.FromJSON[adminsvc.AuditBatchDeleteService](adminsvc.AuditBatchDeleteParamCtx{}),
+						controllers.AdminAuditBatchDelete,
+					)
+					event.POST("cleanup",
+						middleware.RequiredScopes(types.ScopeAdminWrite),
+						controllers.FromJSON[adminsvc.AuditCleanupService](adminsvc.AuditCleanupParamCtx{}),
+						controllers.AdminAuditCleanup,
+					)
+				}
+
+				// 举报处理
+				abuse := admin.Group("abuse")
+				{
+					abuse.POST("",
+						controllers.FromJSON[adminsvc.AbuseListService](adminsvc.AbuseListParamCtx{}),
+						controllers.AdminAbuseList,
+					)
+					abuse.POST(":id",
+						middleware.RequiredScopes(types.ScopeAdminWrite),
+						controllers.FromUri[adminsvc.AbuseHandleService](adminsvc.AbuseHandleParamCtx{}),
+						controllers.FromJSON[adminsvc.AbuseHandleBodyService](adminsvc.AbuseHandleBodyParamCtx{}),
+						controllers.AdminAbuseHandle,
+					)
+					abuse.POST("batch/delete",
+						middleware.RequiredScopes(types.ScopeAdminWrite),
+						controllers.FromJSON[adminsvc.AbuseDeleteService](adminsvc.AbuseDeleteParamCtx{}),
+						controllers.AdminAbuseDelete,
+					)
+				}
+
+				// 增值服务订单与配置
+				payment := admin.Group("payment")
+				{
+					payment.POST("", controllers.VASAdminListPayments)
+					payment.POST("batch/delete",
+						middleware.RequiredScopes(types.ScopeAdminWrite),
+						controllers.FromJSON[vassvc.AdminDeletePaymentsService](vassvc.AdminDeletePaymentsParamCtx{}),
+						controllers.VASAdminDeletePayments,
+					)
+				}
+
+				vasAdmin := admin.Group("vas")
+				{
+					vasAdmin.GET("skus", controllers.VASListSKUs)
+					vasAdmin.POST("skus",
+						middleware.RequiredScopes(types.ScopeAdminWrite),
+						controllers.FromJSON[vassvc.SaveSKUsService](vassvc.SaveSKUsParamCtx{}),
+						controllers.VASSaveSKUs,
+					)
+					vasAdmin.GET("providers", controllers.VASListProviders)
+					vasAdmin.POST("providers",
+						middleware.RequiredScopes(types.ScopeAdminWrite),
+						controllers.FromJSON[vassvc.SaveProvidersService](vassvc.SaveProvidersParamCtx{}),
+						controllers.VASSaveProviders,
+					)
+					vasAdmin.POST("giftcode", controllers.VASAdminCreateGiftCodes)
+					vasAdmin.GET("giftcode", controllers.VASAdminListGiftCodes)
+					vasAdmin.POST("giftcode/batch/delete",
+						middleware.RequiredScopes(types.ScopeAdminWrite),
+						controllers.FromJSON[vassvc.AdminDeleteGiftCodesService](vassvc.AdminDeleteGiftCodesParamCtx{}),
+						controllers.VASAdminDeleteGiftCodes,
+					)
+				}
+
+				// 文件统计
+				admin.GET("file_stats", controllers.AdminFileStats)
+
 				admin.GET("summary",
 					controllers.FromQuery[adminsvc.SummaryService](adminsvc.SummaryParamCtx{}),
 					controllers.AdminSummary,
@@ -1240,6 +1438,17 @@ func initMasterRouter(dep dependency.Dep) *gin.Engine {
 						controllers.AdminBatchDeleteShare,
 					)
 				}
+			}
+
+			// 调整用户积分
+			adminUser := auth.Group("admin/user", middleware.IsAdmin(), middleware.RequiredScopes(types.ScopeAdminRead))
+			{
+				adminUser.POST(":id/points",
+					middleware.RequiredScopes(types.ScopeAdminWrite),
+					controllers.FromUri[adminsvc.UserAdjustPointsService](adminsvc.UserAdjustPointsParamCtx{}),
+					controllers.FromJSON[adminsvc.UserAdjustPointsBody](adminsvc.UserAdjustPointsBodyParamCtx{}),
+					controllers.AdminUserAdjustPoints,
+				)
 			}
 
 			// 用户

@@ -12,22 +12,28 @@ import (
 	"entgo.io/ent"
 	"entgo.io/ent/dialect/sql"
 	"entgo.io/ent/dialect/sql/sqlgraph"
-	"github.com/cloudreve/Cloudreve/v4/ent/davaccount"
-	"github.com/cloudreve/Cloudreve/v4/ent/directlink"
-	"github.com/cloudreve/Cloudreve/v4/ent/entity"
-	"github.com/cloudreve/Cloudreve/v4/ent/file"
-	"github.com/cloudreve/Cloudreve/v4/ent/fsevent"
-	"github.com/cloudreve/Cloudreve/v4/ent/group"
-	"github.com/cloudreve/Cloudreve/v4/ent/metadata"
-	"github.com/cloudreve/Cloudreve/v4/ent/node"
-	"github.com/cloudreve/Cloudreve/v4/ent/oauthclient"
-	"github.com/cloudreve/Cloudreve/v4/ent/oauthgrant"
-	"github.com/cloudreve/Cloudreve/v4/ent/passkey"
-	"github.com/cloudreve/Cloudreve/v4/ent/setting"
-	"github.com/cloudreve/Cloudreve/v4/ent/share"
-	"github.com/cloudreve/Cloudreve/v4/ent/storagepolicy"
-	"github.com/cloudreve/Cloudreve/v4/ent/task"
-	"github.com/cloudreve/Cloudreve/v4/ent/user"
+	"github.com/Mxucc/StorFlow/ent/abusereport"
+	"github.com/Mxucc/StorFlow/ent/auditlog"
+	"github.com/Mxucc/StorFlow/ent/davaccount"
+	"github.com/Mxucc/StorFlow/ent/directlink"
+	"github.com/Mxucc/StorFlow/ent/entity"
+	"github.com/Mxucc/StorFlow/ent/file"
+	"github.com/Mxucc/StorFlow/ent/fsevent"
+	"github.com/Mxucc/StorFlow/ent/giftcode"
+	"github.com/Mxucc/StorFlow/ent/group"
+	"github.com/Mxucc/StorFlow/ent/metadata"
+	"github.com/Mxucc/StorFlow/ent/node"
+	"github.com/Mxucc/StorFlow/ent/oauthclient"
+	"github.com/Mxucc/StorFlow/ent/oauthgrant"
+	"github.com/Mxucc/StorFlow/ent/oidcbinding"
+	"github.com/Mxucc/StorFlow/ent/passkey"
+	"github.com/Mxucc/StorFlow/ent/payment"
+	"github.com/Mxucc/StorFlow/ent/pointsledger"
+	"github.com/Mxucc/StorFlow/ent/setting"
+	"github.com/Mxucc/StorFlow/ent/share"
+	"github.com/Mxucc/StorFlow/ent/storagepolicy"
+	"github.com/Mxucc/StorFlow/ent/task"
+	"github.com/Mxucc/StorFlow/ent/user"
 )
 
 // ent aliases to avoid import conflicts in user's code.
@@ -88,17 +94,23 @@ var (
 func checkColumn(table, column string) error {
 	initCheck.Do(func() {
 		columnCheck = sql.NewColumnCheck(map[string]func(string) bool{
+			abusereport.Table:   abusereport.ValidColumn,
+			auditlog.Table:      auditlog.ValidColumn,
 			davaccount.Table:    davaccount.ValidColumn,
 			directlink.Table:    directlink.ValidColumn,
 			entity.Table:        entity.ValidColumn,
 			file.Table:          file.ValidColumn,
 			fsevent.Table:       fsevent.ValidColumn,
+			giftcode.Table:      giftcode.ValidColumn,
 			group.Table:         group.ValidColumn,
 			metadata.Table:      metadata.ValidColumn,
 			node.Table:          node.ValidColumn,
 			oauthclient.Table:   oauthclient.ValidColumn,
 			oauthgrant.Table:    oauthgrant.ValidColumn,
+			oidcbinding.Table:   oidcbinding.ValidColumn,
 			passkey.Table:       passkey.ValidColumn,
+			payment.Table:       payment.ValidColumn,
+			pointsledger.Table:  pointsledger.ValidColumn,
 			setting.Table:       setting.ValidColumn,
 			share.Table:         share.ValidColumn,
 			storagepolicy.Table: storagepolicy.ValidColumn,

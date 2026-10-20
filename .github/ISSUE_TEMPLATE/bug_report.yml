@@ -8,11 +8,11 @@ body:
       label: Self Checks
       description: "To make sure we get to you in time, please check the following :)"
       options:
-        - label: I have read the [Contributing Guide](https://docs.cloudreve.org/api/contributing) and [Language Policy](https://github.com/cloudreve/cloudreve/discussions/3335).
+        - label: I have read the [Contributing Guide](https://github.com/Mxucc/StorFlow/api/contributing) and [Language Policy](https://github.com/Mxucc/StorFlow/discussions/3335).
           required: true
-        - label: This is only for bug report, if you would like to ask a question, please head to [Discussions](https://github.com/cloudreve/cloudreve/discussions).
+        - label: This is only for bug report, if you would like to ask a question, please head to [Discussions](https://github.com/Mxucc/StorFlow/discussions).
           required: true
-        - label: I have searched for existing issues [search for existing issues](https://github.com/cloudreve/cloudreve/issues), including closed ones.
+        - label: I have searched for existing issues [search for existing issues](https://github.com/Mxucc/StorFlow/issues), including closed ones.
           required: true
         - label: I confirm that I am using English to submit this report, otherwise it will be closed. / 请使用英语提交，否则会被关闭。
           required: true
@@ -21,7 +21,7 @@ body:
 
   - type: input
     attributes:
-      label: Cloudreve version
+      label: StorFlow version
       description: e.g. 4.14.0
     validations:
       required: true
@@ -29,7 +29,7 @@ body:
   - type: dropdown
     attributes:
       label: Pro or Community Edition
-      description: What version of Cloudreve are you using?
+      description: What version of StorFlow are you using?
       multiple: true
       options:
         - Pro

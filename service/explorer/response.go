@@ -8,19 +8,20 @@ import (
 	"net/url"
 	"time"
 
-	"github.com/cloudreve/Cloudreve/v4/application/dependency"
-	"github.com/cloudreve/Cloudreve/v4/ent"
-	"github.com/cloudreve/Cloudreve/v4/inventory"
-	"github.com/cloudreve/Cloudreve/v4/inventory/types"
-	"github.com/cloudreve/Cloudreve/v4/pkg/auth"
-	"github.com/cloudreve/Cloudreve/v4/pkg/boolset"
-	"github.com/cloudreve/Cloudreve/v4/pkg/cluster/routes"
-	"github.com/cloudreve/Cloudreve/v4/pkg/filemanager/fs"
-	"github.com/cloudreve/Cloudreve/v4/pkg/filemanager/manager"
-	"github.com/cloudreve/Cloudreve/v4/pkg/hashid"
-	"github.com/cloudreve/Cloudreve/v4/pkg/queue"
-	"github.com/cloudreve/Cloudreve/v4/pkg/util"
-	"github.com/cloudreve/Cloudreve/v4/service/user"
+	"github.com/Mxucc/StorFlow/application/dependency"
+	"github.com/Mxucc/StorFlow/ent"
+	"github.com/Mxucc/StorFlow/inventory"
+	"github.com/Mxucc/StorFlow/inventory/types"
+	"github.com/Mxucc/StorFlow/pkg/auth"
+	"github.com/Mxucc/StorFlow/pkg/boolset"
+	"github.com/Mxucc/StorFlow/pkg/cluster/routes"
+	"github.com/Mxucc/StorFlow/pkg/filemanager/fs"
+	"github.com/Mxucc/StorFlow/pkg/filemanager/manager"
+	"github.com/Mxucc/StorFlow/pkg/hashid"
+	"github.com/Mxucc/StorFlow/pkg/queue"
+	"github.com/Mxucc/StorFlow/pkg/sharegate"
+	"github.com/Mxucc/StorFlow/pkg/util"
+	"github.com/Mxucc/StorFlow/service/user"
 	"github.com/gin-gonic/gin"
 	"github.com/gofrs/uuid"
 	"github.com/samber/lo"
@@ -334,6 +335,17 @@ type Share struct {
 	ShowReadMe        bool            `json:"show_readme,omitempty"`
 	Size              int64           `json:"size"`
 
+	// Paid share (网盘小店 / Pro 收费分享)
+	PayEnabled bool   `json:"pay_enabled,omitempty"`
+	Price      int64  `json:"price,omitempty"`
+	Currency   string `json:"currency,omitempty"`
+	// Purchased reports whether the requester already owns this paid share.
+	Purchased bool `json:"purchased,omitempty"`
+	// IsDefault marks a share as a site default share.
+	IsDefault bool `json:"is_default,omitempty"`
+	// Permission is the collaboration permission of the share.
+	Permission string `json:"permission,omitempty"`
+
 	// Only viewable by owner
 	IsPrivate bool   `json:"is_private,omitempty"`
 	Password  string `json:"password,omitempty"`
@@ -360,6 +372,14 @@ func BuildShare(ctx context.Context, s *ent.Share, base *url.URL, hasher hashid.
 		Visited:           s.Views,
 		SourceType:        util.ToPtr(t),
 		PasswordProtected: s.Password != "",
+		PayEnabled:        sharegate.Payable(s),
+		Price:             sharegate.Price(s),
+		Purchased:         sharegate.HasAccess(ctx, s, requester),
+	}
+	if s.Props != nil {
+		res.IsDefault = s.Props.IsDefault
+		res.Currency = s.Props.PayCurrency
+		res.Permission = string(s.Props.Permission)
 	}
 
 	if unlocked {

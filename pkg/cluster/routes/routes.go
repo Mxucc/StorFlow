@@ -7,8 +7,8 @@ import (
 	"path"
 	"strconv"
 
-	"github.com/cloudreve/Cloudreve/v4/application/constants"
-	"github.com/cloudreve/Cloudreve/v4/pkg/filemanager/fs"
+	"github.com/Mxucc/StorFlow/application/constants"
+	"github.com/Mxucc/StorFlow/pkg/filemanager/fs"
 )
 
 const (
@@ -59,6 +59,13 @@ func MasterUserActivateUrl(base *url.URL) *url.URL {
 
 func MasterUserResetUrl(base *url.URL) *url.URL {
 	return base.ResolveReference(masterUserReset)
+}
+
+// MasterUserSettingsUrl returns the frontend URL of the account settings page,
+// where storage usage and value-added services are listed.
+func MasterUserSettingsUrl(base *url.URL) *url.URL {
+	route, _ := url.Parse("/settings")
+	return base.ResolveReference(route)
 }
 
 func MasterUserAvatarUrl(base *url.URL, uid string) *url.URL {

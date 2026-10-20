@@ -3,8 +3,8 @@ package mime
 import (
 	"context"
 	"encoding/json"
-	"github.com/cloudreve/Cloudreve/v4/pkg/logging"
-	"github.com/cloudreve/Cloudreve/v4/pkg/setting"
+	"github.com/Mxucc/StorFlow/pkg/logging"
+	"github.com/Mxucc/StorFlow/pkg/setting"
 	"mime"
 	"path"
 )

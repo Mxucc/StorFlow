@@ -4,12 +4,12 @@ import (
 	"sort"
 	"strings"
 
-	"github.com/cloudreve/Cloudreve/v4/application/dependency"
-	"github.com/cloudreve/Cloudreve/v4/inventory"
-	"github.com/cloudreve/Cloudreve/v4/inventory/types"
-	"github.com/cloudreve/Cloudreve/v4/pkg/setting"
-	"github.com/cloudreve/Cloudreve/v4/pkg/thumb"
-	"github.com/cloudreve/Cloudreve/v4/service/user"
+	"github.com/Mxucc/StorFlow/application/dependency"
+	"github.com/Mxucc/StorFlow/inventory"
+	"github.com/Mxucc/StorFlow/inventory/types"
+	"github.com/Mxucc/StorFlow/pkg/setting"
+	"github.com/Mxucc/StorFlow/pkg/thumb"
+	"github.com/Mxucc/StorFlow/service/user"
 	"github.com/gin-gonic/gin"
 	"github.com/mojocn/base64Captcha"
 )
@@ -19,6 +19,7 @@ type SiteConfig struct {
 	// Basic Section
 	InstanceID     string                  `json:"instance_id,omitempty"`
 	SiteName       string                  `json:"title,omitempty"`
+	Announcement   string                  `json:"announcement,omitempty"`
 	Themes         string                  `json:"themes,omitempty"`
 	DefaultTheme   string                  `json:"default_theme,omitempty"`
 	User           *user.User              `json:"user,omitempty"`
@@ -63,6 +64,9 @@ type SiteConfig struct {
 	// App settings
 	AppPromotion        bool `json:"app_promotion,omitempty"`
 	DesktopAppPromotion bool `json:"desktop_app_promotion,omitempty"`
+	// AppFeedbackLink / AppForumLink 供客户端设置页展示反馈与论坛入口，留空则不下发。
+	AppFeedbackLink string `json:"app_feedback,omitempty"`
+	AppForumLink    string `json:"app_forum,omitempty"`
 
 	//EmailActive          bool      `json:"emailActive"`
 	//QQLogin              bool      `json:"QQLogin"`
@@ -71,8 +75,6 @@ type SiteConfig struct {
 	//HomepageViewMethod   string    `json:"home_view_method"`
 	//ShareViewMethod      string    `json:"share_view_method"`
 	//WopiExts             []string            `json:"wopi_exts"`
-	//AppFeedbackLink      string              `json:"app_feedback"`
-	//AppForumLink         string              `json:"app_forum"`
 }
 
 type (
@@ -135,6 +137,8 @@ func (s *GetSettingService) GetSiteConfig(c *gin.Context) (*SiteConfig, error) {
 		return &SiteConfig{
 			AppPromotion:        appSetting.Promotion,
 			DesktopAppPromotion: appSetting.DesktopPromotion,
+			AppFeedbackLink:     appSetting.Feedback,
+			AppForumLink:        appSetting.Forum,
 		}, nil
 	case "thumb":
 		// Return supported thumbnail extensions from enabled generators.
@@ -194,6 +198,7 @@ func (s *GetSettingService) GetSiteConfig(c *gin.Context) (*SiteConfig, error) {
 	return &SiteConfig{
 		InstanceID:      siteBasic.ID,
 		SiteName:        siteBasic.Name,
+		Announcement:    siteBasic.Announcement,
 		Themes:          themes.Themes,
 		DefaultTheme:    themes.DefaultTheme,
 		User:            &userRes,
@@ -206,6 +211,8 @@ func (s *GetSettingService) GetSiteConfig(c *gin.Context) (*SiteConfig, error) {
 		CapSiteKey:      capCaptcha.SiteKey,
 		CapAssetServer:  capCaptcha.AssetServer,
 		AppPromotion:    appSetting.Promotion,
+		AppFeedbackLink: appSetting.Feedback,
+		AppForumLink:    appSetting.Forum,
 		CustomNavItems:  customNavItems,
 		CustomHTML:      customHTML,
 	}, nil
