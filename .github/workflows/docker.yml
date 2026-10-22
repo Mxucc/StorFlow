@@ -84,8 +84,11 @@ jobs:
       # Dockerfile 用 TARGETARCH 挑 storflow-linux-<arch>，否则 arm64 镜像里会塞进 amd64 二进制。
       - name: Build backend
         run: |
-          VERSION="${GITHUB_REF_NAME}"
-          if [ "${GITHUB_REF_TYPE}" != "tag" ]; then VERSION="dev-${GITHUB_SHA::7}"; fi
+          # BackendVersion 必须是能被 semver 解析的版本号：数据库 schema 补丁按版本
+          # 比较，写成 dev-<sha> 会在启动迁移时直接 panic。非 tag 构建因此用
+          # 0.0.0-dev.<sha>（合法 semver，且低于任何正式版本）。
+          VERSION="${GITHUB_REF_NAME#v}"
+          if [ "${GITHUB_REF_TYPE}" != "tag" ]; then VERSION="0.0.0-dev.${GITHUB_SHA::7}"; fi
           for ARCH in amd64 arm64; do
             CGO_ENABLED=0 GOOS=linux GOARCH="${ARCH}" go build -trimpath \
               -ldflags "-s -w \
