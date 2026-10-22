@@ -111,6 +111,14 @@ func (client *SMTPPool) Close() {
 
 // Init 初始化发送队列
 func (client *SMTPPool) Init() {
+	// 没有配置 SMTP 主机时不要起发送队列：连接必然失败，而下面的 panic 重试
+	// 会每 10 秒重建一次客户端、刷一次错误日志。此时 Send 会直接返回
+	// "SMTP pool is closed"，调用方按「邮件服务未配置」处理即可。
+	if strings.TrimSpace(client.config.Host) == "" {
+		client.l.Debug("SMTP host is not configured, email delivery is disabled.")
+		return
+	}
+
 	go func() {
 		client.l.Info("Initializing and starting SMTP email pool...")
 		defer func() {
