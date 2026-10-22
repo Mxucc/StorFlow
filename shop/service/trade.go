@@ -131,10 +131,16 @@ func (s *Service) Checkout(c *gin.Context, req *CreateOrderRequest) (*OrderView,
 		shopID = shop.ID
 		shopUID = shop.UID
 	}
-	// Fail before the order exists when the shop cannot accept payments: a
-	// merchant channel without credentials, or a platform gateway the
-	// administrator has not configured yet.
-	if _, _, err := s.gatewayFor(shop); err != nil {
+	// 买家选的通道：留空或未知时用第一个可用通道。
+	channel := model.PayChannel(strings.ToLower(strings.TrimSpace(req.Channel)))
+	if !channel.Valid() {
+		channel = s.defaultChannel()
+	}
+
+	// Fail before the order exists when the requested channel cannot take money:
+	// a merchant channel without credentials, or a platform channel the
+	// administrator has not enabled / configured yet.
+	if _, _, err := s.gatewayFor(shop, channel); err != nil {
 		return nil, err
 	}
 
@@ -220,10 +226,6 @@ func (s *Service) Checkout(c *gin.Context, req *CreateOrderRequest) (*OrderView,
 		PayMode: shop.PayMode.OrDefault(),
 	}
 
-	channel := model.PayChannel(strings.TrimSpace(req.Channel))
-	if !channel.Valid() {
-		channel = s.defaultChannel()
-	}
 	order.Channel = channel
 
 	// The coupon is reserved together with the order: a single-use code cannot

@@ -11,7 +11,7 @@ import (
 )
 
 const shopColumns = `id, uid, slug, name, description, avatar, cover, theme, status, referrer_rate,
-	pay_mode, epay_api_url, epay_pid, epay_key, deposit_paid, deposit_paid_at, created_at, updated_at`
+	pay_mode, epay_api_url, epay_pid, epay_key, epay_channels, deposit_paid, deposit_paid_at, created_at, updated_at`
 
 // CreateShop inserts a shop together with its (empty) balance account.
 func (s *Store) CreateShop(ctx context.Context, shop *model.Shop) error {
@@ -24,11 +24,16 @@ func (s *Store) CreateShop(ctx context.Context, shop *model.Shop) error {
 	shop.CreatedAt, shop.UpdatedAt = now, now
 
 	return s.Tx(ctx, func(tx *Tx) error {
-		_, err := tx.exec(ctx, `INSERT INTO crshop_shop (`+shopColumns+`)
-			VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+		channels, err := marshalPayChannels(shop.EpayChannels)
+		if err != nil {
+			return err
+		}
+
+		_, err = tx.exec(ctx, `INSERT INTO crshop_shop (`+shopColumns+`)
+			VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
 			shop.ID, shop.UID, shop.Slug, shop.Name, shop.Description, shop.Avatar, shop.Cover,
 			string(theme), string(shop.Status), shop.ReferrerRate, string(shop.PayMode.OrDefault()),
-			shop.EpayAPIURL, shop.EpayPID, shop.EpayKey, shop.DepositPaid, shop.DepositPaidAt,
+			shop.EpayAPIURL, shop.EpayPID, shop.EpayKey, channels, shop.DepositPaid, shop.DepositPaidAt,
 			shop.CreatedAt, shop.UpdatedAt)
 		if err != nil {
 			return wrapErr("shop: failed to create shop", err)
@@ -65,14 +70,19 @@ func (s *Store) UpdateShop(ctx context.Context, shop *model.Shop) error {
 		return fmt.Errorf("shop: failed to encode theme: %w", err)
 	}
 
+	channels, err := marshalPayChannels(shop.EpayChannels)
+	if err != nil {
+		return err
+	}
+
 	shop.UpdatedAt = time.Now().Unix()
 	res, err := s.conn().exec(ctx, `UPDATE crshop_shop SET
 			slug = ?, name = ?, description = ?, avatar = ?, cover = ?, theme = ?, status = ?, referrer_rate = ?,
-			pay_mode = ?, epay_api_url = ?, epay_pid = ?, epay_key = ?, updated_at = ?
+			pay_mode = ?, epay_api_url = ?, epay_pid = ?, epay_key = ?, epay_channels = ?, updated_at = ?
 		WHERE id = ?`,
 		shop.Slug, shop.Name, shop.Description, shop.Avatar, shop.Cover, string(theme),
 		string(shop.Status), shop.ReferrerRate, string(shop.PayMode.OrDefault()),
-		shop.EpayAPIURL, shop.EpayPID, shop.EpayKey, shop.UpdatedAt, shop.ID)
+		shop.EpayAPIURL, shop.EpayPID, shop.EpayKey, channels, shop.UpdatedAt, shop.ID)
 	if err != nil {
 		return wrapErr("shop: failed to update shop", err)
 	}
@@ -102,10 +112,11 @@ func scanShop(row rowScanner) (*model.Shop, error) {
 		avatar      stdsql.NullString
 		cover       stdsql.NullString
 		theme       stdsql.NullString
+		channels    stdsql.NullString
 	)
 	err := row.Scan(&shop.ID, &shop.UID, &shop.Slug, &shop.Name, &description, &avatar, &cover,
 		&theme, &shop.Status, &shop.ReferrerRate, &shop.PayMode, &shop.EpayAPIURL, &shop.EpayPID, &shop.EpayKey,
-		&shop.DepositPaid, &shop.DepositPaidAt, &shop.CreatedAt, &shop.UpdatedAt)
+		&channels, &shop.DepositPaid, &shop.DepositPaidAt, &shop.CreatedAt, &shop.UpdatedAt)
 	if err != nil {
 		return nil, wrapErr("shop: failed to query shop", err)
 	}
@@ -116,7 +127,28 @@ func scanShop(row rowScanner) (*model.Shop, error) {
 			return nil, fmt.Errorf("shop: failed to decode theme of shop %s: %w", shop.ID, err)
 		}
 	}
+	if channels.String != "" {
+		if err := json.Unmarshal([]byte(channels.String), &shop.EpayChannels); err != nil {
+			// A corrupted column must not make the shop unreadable: fall back to
+			// the shared credentials.
+			shop.EpayChannels = nil
+		}
+	}
 	return &shop, nil
+}
+
+// marshalPayChannels encodes the per-channel gateway configuration for storage.
+// An empty list is stored as an empty string so the shared credentials keep
+// applying.
+func marshalPayChannels(list []model.PayChannelConfig) (string, error) {
+	if len(list) == 0 {
+		return "", nil
+	}
+	raw, err := json.Marshal(model.NormalizePayChannels(list))
+	if err != nil {
+		return "", fmt.Errorf("shop: failed to encode payment channels: %w", err)
+	}
+	return string(raw), nil
 }
 
 // rowScanner is implemented by both *sql.Row and *sql.Rows.

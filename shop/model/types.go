@@ -6,6 +6,8 @@
 // service layer and the router.
 package model
 
+import "strings"
+
 // ShopStatus is the lifecycle state of a shop.
 type ShopStatus string
 
@@ -114,6 +116,109 @@ const (
 // Valid reports whether c is a channel supported by the epay v1 protocol.
 func (c PayChannel) Valid() bool {
 	return c == ChannelAlipay || c == ChannelWxpay || c == ChannelQqpay
+}
+
+// PayChannelConfig is the gateway configuration of ONE payment channel.
+//
+// 易支付服务商很少同时开通支付宝 / 微信 / QQ 三个通道：同一个服务商往往按通道给
+// 不同的收银台地址与商户号，有的通道则完全没有开通。所以每个通道各自保存一份凭据，
+// 留空的字段回落到共享凭据（平台的 epay_api_url/pid/key，或店铺自己的 epay_* 字段），
+// 这样「一套凭据通吃三个通道」与「每个通道单独配置」两种用法都成立。
+//
+// Key 只在内部流转（存储、签名）时使用；任何返回给前端的结构体都必须自己拼
+// key_set 之类的布尔标记，禁止直接序列化本结构体。
+type PayChannelConfig struct {
+	// Channel is the epay channel this entry configures.
+	Channel PayChannel `json:"channel"`
+	// APIURL, PID and Key are the merchant credentials of this channel.
+	APIURL string `json:"api_url,omitempty"`
+	PID    string `json:"pid,omitempty"`
+	Key    string `json:"key,omitempty"`
+	// Enabled reports whether the cashier may offer this channel.
+	Enabled bool `json:"enabled"`
+}
+
+// Normalized trims every string field so comparisons and storage stay clean.
+func (c PayChannelConfig) Normalized() PayChannelConfig {
+	return PayChannelConfig{
+		Channel: PayChannel(strings.ToLower(strings.TrimSpace(string(c.Channel)))),
+		APIURL:  strings.TrimRight(strings.TrimSpace(c.APIURL), "/"),
+		PID:     strings.TrimSpace(c.PID),
+		Key:     strings.TrimSpace(c.Key),
+		Enabled: c.Enabled,
+	}
+}
+
+// Merge fills the empty fields of c from shared (the credentials configured at
+// the same level for all channels) and returns the effective configuration.
+func (c PayChannelConfig) Merge(shared PayChannelConfig) PayChannelConfig {
+	out := c.Normalized()
+	// The inherited values are normalized too, so a field filled explicitly and
+	// the same field inherited from the shared credentials are identical strings.
+	shared = shared.Normalized()
+	if out.APIURL == "" {
+		out.APIURL = shared.APIURL
+	}
+	if out.PID == "" {
+		out.PID = shared.PID
+	}
+	if out.Key == "" {
+		out.Key = shared.Key
+	}
+	return out
+}
+
+// Ready reports whether the channel is enabled and has usable credentials.
+func (c PayChannelConfig) Ready() bool {
+	return c.Enabled && c.Channel.Valid() && c.APIURL != "" && c.PID != "" && c.Key != ""
+}
+
+// PayChannelOrder is the display order of the channels on the cashier.
+var PayChannelOrder = []PayChannel{ChannelAlipay, ChannelWxpay, ChannelQqpay}
+
+// NormalizePayChannels trims, de-duplicates and orders a channel list. Channels
+// that are not part of the epay protocol are dropped; when the same channel is
+// listed twice the last entry wins.
+func NormalizePayChannels(list []PayChannelConfig) []PayChannelConfig {
+	byChannel := make(map[PayChannel]PayChannelConfig, len(list))
+	for _, item := range list {
+		item = item.Normalized()
+		if !item.Channel.Valid() {
+			continue
+		}
+		byChannel[item.Channel] = item
+	}
+
+	res := make([]PayChannelConfig, 0, len(PayChannelOrder))
+	for _, channel := range PayChannelOrder {
+		if item, ok := byChannel[channel]; ok {
+			res = append(res, item)
+		}
+	}
+	return res
+}
+
+// FindPayChannel returns the entry of the given channel.
+func FindPayChannel(list []PayChannelConfig, channel PayChannel) (PayChannelConfig, bool) {
+	channel = PayChannel(strings.ToLower(strings.TrimSpace(string(channel))))
+	if !channel.Valid() {
+		return PayChannelConfig{}, false
+	}
+	for _, item := range list {
+		if item.Channel == channel {
+			return item, true
+		}
+	}
+	return PayChannelConfig{}, false
+}
+
+// ChannelsOf returns the channel names of the given list, in display order.
+func ChannelsOf(list []PayChannelConfig) []PayChannel {
+	res := make([]PayChannel, 0, len(list))
+	for _, item := range list {
+		res = append(res, item.Normalized().Channel)
+	}
+	return res
 }
 
 // PayMode selects where the buyers of a shop actually pay.

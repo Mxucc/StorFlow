@@ -22,6 +22,14 @@ type Shop struct {
 	EpayAPIURL string `json:"epay_api_url,omitempty"`
 	EpayPID    string `json:"epay_pid,omitempty"`
 	EpayKey    string `json:"-"`
+	// EpayChannels are the merchant's own per-channel gateway credentials. When
+	// empty the shared EpayAPIURL/EpayPID/EpayKey above apply to every channel;
+	// an entry may itself leave a field empty to inherit the shared value.
+	EpayChannels []PayChannelConfig `json:"-"`
+	// PayChannels is the list of channels a buyer can actually pick at the
+	// cashier. It is computed on read (never persisted) so the storefront does
+	// not have to know anything about the gateway configuration.
+	PayChannels []string `json:"pay_channels,omitempty"`
 	// DepositPaid is how much of the platform deposit (保证金) this shop has
 	// already paid, so it owes DepositAmount - DepositPaid.
 	DepositPaid   Money `json:"deposit_paid"`

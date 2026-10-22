@@ -33,8 +33,11 @@ func newPaymentTestService(t *testing.T) (*Service, *store.Store) {
 		store: st,
 		l:     logging.NewConsoleLogger(logging.LevelWarning),
 		settings: Settings{
-			Enabled:          true,
-			Channels:         []string{"alipay", "wxpay"},
+			Enabled: true,
+			ChannelConfigs: []model.PayChannelConfig{
+				{Channel: model.ChannelAlipay, Enabled: true},
+				{Channel: model.ChannelWxpay, Enabled: true},
+			},
 			FeePercent:       300,
 			SettleDelayHours: 24,
 			OrderTTL:         900,
@@ -93,32 +96,46 @@ func TestDepositDueAndGatewayResolution(t *testing.T) {
 
 	// A platform shop without platform credentials cannot take payments.
 	platformShop := &model.Shop{PayMode: model.PayModePlatform}
-	if _, mode, err := svc.gatewayFor(platformShop); err == nil {
+	if _, mode, err := svc.gatewayFor(platformShop, model.ChannelAlipay); err == nil {
 		t.Fatal("an unconfigured platform gateway must be refused")
 	} else if mode != model.PayModePlatform {
 		t.Fatalf("unexpected mode %q", mode)
 	}
 
-	svc.settings.EpayAPIURL = "https://pay.platform.test/"
-	svc.settings.EpayPID = "1000"
-	svc.settings.EpayKey = "platform-key"
-	cfg, mode, err := svc.gatewayFor(platformShop)
-	if err != nil {
-		t.Fatalf("gatewayFor() failed: %v", err)
+	// 每个通道各有一套凭据：支付宝与微信可以指向不同的服务商。
+	svc.settings.ChannelConfigs = []model.PayChannelConfig{
+		{Channel: model.ChannelAlipay, Enabled: true, APIURL: "https://pay.alipay.test/", PID: "1000", Key: "alipay-key"},
+		{Channel: model.ChannelWxpay, Enabled: true, APIURL: "https://pay.wxpay.test/", PID: "2000", Key: "wxpay-key"},
 	}
-	if mode != model.PayModePlatform || cfg.Key != "platform-key" || cfg.APIURL != "https://pay.platform.test" {
-		t.Fatalf("unexpected platform gateway %+v (%q)", cfg, mode)
+	cfg, mode, err := svc.gatewayFor(platformShop, model.ChannelAlipay)
+	if err != nil {
+		t.Fatalf("gatewayFor(alipay) failed: %v", err)
+	}
+	if mode != model.PayModePlatform || cfg.Key != "alipay-key" || cfg.APIURL != "https://pay.alipay.test" {
+		t.Fatalf("unexpected alipay gateway %+v (%q)", cfg, mode)
+	}
+	cfg, _, err = svc.gatewayFor(platformShop, model.ChannelWxpay)
+	if err != nil {
+		t.Fatalf("gatewayFor(wxpay) failed: %v", err)
+	}
+	if cfg.Key != "wxpay-key" || cfg.APIURL != "https://pay.wxpay.test" {
+		t.Fatalf("unexpected wxpay gateway %+v", cfg)
+	}
+	// A channel that is not part of the configuration must be refused instead of
+	// silently falling back to another provider.
+	if _, _, err := svc.gatewayFor(platformShop, model.ChannelQqpay); err == nil {
+		t.Fatal("a channel without configuration must be refused")
 	}
 
 	// A merchant channel needs the credentials of the shop itself.
 	custom := &model.Shop{PayMode: model.PayModeCustom}
-	if _, _, err := svc.gatewayFor(custom); err == nil {
+	if _, _, err := svc.gatewayFor(custom, model.ChannelAlipay); err == nil {
 		t.Fatal("an incomplete merchant channel must be refused")
 	}
 	custom.EpayAPIURL = "https://pay.merchant.test/"
-	custom.EpayPID = "2000"
+	custom.EpayPID = "3000"
 	custom.EpayKey = "merchant-key"
-	cfg, mode, err = svc.gatewayFor(custom)
+	cfg, mode, err = svc.gatewayFor(custom, model.ChannelAlipay)
 	if err != nil {
 		t.Fatalf("gatewayFor() failed: %v", err)
 	}
@@ -126,12 +143,39 @@ func TestDepositDueAndGatewayResolution(t *testing.T) {
 		t.Fatalf("unexpected merchant gateway %+v (%q)", cfg, mode)
 	}
 
+	// 只有微信通道单独配了另一套凭据（支付宝留空）时：微信走自己的服务商，
+	// 支付宝沿用店铺的共享凭据；没被列出的通道视为未开通。
+	custom.EpayChannels = []model.PayChannelConfig{
+		{Channel: model.ChannelAlipay, Enabled: true},
+		{Channel: model.ChannelWxpay, Enabled: true, APIURL: "https://pay.wx-merchant.test/", PID: "9000", Key: "wx-merchant-key"},
+	}
+	cfg, _, err = svc.gatewayFor(custom, model.ChannelWxpay)
+	if err != nil {
+		t.Fatalf("gatewayFor(wxpay) failed: %v", err)
+	}
+	if cfg.Key != "wx-merchant-key" || cfg.APIURL != "https://pay.wx-merchant.test" {
+		t.Fatalf("the per-channel credentials must win, got %+v", cfg)
+	}
+	cfg, _, err = svc.gatewayFor(custom, model.ChannelAlipay)
+	if err != nil {
+		t.Fatalf("gatewayFor(alipay) failed: %v", err)
+	}
+	if cfg.Key != "merchant-key" {
+		t.Fatalf("alipay must inherit the shared credentials, got %+v", cfg)
+	}
+	if _, _, err := svc.gatewayFor(custom, model.ChannelQqpay); err == nil {
+		t.Fatal("a channel missing from the shop configuration must be refused")
+	}
+
 	// The default channel never panics on a broken configuration.
-	svc.settings.Channels = nil
+	svc.settings.ChannelConfigs = nil
 	if got := svc.defaultChannel(); got != model.ChannelAlipay {
 		t.Fatalf("expected alipay as the fallback channel, got %q", got)
 	}
-	svc.settings.Channels = []string{"bogus", "qqpay"}
+	svc.settings.ChannelConfigs = []model.PayChannelConfig{
+		{Channel: model.ChannelAlipay, Enabled: false, APIURL: "https://a.test/", PID: "1", Key: "k"},
+		{Channel: model.ChannelQqpay, Enabled: true, APIURL: "https://q.test/", PID: "1", Key: "k"},
+	}
 	if got := svc.defaultChannel(); got != model.ChannelQqpay {
 		t.Fatalf("expected the first usable channel, got %q", got)
 	}

@@ -149,4 +149,18 @@ type PaymentSettingRequest struct {
 	EpayAPIURL *string `json:"epay_api_url"`
 	EpayPID    *string `json:"epay_pid"`
 	EpayKey    *string `json:"epay_key"`
+	// EpayChannels replaces the per-channel gateway list. A nil field keeps the
+	// stored list; sending an empty array clears it (all channels then share the
+	// credentials above). key == "********" keeps the stored secret of that
+	// channel.
+	EpayChannels *[]PayChannelRequest `json:"epay_channels"`
+}
+
+// PayChannelRequest is one row of the per-channel gateway editor.
+type PayChannelRequest struct {
+	Channel string `json:"channel"`
+	APIURL  string `json:"api_url"`
+	PID     string `json:"pid"`
+	Key     string `json:"key"`
+	Enabled bool   `json:"enabled"`
 }

@@ -77,11 +77,12 @@ func (s *Store) Migrate(ctx context.Context) error {
 			epay_api_url %s NOT NULL,
 			epay_pid %s NOT NULL,
 			epay_key %s NOT NULL,
+			epay_channels %s NOT NULL,
 			deposit_paid %s NOT NULL,
 			deposit_paid_at %s NOT NULL,
 			created_at %s NOT NULL,
 			updated_at %s NOT NULL
-		)`, t.key, t.num, t.str(64), t.str(100), t.text, t.str(1024), t.str(1024), t.text, t.str(16), t.num, t.str(16), t.str(1024), t.str(64), t.str(128), t.num, t.num, t.num, t.num),
+		)`, t.key, t.num, t.str(64), t.str(100), t.text, t.str(1024), t.str(1024), t.text, t.str(16), t.num, t.str(16), t.str(1024), t.str(64), t.str(128), t.str(2048), t.num, t.num, t.num, t.num),
 
 		fmt.Sprintf(`CREATE TABLE IF NOT EXISTS crshop_balance (
 			shop_id %s NOT NULL PRIMARY KEY,
@@ -285,6 +286,8 @@ func (s *Store) Migrate(ctx context.Context) error {
 		{"crshop_shop", "epay_api_url", t.str(1024) + " NOT NULL DEFAULT ''"},
 		{"crshop_shop", "epay_pid", t.str(64) + " NOT NULL DEFAULT ''"},
 		{"crshop_shop", "epay_key", t.str(128) + " NOT NULL DEFAULT ''"},
+		// 逐通道的易支付配置（JSON）；为空表示所有通道共用上面的 epay_api_url/pid/key。
+		{"crshop_shop", "epay_channels", t.str(2048) + " NOT NULL DEFAULT ''"},
 		{"crshop_shop", "deposit_paid", t.num + " NOT NULL DEFAULT 0"},
 		{"crshop_shop", "deposit_paid_at", t.num + " NOT NULL DEFAULT 0"},
 		{"crshop_balance", "pending", t.num + " NOT NULL DEFAULT 0"},

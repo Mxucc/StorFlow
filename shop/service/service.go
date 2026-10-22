@@ -8,6 +8,7 @@ package service
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"net/url"
 	"strconv"
@@ -78,7 +79,11 @@ func (s *Service) Reload(ctx context.Context) error {
 		next.EpayKey = v
 	}
 	if v, ok := raw[SettingEpayChannels]; ok {
-		next.Channels = splitList(v)
+		next.ChannelConfigs = parseChannelConfigs(v, model.PayChannelConfig{
+			APIURL: next.EpayAPIURL,
+			PID:    next.EpayPID,
+			Key:    next.EpayKey,
+		})
 	}
 	if v, ok := raw[SettingFeePercent]; ok {
 		next.FeePercent = atoiDefault(v, next.FeePercent)
@@ -167,8 +172,10 @@ type Settings struct {
 	// EpayPID / EpayKey are the merchant credentials.
 	EpayPID string
 	EpayKey string
-	// Channels is the list of payment channels offered on the cashier.
-	Channels []string
+	// ChannelConfigs are the per-channel epay credentials of the platform
+	// gateway. Every entry already has the shared credentials filled in; the
+	// Enabled flag says whether the cashier offers the channel.
+	ChannelConfigs []model.PayChannelConfig
 	// FeePercent is the platform commission in basis points (300 = 3%).
 	FeePercent int
 	// ReferralPercent is the default rebate rate in basis points.
@@ -202,8 +209,13 @@ type Settings struct {
 // DefaultSettings returns the shipped defaults.
 func DefaultSettings() Settings {
 	return Settings{
-		Enabled:            true,
-		Channels:           []string{"alipay", "wxpay", "qqpay"},
+		Enabled: true,
+		// 默认三个通道都开，共用到管理员填写的同一套易支付凭据。
+		ChannelConfigs: []model.PayChannelConfig{
+			{Channel: model.ChannelAlipay, Enabled: true},
+			{Channel: model.ChannelWxpay, Enabled: true},
+			{Channel: model.ChannelQqpay, Enabled: true},
+		},
 		FeePercent:         300,
 		ReferralPercent:    1000,
 		WithdrawFeePercent: 0,
@@ -223,7 +235,7 @@ func (s Settings) Values() map[string]string {
 		SettingEpayAPIURL:         s.EpayAPIURL,
 		SettingEpayPID:            s.EpayPID,
 		SettingEpayKey:            s.EpayKey,
-		SettingEpayChannels:       strings.Join(s.Channels, ","),
+		SettingEpayChannels:       marshalChannelConfigs(s.ChannelConfigs),
 		SettingFeePercent:         strconv.Itoa(s.FeePercent),
 		SettingReferralPercent:    strconv.Itoa(s.ReferralPercent),
 		SettingWithdrawFeePercent: strconv.Itoa(s.WithdrawFeePercent),
@@ -235,6 +247,23 @@ func (s Settings) Values() map[string]string {
 		SettingDepositAmount:      strconv.FormatInt(int64(s.DepositAmount), 10),
 		SettingSettleDelayHours:   strconv.Itoa(s.SettleDelayHours),
 	}
+}
+
+// Channels returns the payment channels the cashier may offer: enabled and
+// fully configured, in display order.
+func (s Settings) Channels() []string {
+	res := make([]string, 0, len(s.ChannelConfigs))
+	for _, item := range s.ChannelConfigs {
+		if item.Ready() {
+			res = append(res, string(item.Channel))
+		}
+	}
+	return res
+}
+
+// ChannelConfig returns the configuration of one channel.
+func (s Settings) ChannelConfig(channel model.PayChannel) (model.PayChannelConfig, bool) {
+	return model.FindPayChannel(s.ChannelConfigs, channel)
 }
 
 // CheckEnabled returns an error when the module is switched off.
@@ -311,6 +340,14 @@ func (s *Service) PublicShop(c *gin.Context, slug string) (*model.Shop, error) {
 	if shop.Status != model.ShopStatusActive {
 		return nil, serializer.NewError(serializer.CodeNotFound, "Shop not found", nil)
 	}
+
+	// 收银台只列出这家店当前真正能收钱的通道：自配渠道看店铺自己的配置，
+	// 平台聚合支付看管理员启用了哪些通道。
+	if shop.PayMode.OrDefault() == model.PayModeCustom {
+		shop.PayChannels = readyChannels(shopChannelConfigs(shop))
+	} else {
+		shop.PayChannels = s.Settings().Channels()
+	}
 	return shop, nil
 }
 
@@ -328,6 +365,63 @@ func splitList(raw string) []string {
 		}
 	}
 	return res
+}
+
+// parseChannelConfigs turns the stored epay_channels value into per-channel
+// configurations.
+//
+// 三种取值都要兼容：
+//   - JSON 数组（新格式，每个通道一套凭据，字段留空则回落到共享凭据）；
+//   - 逗号/空格分隔的通道名（旧格式，凭据只有一套）；
+//   - 空值（更早的安装：共享凭据齐全时三个通道全开，否则一个都不开）。
+func parseChannelConfigs(raw string, shared model.PayChannelConfig) []model.PayChannelConfig {
+	raw = strings.TrimSpace(raw)
+	if raw == "" {
+		if shared.APIURL == "" || shared.PID == "" || shared.Key == "" {
+			return nil
+		}
+		list := make([]model.PayChannelConfig, 0, len(model.PayChannelOrder))
+		for _, channel := range model.PayChannelOrder {
+			list = append(list, model.PayChannelConfig{Channel: channel, Enabled: true}.Merge(shared))
+		}
+		return list
+	}
+
+	if strings.HasPrefix(raw, "[") {
+		var parsed []model.PayChannelConfig
+		if err := json.Unmarshal([]byte(raw), &parsed); err == nil {
+			list := model.NormalizePayChannels(parsed)
+			for i := range list {
+				list[i] = list[i].Merge(shared)
+			}
+			return list
+		}
+	}
+
+	list := make([]model.PayChannelConfig, 0, 3)
+	for _, name := range splitList(raw) {
+		channel := model.PayChannel(strings.ToLower(name))
+		if !channel.Valid() {
+			continue
+		}
+		list = append(list, model.PayChannelConfig{Channel: channel, Enabled: true}.Merge(shared))
+	}
+	return model.NormalizePayChannels(list)
+}
+
+// marshalChannelConfigs encodes the per-channel configuration for storage. An
+// empty list is stored as an empty string, which is what the "no per-channel
+// override" state means.
+func marshalChannelConfigs(list []model.PayChannelConfig) string {
+	normalized := model.NormalizePayChannels(list)
+	if len(normalized) == 0 {
+		return ""
+	}
+	raw, err := json.Marshal(normalized)
+	if err != nil {
+		return ""
+	}
+	return string(raw)
 }
 
 func atoiDefault(raw string, def int) int {

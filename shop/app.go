@@ -74,6 +74,8 @@ func Init(dep dependency.Dep) (*App, error) {
 	sharegate.Register(svc.CheckShareAccess)
 	// The registration flow reports invitees through this hook.
 	shoplink.Register(svc.BindReferralFromRegister)
+	// The paid share dialog may only offer the platform channels that are on.
+	sharegate.RegisterChannels(func() []string { return svc.Settings().Channels() })
 	// Files that were sold must not disappear from under the buyers.
 	fileguard.Register(svc.GuardDeletion)
 

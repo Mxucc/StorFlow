@@ -50,6 +50,10 @@ type ProductDetail struct {
 	FileCount             int    `json:"-"`
 	CanPreview            bool   `json:"can_preview"`
 	OwnerShopUID          string `json:"-"`
+	// PayChannels lists the channels the cashier may offer for this product: the
+	// shop may point every channel at a different gateway, so the buyer must only
+	// see the ones that can actually take the money right now.
+	PayChannels []string `json:"pay_channels"`
 }
 
 // CreateProduct lists a folder of the owner's drive.
@@ -341,6 +345,7 @@ func (s *Service) ProductDetailFor(c *gin.Context, slug, id string) (*ProductDet
 		DescriptionVisibility: product.Props.EffectiveDescriptionVisibility(),
 		CanPreview:            product.Status == model.ProductStatusOnSale || owned,
 		OwnerShopUID:          hashid.EncodeUserID(s.Hasher(), shop.UID),
+		PayChannels:           shop.PayChannels,
 	}, nil
 }
 

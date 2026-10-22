@@ -32,11 +32,40 @@ var (
 	checker Checker
 )
 
+// ChannelProvider reports the payment channels a paid share may be bought with.
+// The shop module installs it at start-up; without it the caller falls back to
+// every channel of the epay protocol.
+type ChannelProvider func() []string
+
+var (
+	channelMu       sync.RWMutex
+	channelProvider ChannelProvider
+)
+
 // Register installs the process wide checker. Passing nil removes it.
 func Register(c Checker) {
 	mu.Lock()
 	defer mu.Unlock()
 	checker = c
+}
+
+// RegisterChannels installs the channel provider. Passing nil removes it.
+func RegisterChannels(p ChannelProvider) {
+	channelMu.Lock()
+	defer channelMu.Unlock()
+	channelProvider = p
+}
+
+// PayChannels returns the channels a buyer may pick for a paid share. An empty
+// result means \"no provider installed\": the caller then offers them all.
+func PayChannels() []string {
+	channelMu.RLock()
+	p := channelProvider
+	channelMu.RUnlock()
+	if p == nil {
+		return nil
+	}
+	return p()
 }
 
 // Payable reports whether share is a paid share.
