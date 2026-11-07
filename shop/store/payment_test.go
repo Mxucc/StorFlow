@@ -406,3 +406,45 @@ func TestMigrateAddsColumnsToExistingTables(t *testing.T) {
 		t.Fatalf("unexpected upgraded balance %+v", balance)
 	}
 }
+
+// TestCloseOrderOnlyClosesPendingOrders covers the primitive used when a buyer
+// abandons a cashier order or a wallet payment could not be settled.
+func TestCloseOrderOnlyClosesPendingOrders(t *testing.T) {
+	st, _ := newTestStore(t)
+	ctx := context.Background()
+	shop := createShop(t, st, 41, "close-order")
+	order := newOrder(t, st, shop, "20240101000000CLOSE", model.OrderKindProduct, 1_000)
+
+	if err := st.CloseOrder(ctx, order.OrderNo); err != nil {
+		t.Fatalf("CloseOrder() failed: %v", err)
+	}
+	closed, err := st.GetOrder(ctx, order.OrderNo)
+	if err != nil {
+		t.Fatalf("GetOrder() failed: %v", err)
+	}
+	if closed.Status != model.OrderStatusClosed {
+		t.Fatalf("expected a closed order, got %q", closed.Status)
+	}
+
+	// Closing again is a no-op, and a paid order is never closed by it.
+	if err := st.CloseOrder(ctx, order.OrderNo); err != nil {
+		t.Fatalf("a repeated CloseOrder() must be a no-op: %v", err)
+	}
+	paid := newOrder(t, st, shop, "20240101000000PAIDC", model.OrderKindProduct, 1_000)
+	if err := st.Tx(ctx, func(tx *Tx) error {
+		_, err := tx.MarkOrderPaid(ctx, paid.OrderNo, "EP-1", 1_000, 0, "")
+		return err
+	}); err != nil {
+		t.Fatalf("MarkOrderPaid() failed: %v", err)
+	}
+	if err := st.CloseOrder(ctx, paid.OrderNo); err != nil {
+		t.Fatalf("CloseOrder() on a paid order must not fail: %v", err)
+	}
+	stillPaid, err := st.GetOrder(ctx, paid.OrderNo)
+	if err != nil {
+		t.Fatalf("GetOrder() failed: %v", err)
+	}
+	if stillPaid.Status != model.OrderStatusPaid {
+		t.Fatalf("a paid order must stay paid, got %q", stillPaid.Status)
+	}
+}

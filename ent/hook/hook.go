@@ -273,6 +273,30 @@ func (f UserFunc) Mutate(ctx context.Context, m ent.Mutation) (ent.Value, error)
 	return nil, fmt.Errorf("unexpected mutation type %T. expect *ent.UserMutation", m)
 }
 
+// The WalletBalanceFunc type is an adapter to allow the use of ordinary
+// function as WalletBalance mutator.
+type WalletBalanceFunc func(context.Context, *ent.WalletBalanceMutation) (ent.Value, error)
+
+// Mutate calls f(ctx, m).
+func (f WalletBalanceFunc) Mutate(ctx context.Context, m ent.Mutation) (ent.Value, error) {
+	if mv, ok := m.(*ent.WalletBalanceMutation); ok {
+		return f(ctx, mv)
+	}
+	return nil, fmt.Errorf("unexpected mutation type %T. expect *ent.WalletBalanceMutation", m)
+}
+
+// The WalletLedgerFunc type is an adapter to allow the use of ordinary
+// function as WalletLedger mutator.
+type WalletLedgerFunc func(context.Context, *ent.WalletLedgerMutation) (ent.Value, error)
+
+// Mutate calls f(ctx, m).
+func (f WalletLedgerFunc) Mutate(ctx context.Context, m ent.Mutation) (ent.Value, error) {
+	if mv, ok := m.(*ent.WalletLedgerMutation); ok {
+		return f(ctx, mv)
+	}
+	return nil, fmt.Errorf("unexpected mutation type %T. expect *ent.WalletLedgerMutation", m)
+}
+
 // Condition is a hook condition function.
 type Condition func(context.Context, ent.Mutation) bool
 

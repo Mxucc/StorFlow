@@ -7,6 +7,8 @@ import (
 	"strings"
 	"time"
 
+	"github.com/Mxucc/StorFlow/ent"
+	"github.com/Mxucc/StorFlow/inventory"
 	"github.com/Mxucc/StorFlow/pkg/request"
 	"github.com/Mxucc/StorFlow/pkg/serializer"
 	"github.com/Mxucc/StorFlow/shop/gateway/epay"
@@ -434,4 +436,36 @@ func validateGatewayURL(ctx context.Context, raw string) error {
 		return fmt.Errorf("the gateway URL must contain a host")
 	}
 	return request.ValidateExternalURL(ctx, raw, request.SSRFOptions{})
+}
+
+// ShopBalancePayable reports whether a paid share may be bought with the buyer's
+// wallet.
+//
+// Only a shop on the platform channel qualifies: the wallet holds money the
+// platform collected, so it can only pay a seller the platform owes. A shop on
+// its own merchant channel is paid by the buyer directly.
+func (s *Service) ShopBalancePayable(ctx context.Context, share *ent.Share) bool {
+	if share == nil {
+		return false
+	}
+
+	owner := 0
+	if share.Edges.User != nil {
+		owner = share.Edges.User.ID
+	}
+	if owner == 0 {
+		// The edge is often not loaded: ask the share client for it.
+		loadCtx := context.WithValue(ctx, inventory.LoadShareUser{}, true)
+		entity, err := s.dep.ShareClient().GetByID(loadCtx, share.ID)
+		if err != nil || entity.Edges.User == nil {
+			return false
+		}
+		owner = entity.Edges.User.ID
+	}
+
+	shop, err := s.store.GetShopByUID(ctx, owner)
+	if err != nil {
+		return false
+	}
+	return shop.Status == model.ShopStatusActive && shop.PayMode.OrDefault() == model.PayModePlatform
 }

@@ -1020,6 +1020,52 @@ func HasPointsLedgersWith(preds ...predicate.PointsLedger) predicate.User {
 	})
 }
 
+// HasWalletBalance applies the HasEdge predicate on the "wallet_balance" edge.
+func HasWalletBalance() predicate.User {
+	return predicate.User(func(s *sql.Selector) {
+		step := sqlgraph.NewStep(
+			sqlgraph.From(Table, FieldID),
+			sqlgraph.Edge(sqlgraph.O2O, false, WalletBalanceTable, WalletBalanceColumn),
+		)
+		sqlgraph.HasNeighbors(s, step)
+	})
+}
+
+// HasWalletBalanceWith applies the HasEdge predicate on the "wallet_balance" edge with a given conditions (other predicates).
+func HasWalletBalanceWith(preds ...predicate.WalletBalance) predicate.User {
+	return predicate.User(func(s *sql.Selector) {
+		step := newWalletBalanceStep()
+		sqlgraph.HasNeighborsWith(s, step, func(s *sql.Selector) {
+			for _, p := range preds {
+				p(s)
+			}
+		})
+	})
+}
+
+// HasWalletLedgers applies the HasEdge predicate on the "wallet_ledgers" edge.
+func HasWalletLedgers() predicate.User {
+	return predicate.User(func(s *sql.Selector) {
+		step := sqlgraph.NewStep(
+			sqlgraph.From(Table, FieldID),
+			sqlgraph.Edge(sqlgraph.O2M, false, WalletLedgersTable, WalletLedgersColumn),
+		)
+		sqlgraph.HasNeighbors(s, step)
+	})
+}
+
+// HasWalletLedgersWith applies the HasEdge predicate on the "wallet_ledgers" edge with a given conditions (other predicates).
+func HasWalletLedgersWith(preds ...predicate.WalletLedger) predicate.User {
+	return predicate.User(func(s *sql.Selector) {
+		step := newWalletLedgersStep()
+		sqlgraph.HasNeighborsWith(s, step, func(s *sql.Selector) {
+			for _, p := range preds {
+				p(s)
+			}
+		})
+	})
+}
+
 // HasGiftcodes applies the HasEdge predicate on the "giftcodes" edge.
 func HasGiftcodes() predicate.User {
 	return predicate.User(func(s *sql.Selector) {

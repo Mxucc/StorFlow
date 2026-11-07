@@ -34,6 +34,8 @@ import (
 	"github.com/Mxucc/StorFlow/ent/storagepolicy"
 	"github.com/Mxucc/StorFlow/ent/task"
 	"github.com/Mxucc/StorFlow/ent/user"
+	"github.com/Mxucc/StorFlow/ent/walletbalance"
+	"github.com/Mxucc/StorFlow/ent/walletledger"
 )
 
 // ent aliases to avoid import conflicts in user's code.
@@ -116,6 +118,8 @@ func checkColumn(table, column string) error {
 			storagepolicy.Table: storagepolicy.ValidColumn,
 			task.Table:          task.ValidColumn,
 			user.Table:          user.ValidColumn,
+			walletbalance.Table: walletbalance.ValidColumn,
+			walletledger.Table:  walletledger.ValidColumn,
 		})
 	})
 	return columnCheck(table, column)

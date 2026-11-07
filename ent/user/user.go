@@ -65,6 +65,10 @@ const (
 	EdgePayments = "payments"
 	// EdgePointsLedgers holds the string denoting the points_ledgers edge name in mutations.
 	EdgePointsLedgers = "points_ledgers"
+	// EdgeWalletBalance holds the string denoting the wallet_balance edge name in mutations.
+	EdgeWalletBalance = "wallet_balance"
+	// EdgeWalletLedgers holds the string denoting the wallet_ledgers edge name in mutations.
+	EdgeWalletLedgers = "wallet_ledgers"
 	// EdgeGiftcodes holds the string denoting the giftcodes edge name in mutations.
 	EdgeGiftcodes = "giftcodes"
 	// EdgeEntities holds the string denoting the entities edge name in mutations.
@@ -145,6 +149,20 @@ const (
 	PointsLedgersInverseTable = "points_ledgers"
 	// PointsLedgersColumn is the table column denoting the points_ledgers relation/edge.
 	PointsLedgersColumn = "user_id"
+	// WalletBalanceTable is the table that holds the wallet_balance relation/edge.
+	WalletBalanceTable = "wallet_balances"
+	// WalletBalanceInverseTable is the table name for the WalletBalance entity.
+	// It exists in this package in order to avoid circular dependency with the "walletbalance" package.
+	WalletBalanceInverseTable = "wallet_balances"
+	// WalletBalanceColumn is the table column denoting the wallet_balance relation/edge.
+	WalletBalanceColumn = "user_id"
+	// WalletLedgersTable is the table that holds the wallet_ledgers relation/edge.
+	WalletLedgersTable = "wallet_ledgers"
+	// WalletLedgersInverseTable is the table name for the WalletLedger entity.
+	// It exists in this package in order to avoid circular dependency with the "walletledger" package.
+	WalletLedgersInverseTable = "wallet_ledgers"
+	// WalletLedgersColumn is the table column denoting the wallet_ledgers relation/edge.
+	WalletLedgersColumn = "user_id"
 	// GiftcodesTable is the table that holds the giftcodes relation/edge.
 	GiftcodesTable = "gift_codes"
 	// GiftcodesInverseTable is the table name for the GiftCode entity.
@@ -462,6 +480,27 @@ func ByPointsLedgers(term sql.OrderTerm, terms ...sql.OrderTerm) OrderOption {
 	}
 }
 
+// ByWalletBalanceField orders the results by wallet_balance field.
+func ByWalletBalanceField(field string, opts ...sql.OrderTermOption) OrderOption {
+	return func(s *sql.Selector) {
+		sqlgraph.OrderByNeighborTerms(s, newWalletBalanceStep(), sql.OrderByField(field, opts...))
+	}
+}
+
+// ByWalletLedgersCount orders the results by wallet_ledgers count.
+func ByWalletLedgersCount(opts ...sql.OrderTermOption) OrderOption {
+	return func(s *sql.Selector) {
+		sqlgraph.OrderByNeighborsCount(s, newWalletLedgersStep(), opts...)
+	}
+}
+
+// ByWalletLedgers orders the results by wallet_ledgers terms.
+func ByWalletLedgers(term sql.OrderTerm, terms ...sql.OrderTerm) OrderOption {
+	return func(s *sql.Selector) {
+		sqlgraph.OrderByNeighborTerms(s, newWalletLedgersStep(), append([]sql.OrderTerm{term}, terms...)...)
+	}
+}
+
 // ByGiftcodesCount orders the results by giftcodes count.
 func ByGiftcodesCount(opts ...sql.OrderTermOption) OrderOption {
 	return func(s *sql.Selector) {
@@ -585,6 +624,20 @@ func newPointsLedgersStep() *sqlgraph.Step {
 		sqlgraph.From(Table, FieldID),
 		sqlgraph.To(PointsLedgersInverseTable, FieldID),
 		sqlgraph.Edge(sqlgraph.O2M, false, PointsLedgersTable, PointsLedgersColumn),
+	)
+}
+func newWalletBalanceStep() *sqlgraph.Step {
+	return sqlgraph.NewStep(
+		sqlgraph.From(Table, FieldID),
+		sqlgraph.To(WalletBalanceInverseTable, FieldID),
+		sqlgraph.Edge(sqlgraph.O2O, false, WalletBalanceTable, WalletBalanceColumn),
+	)
+}
+func newWalletLedgersStep() *sqlgraph.Step {
+	return sqlgraph.NewStep(
+		sqlgraph.From(Table, FieldID),
+		sqlgraph.To(WalletLedgersInverseTable, FieldID),
+		sqlgraph.Edge(sqlgraph.O2M, false, WalletLedgersTable, WalletLedgersColumn),
 	)
 }
 func newGiftcodesStep() *sqlgraph.Step {

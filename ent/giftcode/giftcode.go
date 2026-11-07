@@ -27,6 +27,10 @@ const (
 	FieldProductType = "product_type"
 	// FieldNum holds the string denoting the num field in the database.
 	FieldNum = "num"
+	// FieldAmount holds the string denoting the amount field in the database.
+	FieldAmount = "amount"
+	// FieldExpiresAt holds the string denoting the expires_at field in the database.
+	FieldExpiresAt = "expires_at"
 	// FieldName holds the string denoting the name field in the database.
 	FieldName = "name"
 	// FieldUsed holds the string denoting the used field in the database.
@@ -59,6 +63,8 @@ var Columns = []string{
 	FieldCode,
 	FieldProductType,
 	FieldNum,
+	FieldAmount,
+	FieldExpiresAt,
 	FieldName,
 	FieldUsed,
 	FieldUsedBy,
@@ -94,6 +100,10 @@ var (
 	CodeValidator func(string) error
 	// ProductTypeValidator is a validator for the "product_type" field. It is called by the builders before save.
 	ProductTypeValidator func(string) error
+	// DefaultAmount holds the default value on creation for the "amount" field.
+	DefaultAmount int64
+	// DefaultExpiresAt holds the default value on creation for the "expires_at" field.
+	DefaultExpiresAt int64
 	// NameValidator is a validator for the "name" field. It is called by the builders before save.
 	NameValidator func(string) error
 	// DefaultUsed holds the default value on creation for the "used" field.
@@ -140,6 +150,16 @@ func ByProductType(opts ...sql.OrderTermOption) OrderOption {
 // ByNum orders the results by the num field.
 func ByNum(opts ...sql.OrderTermOption) OrderOption {
 	return sql.OrderByField(FieldNum, opts...).ToFunc()
+}
+
+// ByAmount orders the results by the amount field.
+func ByAmount(opts ...sql.OrderTermOption) OrderOption {
+	return sql.OrderByField(FieldAmount, opts...).ToFunc()
+}
+
+// ByExpiresAt orders the results by the expires_at field.
+func ByExpiresAt(opts ...sql.OrderTermOption) OrderOption {
+	return sql.OrderByField(FieldExpiresAt, opts...).ToFunc()
 }
 
 // ByName orders the results by the name field.

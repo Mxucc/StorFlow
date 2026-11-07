@@ -3,21 +3,21 @@
 > 自动生成，请勿手工编辑。重新生成：`python3 docs/tools/gen-api-inventory.py`。
 
 - 来源：`routers/router.go` + `shop/router.go`
-- 生成时间：2026-10-18 19:10
-- 接口总数：**245**（去重后 `METHOD + 路径`，路径参数统一记为 `:param`）
+- 生成时间：2026-10-28 21:04
+- 接口总数：**258**（去重后 `METHOD + 路径`，路径参数统一记为 `:param`）
 
 ## 汇总
 
 | 分类 | 接口数 | GET | POST | PUT | PATCH | DELETE | HEAD | OPTIONS |
 | --- | --- | --- | --- | --- | --- | --- | --- | --- |
-| 公开 | 22 | 8 | 10 | 1 | 0 | 3 | 0 | 0 |
-| 用户（登录） | 89 | 32 | 26 | 11 | 6 | 11 | 2 | 1 |
-| 小店 | 45 | 24 | 17 | 0 | 4 | 0 | 0 | 0 |
+| 公开 | 27 | 13 | 10 | 1 | 0 | 3 | 0 | 0 |
+| 用户（登录） | 91 | 34 | 26 | 11 | 6 | 11 | 2 | 1 |
+| 小店 | 51 | 27 | 19 | 0 | 5 | 0 | 0 | 0 |
 | 管理员 | 78 | 22 | 39 | 11 | 1 | 5 | 0 | 0 |
 | 从机 / 回调 | 11 | 3 | 5 | 2 | 0 | 1 | 0 | 0 |
-| **合计** | **245** | 89 | 97 | 25 | 11 | 20 | 2 | 1 |
+| **合计** | **258** | 99 | 99 | 25 | 12 | 20 | 2 | 1 |
 
-## 公开（22）
+## 公开（27）
 
 | 方法 | 路径 | 处理器 |
 | --- | --- | --- |
@@ -30,7 +30,12 @@
 | `DELETE` | `/api/v4/session/oauth/grant/:app_id` | `DeleteOAuthGrant` |
 | `POST` | `/api/v4/session/oauth/token` | `FromForm` |
 | `GET` | `/api/v4/session/oauth/userinfo` | `OpenIDUserInfo` |
+| `GET` | `/api/v4/session/oidc/authorize` | `OIDCAuthorize` |
+| `GET` | `/api/v4/session/oidc/callback` | `OIDCCallback` |
 | `GET` | `/api/v4/session/prepare` | `UserPrepareLogin` |
+| `GET` | `/api/v4/session/qq/authorize` | `QQAuthorize` |
+| `GET` | `/api/v4/session/qq/callback` | `QQCallback` |
+| `GET` | `/api/v4/session/sso` | `SSOConfig` |
 | `DELETE` | `/api/v4/session/token` | `UserSignOut` |
 | `POST` | `/api/v4/session/token` | `UserLoginValidation` |
 | `POST` | `/api/v4/session/token/2fa` | `UserLogin2FAValidation` |
@@ -44,7 +49,7 @@
 | `GET` | `/api/v4/vas/payment/status` | `VASPaymentStatus` |
 | `GET` | `/api/v4/vas/payment/status/:order/:channel` | `VASPaymentStatus` |
 
-## 用户（登录）（89）
+## 用户（登录）（91）
 
 | 方法 | 路径 | 处理器 |
 | --- | --- | --- |
@@ -126,7 +131,9 @@
 | `POST` | `/api/v4/vas/giftcode/redeem` | `VASRedeemGiftCode` |
 | `PUT` | `/api/v4/vas/payment` | `VASCreatePayment` |
 | `GET` | `/api/v4/vas/points` | `VASGetPoints` |
-| `GET` | `/api/v4/vas/skus` | `VASListSKUs` |
+| `GET` | `/api/v4/vas/wallet` | `VASGetWallet` |
+| `GET` | `/api/v4/vas/providers` | `VASListShopProviders` |
+| `GET` | `/api/v4/vas/skus` | `VASListShopSKUs` |
 | `GET` | `/api/v4/workflow` | `ListTasks` |
 | `POST` | `/api/v4/workflow/archive` | `CreateArchive` |
 | `POST` | `/api/v4/workflow/download` | `CreateRemoteDownload` |
@@ -134,11 +141,12 @@
 | `PATCH` | `/api/v4/workflow/download/:id` | `SetDownloadTaskTarget` |
 | `POST` | `/api/v4/workflow/extract` | `ExtractArchive` |
 | `POST` | `/api/v4/workflow/import` | `ImportFiles` |
+| `GET` | `/api/v4/workflow/nodes` | `ListAvailableNodes` |
 | `GET` | `/api/v4/workflow/progress/:id` | `GetTaskPhaseProgress` |
 | `POST` | `/api/v4/workflow/rebuildFtsIndex` | `RebuildFTSIndex` |
 | `POST` | `/api/v4/workflow/relocate` | `RelocateFiles` |
 
-## 小店（45）
+## 小店（51）
 
 | 方法 | 路径 | 处理器 |
 | --- | --- | --- |
@@ -162,15 +170,19 @@
 | `GET` | `/api/v4/shop/shop/coupon` | `-` |
 | `POST` | `/api/v4/shop/shop/coupon` | `-` |
 | `PATCH` | `/api/v4/shop/shop/coupon/:id` | `-` |
+| `POST` | `/api/v4/shop/shop/deposit` | `-` |
 | `GET` | `/api/v4/shop/shop/epay/notify` | `-` |
 | `POST` | `/api/v4/shop/shop/epay/notify` | `-` |
 | `GET` | `/api/v4/shop/shop/mine` | `-` |
 | `GET` | `/api/v4/shop/shop/order` | `-` |
 | `POST` | `/api/v4/shop/shop/order` | `-` |
 | `GET` | `/api/v4/shop/shop/order/:orderNo` | `-` |
+| `GET` | `/api/v4/shop/shop/payment` | `-` |
+| `PATCH` | `/api/v4/shop/shop/payment` | `-` |
 | `GET` | `/api/v4/shop/shop/product` | `-` |
 | `POST` | `/api/v4/shop/shop/product` | `-` |
 | `PATCH` | `/api/v4/shop/shop/product/:id` | `-` |
+| `POST` | `/api/v4/shop/shop/product/:id/asset` | `-` |
 | `POST` | `/api/v4/shop/shop/product/:id/status` | `-` |
 | `GET` | `/api/v4/shop/shop/purchase` | `-` |
 | `POST` | `/api/v4/shop/shop/purchase/:id/refund` | `-` |
@@ -182,8 +194,10 @@
 | `GET` | `/api/v4/shop/shop/refund/received` | `-` |
 | `GET` | `/api/v4/shop/shop/sold` | `-` |
 | `POST` | `/api/v4/shop/shop/status` | `-` |
+| `GET` | `/api/v4/shop/shop/store` | `-` |
 | `GET` | `/api/v4/shop/shop/store/:slug` | `-` |
 | `GET` | `/api/v4/shop/shop/store/:slug/product/:id` | `-` |
+| `GET` | `/api/v4/shop/shop/store/:slug/product/:id/asset/:token` | `-` |
 | `GET` | `/api/v4/shop/shop/store/:slug/product/:id/preview` | `-` |
 | `GET` | `/api/v4/shop/shop/withdraw` | `-` |
 | `POST` | `/api/v4/shop/shop/withdraw` | `-` |
@@ -263,6 +277,7 @@
 | `POST` | `/api/v4/admin/user/:id/calibrate` | `AdminCalibrateStorage` |
 | `POST` | `/api/v4/admin/user/:id/points` | `AdminUserAdjustPoints` |
 | `POST` | `/api/v4/admin/user/batch/delete` | `AdminDeleteUser` |
+| `POST` | `/api/v4/admin/user/:id/balance` | `AdminUserAdjustBalance` |
 | `GET` | `/api/v4/admin/vas/giftcode` | `VASAdminListGiftCodes` |
 | `POST` | `/api/v4/admin/vas/giftcode` | `VASAdminCreateGiftCodes` |
 | `POST` | `/api/v4/admin/vas/giftcode/batch/delete` | `VASAdminDeleteGiftCodes` |

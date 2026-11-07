@@ -111,6 +111,29 @@ func (s *Store) SetOrderTransferState(ctx context.Context, orderNo, state string
 	return wrapErr("shop: failed to set transfer state", err)
 }
 
+// CloseOrder closes one pending order and gives its coupon reservation back. It
+// is used when the buyer abandons a cashier order (for example by switching to
+// the wallet) or when a wallet payment could not be settled.
+func (s *Store) CloseOrder(ctx context.Context, orderNo string) error {
+	return s.Tx(ctx, func(tx *Tx) error {
+		res, err := tx.exec(ctx, `UPDATE crshop_order SET status = ?, updated_at = ?
+			WHERE order_no = ? AND status = ?`,
+			string(model.OrderStatusClosed), time.Now().Unix(), orderNo, string(model.OrderStatusPending))
+		if err != nil {
+			return wrapErr("shop: failed to close the order", err)
+		}
+		n, err := res.RowsAffected()
+		if err != nil {
+			return wrapErr("shop: failed to read affected rows", err)
+		}
+		if n == 0 {
+			// Already paid, closed or refunded: nothing to do.
+			return nil
+		}
+		return tx.ReleaseCoupon(ctx, orderNo)
+	})
+}
+
 // CloseExpiredOrders marks stale pending orders as closed and returns how many
 // rows were updated.
 func (s *Store) CloseExpiredOrders(ctx context.Context, now int64, limit int) (int, error) {

@@ -7,6 +7,7 @@ import (
 	"time"
 
 	"github.com/Mxucc/StorFlow/pkg/serializer"
+	"github.com/Mxucc/StorFlow/service/vas"
 	"github.com/Mxucc/StorFlow/shop/model"
 	"github.com/Mxucc/StorFlow/shop/store"
 	"github.com/gin-gonic/gin"
@@ -64,7 +65,8 @@ func (s *Service) refundOrder(c context.Context, order *model.Order, reason stri
 	// A deposit order and an order paid through the merchant's own channel were
 	// never credited to a wallet: only the state and the entitlement are touched.
 	isDeposit := order.Kind == model.OrderKindDeposit
-	settledByPlatform := order.PayMode.OrDefault() == model.PayModePlatform && !isDeposit
+	isWallet := order.PayMode.OrDefault() == model.PayModeBalance
+	settledByPlatform := (order.PayMode.OrDefault() == model.PayModePlatform || isWallet) && !isDeposit
 	fee := model.ApplyRate(order.Payable, settings.FeePercent)
 	income := order.Payable - fee
 	if !settledByPlatform {
@@ -154,6 +156,18 @@ func (s *Service) refundOrder(c context.Context, order *model.Order, reason stri
 		}
 		if err := s.store.RefundDeposit(c, shop.ID, amount); err != nil {
 			s.l.Warning("Failed to release the refunded deposit of shop %s: %s", shop.ID, err)
+		}
+	}
+	// A wallet payment came out of the buyer's balance, so the refund puts the
+	// money back there: this is a real refund, not an out of band transfer.
+	if isWallet {
+		amount := order.Paid
+		if amount <= 0 {
+			amount = order.Payable
+		}
+		if _, err := vas.CreditWallet(c, s.dep.DBClient(), order.BuyerUID, int64(amount),
+			vas.WalletReasonRefund, "订单退款", orderNo); err != nil {
+			s.l.Error("Failed to refund the wallet of buyer %d for order %s: %s", order.BuyerUID, orderNo, err)
 		}
 	}
 

@@ -283,6 +283,8 @@ var (
 		{Name: "code", Type: field.TypeString, Unique: true, Size: 64},
 		{Name: "product_type", Type: field.TypeString, Size: 32},
 		{Name: "num", Type: field.TypeInt64},
+		{Name: "amount", Type: field.TypeInt64, Default: 0},
+		{Name: "expires_at", Type: field.TypeInt64, Default: 0},
 		{Name: "name", Type: field.TypeString, Nullable: true, Size: 255},
 		{Name: "used", Type: field.TypeBool, Default: false},
 		{Name: "used_by_email", Type: field.TypeString, Nullable: true, Size: 255},
@@ -297,7 +299,7 @@ var (
 		ForeignKeys: []*schema.ForeignKey{
 			{
 				Symbol:     "gift_codes_users_giftcodes",
-				Columns:    []*schema.Column{GiftCodesColumns[11]},
+				Columns:    []*schema.Column{GiftCodesColumns[13]},
 				RefColumns: []*schema.Column{UsersColumns[0]},
 				OnDelete:   schema.SetNull,
 			},
@@ -311,7 +313,7 @@ var (
 			{
 				Name:    "giftcode_used",
 				Unique:  false,
-				Columns: []*schema.Column{GiftCodesColumns[8]},
+				Columns: []*schema.Column{GiftCodesColumns[10]},
 			},
 		},
 	}
@@ -762,6 +764,75 @@ var (
 			},
 		},
 	}
+	// WalletBalancesColumns holds the columns for the "wallet_balances" table.
+	WalletBalancesColumns = []*schema.Column{
+		{Name: "id", Type: field.TypeInt, Increment: true},
+		{Name: "created_at", Type: field.TypeTime, SchemaType: map[string]string{"mysql": "datetime"}},
+		{Name: "updated_at", Type: field.TypeTime, SchemaType: map[string]string{"mysql": "datetime"}},
+		{Name: "deleted_at", Type: field.TypeTime, Nullable: true, SchemaType: map[string]string{"mysql": "datetime"}},
+		{Name: "balance", Type: field.TypeInt64, Default: 0},
+		{Name: "user_id", Type: field.TypeInt, Unique: true, Nullable: true},
+	}
+	// WalletBalancesTable holds the schema information for the "wallet_balances" table.
+	WalletBalancesTable = &schema.Table{
+		Name:       "wallet_balances",
+		Columns:    WalletBalancesColumns,
+		PrimaryKey: []*schema.Column{WalletBalancesColumns[0]},
+		ForeignKeys: []*schema.ForeignKey{
+			{
+				Symbol:     "wallet_balances_users_wallet_balance",
+				Columns:    []*schema.Column{WalletBalancesColumns[5]},
+				RefColumns: []*schema.Column{UsersColumns[0]},
+				OnDelete:   schema.SetNull,
+			},
+		},
+		Indexes: []*schema.Index{
+			{
+				Name:    "walletbalance_user_id",
+				Unique:  true,
+				Columns: []*schema.Column{WalletBalancesColumns[5]},
+			},
+		},
+	}
+	// WalletLedgersColumns holds the columns for the "wallet_ledgers" table.
+	WalletLedgersColumns = []*schema.Column{
+		{Name: "id", Type: field.TypeInt, Increment: true},
+		{Name: "created_at", Type: field.TypeTime, SchemaType: map[string]string{"mysql": "datetime"}},
+		{Name: "updated_at", Type: field.TypeTime, SchemaType: map[string]string{"mysql": "datetime"}},
+		{Name: "deleted_at", Type: field.TypeTime, Nullable: true, SchemaType: map[string]string{"mysql": "datetime"}},
+		{Name: "delta", Type: field.TypeInt64},
+		{Name: "balance_after", Type: field.TypeInt64},
+		{Name: "reason", Type: field.TypeString, Size: 64},
+		{Name: "note", Type: field.TypeString, Nullable: true, Size: 512},
+		{Name: "ref", Type: field.TypeString, Nullable: true, Size: 128},
+		{Name: "user_id", Type: field.TypeInt, Nullable: true},
+	}
+	// WalletLedgersTable holds the schema information for the "wallet_ledgers" table.
+	WalletLedgersTable = &schema.Table{
+		Name:       "wallet_ledgers",
+		Columns:    WalletLedgersColumns,
+		PrimaryKey: []*schema.Column{WalletLedgersColumns[0]},
+		ForeignKeys: []*schema.ForeignKey{
+			{
+				Symbol:     "wallet_ledgers_users_wallet_ledgers",
+				Columns:    []*schema.Column{WalletLedgersColumns[9]},
+				RefColumns: []*schema.Column{UsersColumns[0]},
+				OnDelete:   schema.SetNull,
+			},
+		},
+		Indexes: []*schema.Index{
+			{
+				Name:    "walletledger_user_id_created_at",
+				Unique:  false,
+				Columns: []*schema.Column{WalletLedgersColumns[9], WalletLedgersColumns[1]},
+			},
+			{
+				Name:    "walletledger_reason",
+				Unique:  false,
+				Columns: []*schema.Column{WalletLedgersColumns[6]},
+			},
+		},
+	}
 	// FileEntitiesColumns holds the columns for the "file_entities" table.
 	FileEntitiesColumns = []*schema.Column{
 		{Name: "file_id", Type: field.TypeInt},
@@ -811,6 +882,8 @@ var (
 		StoragePoliciesTable,
 		TasksTable,
 		UsersTable,
+		WalletBalancesTable,
+		WalletLedgersTable,
 		FileEntitiesTable,
 	}
 )
@@ -840,6 +913,8 @@ func init() {
 	StoragePoliciesTable.ForeignKeys[0].RefTable = NodesTable
 	TasksTable.ForeignKeys[0].RefTable = UsersTable
 	UsersTable.ForeignKeys[0].RefTable = GroupsTable
+	WalletBalancesTable.ForeignKeys[0].RefTable = UsersTable
+	WalletLedgersTable.ForeignKeys[0].RefTable = UsersTable
 	FileEntitiesTable.ForeignKeys[0].RefTable = FilesTable
 	FileEntitiesTable.ForeignKeys[1].RefTable = EntitiesTable
 }

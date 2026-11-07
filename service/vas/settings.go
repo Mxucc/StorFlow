@@ -22,11 +22,15 @@ const (
 	ProductTypePoints  = "points"
 	ProductTypeStorage = "storage"
 	ProductTypeGroup   = "group"
+	// ProductTypeBalance is a recharge card (卡密): redeeming it credits the
+	// face value to the user's wallet instead of granting another product.
+	ProductTypeBalance = "balance"
 
-	ChannelEpay   = "epay"
-	ChannelCustom = "custom"
-	ChannelStripe = "stripe"
-	ChannelPoints = "points"
+	ChannelEpay    = "epay"
+	ChannelCustom  = "custom"
+	ChannelStripe  = "stripe"
+	ChannelPoints  = "points"
+	ChannelBalance = "balance"
 
 	PaymentStatusUnpaid        = "unpaid"
 	PaymentStatusPaid          = "paid"

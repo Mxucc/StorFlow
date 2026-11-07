@@ -48,6 +48,12 @@ func VASGetPoints(c *gin.Context) {
 	c.JSON(200, res)
 }
 
+// VASGetWallet returns the user's wallet balance + recent movements.
+func VASGetWallet(c *gin.Context) {
+	res := vas.WalletSummary(c)
+	c.JSON(200, res)
+}
+
 // VASListMyPayments lists the user's orders.
 func VASListMyPayments(c *gin.Context) {
 	res := vas.ListMyPayments(c)

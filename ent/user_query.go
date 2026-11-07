@@ -27,6 +27,8 @@ import (
 	"github.com/Mxucc/StorFlow/ent/share"
 	"github.com/Mxucc/StorFlow/ent/task"
 	"github.com/Mxucc/StorFlow/ent/user"
+	"github.com/Mxucc/StorFlow/ent/walletbalance"
+	"github.com/Mxucc/StorFlow/ent/walletledger"
 )
 
 // UserQuery is the builder for querying User entities.
@@ -46,6 +48,8 @@ type UserQuery struct {
 	withAuditlogs     *AuditLogQuery
 	withPayments      *PaymentQuery
 	withPointsLedgers *PointsLedgerQuery
+	withWalletBalance *WalletBalanceQuery
+	withWalletLedgers *WalletLedgerQuery
 	withGiftcodes     *GiftCodeQuery
 	withEntities      *EntityQuery
 	withOauthGrants   *OAuthGrantQuery
@@ -299,6 +303,50 @@ func (uq *UserQuery) QueryPointsLedgers() *PointsLedgerQuery {
 			sqlgraph.From(user.Table, user.FieldID, selector),
 			sqlgraph.To(pointsledger.Table, pointsledger.FieldID),
 			sqlgraph.Edge(sqlgraph.O2M, false, user.PointsLedgersTable, user.PointsLedgersColumn),
+		)
+		fromU = sqlgraph.SetNeighbors(uq.driver.Dialect(), step)
+		return fromU, nil
+	}
+	return query
+}
+
+// QueryWalletBalance chains the current query on the "wallet_balance" edge.
+func (uq *UserQuery) QueryWalletBalance() *WalletBalanceQuery {
+	query := (&WalletBalanceClient{config: uq.config}).Query()
+	query.path = func(ctx context.Context) (fromU *sql.Selector, err error) {
+		if err := uq.prepareQuery(ctx); err != nil {
+			return nil, err
+		}
+		selector := uq.sqlQuery(ctx)
+		if err := selector.Err(); err != nil {
+			return nil, err
+		}
+		step := sqlgraph.NewStep(
+			sqlgraph.From(user.Table, user.FieldID, selector),
+			sqlgraph.To(walletbalance.Table, walletbalance.FieldID),
+			sqlgraph.Edge(sqlgraph.O2O, false, user.WalletBalanceTable, user.WalletBalanceColumn),
+		)
+		fromU = sqlgraph.SetNeighbors(uq.driver.Dialect(), step)
+		return fromU, nil
+	}
+	return query
+}
+
+// QueryWalletLedgers chains the current query on the "wallet_ledgers" edge.
+func (uq *UserQuery) QueryWalletLedgers() *WalletLedgerQuery {
+	query := (&WalletLedgerClient{config: uq.config}).Query()
+	query.path = func(ctx context.Context) (fromU *sql.Selector, err error) {
+		if err := uq.prepareQuery(ctx); err != nil {
+			return nil, err
+		}
+		selector := uq.sqlQuery(ctx)
+		if err := selector.Err(); err != nil {
+			return nil, err
+		}
+		step := sqlgraph.NewStep(
+			sqlgraph.From(user.Table, user.FieldID, selector),
+			sqlgraph.To(walletledger.Table, walletledger.FieldID),
+			sqlgraph.Edge(sqlgraph.O2M, false, user.WalletLedgersTable, user.WalletLedgersColumn),
 		)
 		fromU = sqlgraph.SetNeighbors(uq.driver.Dialect(), step)
 		return fromU, nil
@@ -596,6 +644,8 @@ func (uq *UserQuery) Clone() *UserQuery {
 		withAuditlogs:     uq.withAuditlogs.Clone(),
 		withPayments:      uq.withPayments.Clone(),
 		withPointsLedgers: uq.withPointsLedgers.Clone(),
+		withWalletBalance: uq.withWalletBalance.Clone(),
+		withWalletLedgers: uq.withWalletLedgers.Clone(),
 		withGiftcodes:     uq.withGiftcodes.Clone(),
 		withEntities:      uq.withEntities.Clone(),
 		withOauthGrants:   uq.withOauthGrants.Clone(),
@@ -713,6 +763,28 @@ func (uq *UserQuery) WithPointsLedgers(opts ...func(*PointsLedgerQuery)) *UserQu
 		opt(query)
 	}
 	uq.withPointsLedgers = query
+	return uq
+}
+
+// WithWalletBalance tells the query-builder to eager-load the nodes that are connected to
+// the "wallet_balance" edge. The optional arguments are used to configure the query builder of the edge.
+func (uq *UserQuery) WithWalletBalance(opts ...func(*WalletBalanceQuery)) *UserQuery {
+	query := (&WalletBalanceClient{config: uq.config}).Query()
+	for _, opt := range opts {
+		opt(query)
+	}
+	uq.withWalletBalance = query
+	return uq
+}
+
+// WithWalletLedgers tells the query-builder to eager-load the nodes that are connected to
+// the "wallet_ledgers" edge. The optional arguments are used to configure the query builder of the edge.
+func (uq *UserQuery) WithWalletLedgers(opts ...func(*WalletLedgerQuery)) *UserQuery {
+	query := (&WalletLedgerClient{config: uq.config}).Query()
+	for _, opt := range opts {
+		opt(query)
+	}
+	uq.withWalletLedgers = query
 	return uq
 }
 
@@ -838,7 +910,7 @@ func (uq *UserQuery) sqlAll(ctx context.Context, hooks ...queryHook) ([]*User, e
 	var (
 		nodes       = []*User{}
 		_spec       = uq.querySpec()
-		loadedTypes = [14]bool{
+		loadedTypes = [16]bool{
 			uq.withGroup != nil,
 			uq.withFiles != nil,
 			uq.withDavAccounts != nil,
@@ -849,6 +921,8 @@ func (uq *UserQuery) sqlAll(ctx context.Context, hooks ...queryHook) ([]*User, e
 			uq.withAuditlogs != nil,
 			uq.withPayments != nil,
 			uq.withPointsLedgers != nil,
+			uq.withWalletBalance != nil,
+			uq.withWalletLedgers != nil,
 			uq.withGiftcodes != nil,
 			uq.withEntities != nil,
 			uq.withOauthGrants != nil,
@@ -939,6 +1013,19 @@ func (uq *UserQuery) sqlAll(ctx context.Context, hooks ...queryHook) ([]*User, e
 		if err := uq.loadPointsLedgers(ctx, query, nodes,
 			func(n *User) { n.Edges.PointsLedgers = []*PointsLedger{} },
 			func(n *User, e *PointsLedger) { n.Edges.PointsLedgers = append(n.Edges.PointsLedgers, e) }); err != nil {
+			return nil, err
+		}
+	}
+	if query := uq.withWalletBalance; query != nil {
+		if err := uq.loadWalletBalance(ctx, query, nodes, nil,
+			func(n *User, e *WalletBalance) { n.Edges.WalletBalance = e }); err != nil {
+			return nil, err
+		}
+	}
+	if query := uq.withWalletLedgers; query != nil {
+		if err := uq.loadWalletLedgers(ctx, query, nodes,
+			func(n *User) { n.Edges.WalletLedgers = []*WalletLedger{} },
+			func(n *User, e *WalletLedger) { n.Edges.WalletLedgers = append(n.Edges.WalletLedgers, e) }); err != nil {
 			return nil, err
 		}
 	}
@@ -1258,6 +1345,63 @@ func (uq *UserQuery) loadPointsLedgers(ctx context.Context, query *PointsLedgerQ
 	}
 	query.Where(predicate.PointsLedger(func(s *sql.Selector) {
 		s.Where(sql.InValues(s.C(user.PointsLedgersColumn), fks...))
+	}))
+	neighbors, err := query.All(ctx)
+	if err != nil {
+		return err
+	}
+	for _, n := range neighbors {
+		fk := n.UserID
+		node, ok := nodeids[fk]
+		if !ok {
+			return fmt.Errorf(`unexpected referenced foreign-key "user_id" returned %v for node %v`, fk, n.ID)
+		}
+		assign(node, n)
+	}
+	return nil
+}
+func (uq *UserQuery) loadWalletBalance(ctx context.Context, query *WalletBalanceQuery, nodes []*User, init func(*User), assign func(*User, *WalletBalance)) error {
+	fks := make([]driver.Value, 0, len(nodes))
+	nodeids := make(map[int]*User)
+	for i := range nodes {
+		fks = append(fks, nodes[i].ID)
+		nodeids[nodes[i].ID] = nodes[i]
+	}
+	if len(query.ctx.Fields) > 0 {
+		query.ctx.AppendFieldOnce(walletbalance.FieldUserID)
+	}
+	query.Where(predicate.WalletBalance(func(s *sql.Selector) {
+		s.Where(sql.InValues(s.C(user.WalletBalanceColumn), fks...))
+	}))
+	neighbors, err := query.All(ctx)
+	if err != nil {
+		return err
+	}
+	for _, n := range neighbors {
+		fk := n.UserID
+		node, ok := nodeids[fk]
+		if !ok {
+			return fmt.Errorf(`unexpected referenced foreign-key "user_id" returned %v for node %v`, fk, n.ID)
+		}
+		assign(node, n)
+	}
+	return nil
+}
+func (uq *UserQuery) loadWalletLedgers(ctx context.Context, query *WalletLedgerQuery, nodes []*User, init func(*User), assign func(*User, *WalletLedger)) error {
+	fks := make([]driver.Value, 0, len(nodes))
+	nodeids := make(map[int]*User)
+	for i := range nodes {
+		fks = append(fks, nodes[i].ID)
+		nodeids[nodes[i].ID] = nodes[i]
+		if init != nil {
+			init(nodes[i])
+		}
+	}
+	if len(query.ctx.Fields) > 0 {
+		query.ctx.AppendFieldOnce(walletledger.FieldUserID)
+	}
+	query.Where(predicate.WalletLedger(func(s *sql.Selector) {
+		s.Where(sql.InValues(s.C(user.WalletLedgersColumn), fks...))
 	}))
 	neighbors, err := query.All(ctx)
 	if err != nil {

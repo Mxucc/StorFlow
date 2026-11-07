@@ -30,6 +30,10 @@ type GiftCode struct {
 	ProductType string `json:"product_type,omitempty"`
 	// Num holds the value of the "num" field.
 	Num int64 `json:"num,omitempty"`
+	// Amount holds the value of the "amount" field.
+	Amount int64 `json:"amount,omitempty"`
+	// ExpiresAt holds the value of the "expires_at" field.
+	ExpiresAt int64 `json:"expires_at,omitempty"`
 	// Name holds the value of the "name" field.
 	Name string `json:"name,omitempty"`
 	// Used holds the value of the "used" field.
@@ -75,7 +79,7 @@ func (*GiftCode) scanValues(columns []string) ([]any, error) {
 		switch columns[i] {
 		case giftcode.FieldUsed:
 			values[i] = new(sql.NullBool)
-		case giftcode.FieldID, giftcode.FieldNum, giftcode.FieldUsedBy:
+		case giftcode.FieldID, giftcode.FieldNum, giftcode.FieldAmount, giftcode.FieldExpiresAt, giftcode.FieldUsedBy:
 			values[i] = new(sql.NullInt64)
 		case giftcode.FieldCode, giftcode.FieldProductType, giftcode.FieldName, giftcode.FieldUsedByEmail, giftcode.FieldCreatedByEmail:
 			values[i] = new(sql.NullString)
@@ -138,6 +142,18 @@ func (gc *GiftCode) assignValues(columns []string, values []any) error {
 				return fmt.Errorf("unexpected type %T for field num", values[i])
 			} else if value.Valid {
 				gc.Num = value.Int64
+			}
+		case giftcode.FieldAmount:
+			if value, ok := values[i].(*sql.NullInt64); !ok {
+				return fmt.Errorf("unexpected type %T for field amount", values[i])
+			} else if value.Valid {
+				gc.Amount = value.Int64
+			}
+		case giftcode.FieldExpiresAt:
+			if value, ok := values[i].(*sql.NullInt64); !ok {
+				return fmt.Errorf("unexpected type %T for field expires_at", values[i])
+			} else if value.Valid {
+				gc.ExpiresAt = value.Int64
 			}
 		case giftcode.FieldName:
 			if value, ok := values[i].(*sql.NullString); !ok {
@@ -229,6 +245,12 @@ func (gc *GiftCode) String() string {
 	builder.WriteString(", ")
 	builder.WriteString("num=")
 	builder.WriteString(fmt.Sprintf("%v", gc.Num))
+	builder.WriteString(", ")
+	builder.WriteString("amount=")
+	builder.WriteString(fmt.Sprintf("%v", gc.Amount))
+	builder.WriteString(", ")
+	builder.WriteString("expires_at=")
+	builder.WriteString(fmt.Sprintf("%v", gc.ExpiresAt))
 	builder.WriteString(", ")
 	builder.WriteString("name=")
 	builder.WriteString(gc.Name)

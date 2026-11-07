@@ -37,6 +37,8 @@ import (
 	"github.com/Mxucc/StorFlow/ent/storagepolicy"
 	"github.com/Mxucc/StorFlow/ent/task"
 	"github.com/Mxucc/StorFlow/ent/user"
+	"github.com/Mxucc/StorFlow/ent/walletbalance"
+	"github.com/Mxucc/StorFlow/ent/walletledger"
 
 	stdsql "database/sql"
 )
@@ -90,6 +92,10 @@ type Client struct {
 	Task *TaskClient
 	// User is the client for interacting with the User builders.
 	User *UserClient
+	// WalletBalance is the client for interacting with the WalletBalance builders.
+	WalletBalance *WalletBalanceClient
+	// WalletLedger is the client for interacting with the WalletLedger builders.
+	WalletLedger *WalletLedgerClient
 }
 
 // NewClient creates a new client configured with the given options.
@@ -123,6 +129,8 @@ func (c *Client) init() {
 	c.StoragePolicy = NewStoragePolicyClient(c.config)
 	c.Task = NewTaskClient(c.config)
 	c.User = NewUserClient(c.config)
+	c.WalletBalance = NewWalletBalanceClient(c.config)
+	c.WalletLedger = NewWalletLedgerClient(c.config)
 }
 
 type (
@@ -237,6 +245,8 @@ func (c *Client) Tx(ctx context.Context) (*Tx, error) {
 		StoragePolicy: NewStoragePolicyClient(cfg),
 		Task:          NewTaskClient(cfg),
 		User:          NewUserClient(cfg),
+		WalletBalance: NewWalletBalanceClient(cfg),
+		WalletLedger:  NewWalletLedgerClient(cfg),
 	}, nil
 }
 
@@ -278,6 +288,8 @@ func (c *Client) BeginTx(ctx context.Context, opts *sql.TxOptions) (*Tx, error) 
 		StoragePolicy: NewStoragePolicyClient(cfg),
 		Task:          NewTaskClient(cfg),
 		User:          NewUserClient(cfg),
+		WalletBalance: NewWalletBalanceClient(cfg),
+		WalletLedger:  NewWalletLedgerClient(cfg),
 	}, nil
 }
 
@@ -310,7 +322,7 @@ func (c *Client) Use(hooks ...Hook) {
 		c.AbuseReport, c.AuditLog, c.DavAccount, c.DirectLink, c.Entity, c.File,
 		c.FsEvent, c.GiftCode, c.Group, c.Metadata, c.Node, c.OAuthClient,
 		c.OAuthGrant, c.OIDCBinding, c.Passkey, c.Payment, c.PointsLedger, c.Setting,
-		c.Share, c.StoragePolicy, c.Task, c.User,
+		c.Share, c.StoragePolicy, c.Task, c.User, c.WalletBalance, c.WalletLedger,
 	} {
 		n.Use(hooks...)
 	}
@@ -323,7 +335,7 @@ func (c *Client) Intercept(interceptors ...Interceptor) {
 		c.AbuseReport, c.AuditLog, c.DavAccount, c.DirectLink, c.Entity, c.File,
 		c.FsEvent, c.GiftCode, c.Group, c.Metadata, c.Node, c.OAuthClient,
 		c.OAuthGrant, c.OIDCBinding, c.Passkey, c.Payment, c.PointsLedger, c.Setting,
-		c.Share, c.StoragePolicy, c.Task, c.User,
+		c.Share, c.StoragePolicy, c.Task, c.User, c.WalletBalance, c.WalletLedger,
 	} {
 		n.Intercept(interceptors...)
 	}
@@ -376,6 +388,10 @@ func (c *Client) Mutate(ctx context.Context, m Mutation) (Value, error) {
 		return c.Task.mutate(ctx, m)
 	case *UserMutation:
 		return c.User.mutate(ctx, m)
+	case *WalletBalanceMutation:
+		return c.WalletBalance.mutate(ctx, m)
+	case *WalletLedgerMutation:
+		return c.WalletLedger.mutate(ctx, m)
 	default:
 		return nil, fmt.Errorf("ent: unknown mutation type %T", m)
 	}
@@ -4043,6 +4059,38 @@ func (c *UserClient) QueryPointsLedgers(u *User) *PointsLedgerQuery {
 	return query
 }
 
+// QueryWalletBalance queries the wallet_balance edge of a User.
+func (c *UserClient) QueryWalletBalance(u *User) *WalletBalanceQuery {
+	query := (&WalletBalanceClient{config: c.config}).Query()
+	query.path = func(context.Context) (fromV *sql.Selector, _ error) {
+		id := u.ID
+		step := sqlgraph.NewStep(
+			sqlgraph.From(user.Table, user.FieldID, id),
+			sqlgraph.To(walletbalance.Table, walletbalance.FieldID),
+			sqlgraph.Edge(sqlgraph.O2O, false, user.WalletBalanceTable, user.WalletBalanceColumn),
+		)
+		fromV = sqlgraph.Neighbors(u.driver.Dialect(), step)
+		return fromV, nil
+	}
+	return query
+}
+
+// QueryWalletLedgers queries the wallet_ledgers edge of a User.
+func (c *UserClient) QueryWalletLedgers(u *User) *WalletLedgerQuery {
+	query := (&WalletLedgerClient{config: c.config}).Query()
+	query.path = func(context.Context) (fromV *sql.Selector, _ error) {
+		id := u.ID
+		step := sqlgraph.NewStep(
+			sqlgraph.From(user.Table, user.FieldID, id),
+			sqlgraph.To(walletledger.Table, walletledger.FieldID),
+			sqlgraph.Edge(sqlgraph.O2M, false, user.WalletLedgersTable, user.WalletLedgersColumn),
+		)
+		fromV = sqlgraph.Neighbors(u.driver.Dialect(), step)
+		return fromV, nil
+	}
+	return query
+}
+
 // QueryGiftcodes queries the giftcodes edge of a User.
 func (c *UserClient) QueryGiftcodes(u *User) *GiftCodeQuery {
 	query := (&GiftCodeClient{config: c.config}).Query()
@@ -4134,17 +4182,321 @@ func (c *UserClient) mutate(ctx context.Context, m *UserMutation) (Value, error)
 	}
 }
 
+// WalletBalanceClient is a client for the WalletBalance schema.
+type WalletBalanceClient struct {
+	config
+}
+
+// NewWalletBalanceClient returns a client for the WalletBalance from the given config.
+func NewWalletBalanceClient(c config) *WalletBalanceClient {
+	return &WalletBalanceClient{config: c}
+}
+
+// Use adds a list of mutation hooks to the hooks stack.
+// A call to `Use(f, g, h)` equals to `walletbalance.Hooks(f(g(h())))`.
+func (c *WalletBalanceClient) Use(hooks ...Hook) {
+	c.hooks.WalletBalance = append(c.hooks.WalletBalance, hooks...)
+}
+
+// Intercept adds a list of query interceptors to the interceptors stack.
+// A call to `Intercept(f, g, h)` equals to `walletbalance.Intercept(f(g(h())))`.
+func (c *WalletBalanceClient) Intercept(interceptors ...Interceptor) {
+	c.inters.WalletBalance = append(c.inters.WalletBalance, interceptors...)
+}
+
+// Create returns a builder for creating a WalletBalance entity.
+func (c *WalletBalanceClient) Create() *WalletBalanceCreate {
+	mutation := newWalletBalanceMutation(c.config, OpCreate)
+	return &WalletBalanceCreate{config: c.config, hooks: c.Hooks(), mutation: mutation}
+}
+
+// CreateBulk returns a builder for creating a bulk of WalletBalance entities.
+func (c *WalletBalanceClient) CreateBulk(builders ...*WalletBalanceCreate) *WalletBalanceCreateBulk {
+	return &WalletBalanceCreateBulk{config: c.config, builders: builders}
+}
+
+// MapCreateBulk creates a bulk creation builder from the given slice. For each item in the slice, the function creates
+// a builder and applies setFunc on it.
+func (c *WalletBalanceClient) MapCreateBulk(slice any, setFunc func(*WalletBalanceCreate, int)) *WalletBalanceCreateBulk {
+	rv := reflect.ValueOf(slice)
+	if rv.Kind() != reflect.Slice {
+		return &WalletBalanceCreateBulk{err: fmt.Errorf("calling to WalletBalanceClient.MapCreateBulk with wrong type %T, need slice", slice)}
+	}
+	builders := make([]*WalletBalanceCreate, rv.Len())
+	for i := 0; i < rv.Len(); i++ {
+		builders[i] = c.Create()
+		setFunc(builders[i], i)
+	}
+	return &WalletBalanceCreateBulk{config: c.config, builders: builders}
+}
+
+// Update returns an update builder for WalletBalance.
+func (c *WalletBalanceClient) Update() *WalletBalanceUpdate {
+	mutation := newWalletBalanceMutation(c.config, OpUpdate)
+	return &WalletBalanceUpdate{config: c.config, hooks: c.Hooks(), mutation: mutation}
+}
+
+// UpdateOne returns an update builder for the given entity.
+func (c *WalletBalanceClient) UpdateOne(wb *WalletBalance) *WalletBalanceUpdateOne {
+	mutation := newWalletBalanceMutation(c.config, OpUpdateOne, withWalletBalance(wb))
+	return &WalletBalanceUpdateOne{config: c.config, hooks: c.Hooks(), mutation: mutation}
+}
+
+// UpdateOneID returns an update builder for the given id.
+func (c *WalletBalanceClient) UpdateOneID(id int) *WalletBalanceUpdateOne {
+	mutation := newWalletBalanceMutation(c.config, OpUpdateOne, withWalletBalanceID(id))
+	return &WalletBalanceUpdateOne{config: c.config, hooks: c.Hooks(), mutation: mutation}
+}
+
+// Delete returns a delete builder for WalletBalance.
+func (c *WalletBalanceClient) Delete() *WalletBalanceDelete {
+	mutation := newWalletBalanceMutation(c.config, OpDelete)
+	return &WalletBalanceDelete{config: c.config, hooks: c.Hooks(), mutation: mutation}
+}
+
+// DeleteOne returns a builder for deleting the given entity.
+func (c *WalletBalanceClient) DeleteOne(wb *WalletBalance) *WalletBalanceDeleteOne {
+	return c.DeleteOneID(wb.ID)
+}
+
+// DeleteOneID returns a builder for deleting the given entity by its id.
+func (c *WalletBalanceClient) DeleteOneID(id int) *WalletBalanceDeleteOne {
+	builder := c.Delete().Where(walletbalance.ID(id))
+	builder.mutation.id = &id
+	builder.mutation.op = OpDeleteOne
+	return &WalletBalanceDeleteOne{builder}
+}
+
+// Query returns a query builder for WalletBalance.
+func (c *WalletBalanceClient) Query() *WalletBalanceQuery {
+	return &WalletBalanceQuery{
+		config: c.config,
+		ctx:    &QueryContext{Type: TypeWalletBalance},
+		inters: c.Interceptors(),
+	}
+}
+
+// Get returns a WalletBalance entity by its id.
+func (c *WalletBalanceClient) Get(ctx context.Context, id int) (*WalletBalance, error) {
+	return c.Query().Where(walletbalance.ID(id)).Only(ctx)
+}
+
+// GetX is like Get, but panics if an error occurs.
+func (c *WalletBalanceClient) GetX(ctx context.Context, id int) *WalletBalance {
+	obj, err := c.Get(ctx, id)
+	if err != nil {
+		panic(err)
+	}
+	return obj
+}
+
+// QueryUser queries the user edge of a WalletBalance.
+func (c *WalletBalanceClient) QueryUser(wb *WalletBalance) *UserQuery {
+	query := (&UserClient{config: c.config}).Query()
+	query.path = func(context.Context) (fromV *sql.Selector, _ error) {
+		id := wb.ID
+		step := sqlgraph.NewStep(
+			sqlgraph.From(walletbalance.Table, walletbalance.FieldID, id),
+			sqlgraph.To(user.Table, user.FieldID),
+			sqlgraph.Edge(sqlgraph.O2O, true, walletbalance.UserTable, walletbalance.UserColumn),
+		)
+		fromV = sqlgraph.Neighbors(wb.driver.Dialect(), step)
+		return fromV, nil
+	}
+	return query
+}
+
+// Hooks returns the client hooks.
+func (c *WalletBalanceClient) Hooks() []Hook {
+	hooks := c.hooks.WalletBalance
+	return append(hooks[:len(hooks):len(hooks)], walletbalance.Hooks[:]...)
+}
+
+// Interceptors returns the client interceptors.
+func (c *WalletBalanceClient) Interceptors() []Interceptor {
+	inters := c.inters.WalletBalance
+	return append(inters[:len(inters):len(inters)], walletbalance.Interceptors[:]...)
+}
+
+func (c *WalletBalanceClient) mutate(ctx context.Context, m *WalletBalanceMutation) (Value, error) {
+	switch m.Op() {
+	case OpCreate:
+		return (&WalletBalanceCreate{config: c.config, hooks: c.Hooks(), mutation: m}).Save(ctx)
+	case OpUpdate:
+		return (&WalletBalanceUpdate{config: c.config, hooks: c.Hooks(), mutation: m}).Save(ctx)
+	case OpUpdateOne:
+		return (&WalletBalanceUpdateOne{config: c.config, hooks: c.Hooks(), mutation: m}).Save(ctx)
+	case OpDelete, OpDeleteOne:
+		return (&WalletBalanceDelete{config: c.config, hooks: c.Hooks(), mutation: m}).Exec(ctx)
+	default:
+		return nil, fmt.Errorf("ent: unknown WalletBalance mutation op: %q", m.Op())
+	}
+}
+
+// WalletLedgerClient is a client for the WalletLedger schema.
+type WalletLedgerClient struct {
+	config
+}
+
+// NewWalletLedgerClient returns a client for the WalletLedger from the given config.
+func NewWalletLedgerClient(c config) *WalletLedgerClient {
+	return &WalletLedgerClient{config: c}
+}
+
+// Use adds a list of mutation hooks to the hooks stack.
+// A call to `Use(f, g, h)` equals to `walletledger.Hooks(f(g(h())))`.
+func (c *WalletLedgerClient) Use(hooks ...Hook) {
+	c.hooks.WalletLedger = append(c.hooks.WalletLedger, hooks...)
+}
+
+// Intercept adds a list of query interceptors to the interceptors stack.
+// A call to `Intercept(f, g, h)` equals to `walletledger.Intercept(f(g(h())))`.
+func (c *WalletLedgerClient) Intercept(interceptors ...Interceptor) {
+	c.inters.WalletLedger = append(c.inters.WalletLedger, interceptors...)
+}
+
+// Create returns a builder for creating a WalletLedger entity.
+func (c *WalletLedgerClient) Create() *WalletLedgerCreate {
+	mutation := newWalletLedgerMutation(c.config, OpCreate)
+	return &WalletLedgerCreate{config: c.config, hooks: c.Hooks(), mutation: mutation}
+}
+
+// CreateBulk returns a builder for creating a bulk of WalletLedger entities.
+func (c *WalletLedgerClient) CreateBulk(builders ...*WalletLedgerCreate) *WalletLedgerCreateBulk {
+	return &WalletLedgerCreateBulk{config: c.config, builders: builders}
+}
+
+// MapCreateBulk creates a bulk creation builder from the given slice. For each item in the slice, the function creates
+// a builder and applies setFunc on it.
+func (c *WalletLedgerClient) MapCreateBulk(slice any, setFunc func(*WalletLedgerCreate, int)) *WalletLedgerCreateBulk {
+	rv := reflect.ValueOf(slice)
+	if rv.Kind() != reflect.Slice {
+		return &WalletLedgerCreateBulk{err: fmt.Errorf("calling to WalletLedgerClient.MapCreateBulk with wrong type %T, need slice", slice)}
+	}
+	builders := make([]*WalletLedgerCreate, rv.Len())
+	for i := 0; i < rv.Len(); i++ {
+		builders[i] = c.Create()
+		setFunc(builders[i], i)
+	}
+	return &WalletLedgerCreateBulk{config: c.config, builders: builders}
+}
+
+// Update returns an update builder for WalletLedger.
+func (c *WalletLedgerClient) Update() *WalletLedgerUpdate {
+	mutation := newWalletLedgerMutation(c.config, OpUpdate)
+	return &WalletLedgerUpdate{config: c.config, hooks: c.Hooks(), mutation: mutation}
+}
+
+// UpdateOne returns an update builder for the given entity.
+func (c *WalletLedgerClient) UpdateOne(wl *WalletLedger) *WalletLedgerUpdateOne {
+	mutation := newWalletLedgerMutation(c.config, OpUpdateOne, withWalletLedger(wl))
+	return &WalletLedgerUpdateOne{config: c.config, hooks: c.Hooks(), mutation: mutation}
+}
+
+// UpdateOneID returns an update builder for the given id.
+func (c *WalletLedgerClient) UpdateOneID(id int) *WalletLedgerUpdateOne {
+	mutation := newWalletLedgerMutation(c.config, OpUpdateOne, withWalletLedgerID(id))
+	return &WalletLedgerUpdateOne{config: c.config, hooks: c.Hooks(), mutation: mutation}
+}
+
+// Delete returns a delete builder for WalletLedger.
+func (c *WalletLedgerClient) Delete() *WalletLedgerDelete {
+	mutation := newWalletLedgerMutation(c.config, OpDelete)
+	return &WalletLedgerDelete{config: c.config, hooks: c.Hooks(), mutation: mutation}
+}
+
+// DeleteOne returns a builder for deleting the given entity.
+func (c *WalletLedgerClient) DeleteOne(wl *WalletLedger) *WalletLedgerDeleteOne {
+	return c.DeleteOneID(wl.ID)
+}
+
+// DeleteOneID returns a builder for deleting the given entity by its id.
+func (c *WalletLedgerClient) DeleteOneID(id int) *WalletLedgerDeleteOne {
+	builder := c.Delete().Where(walletledger.ID(id))
+	builder.mutation.id = &id
+	builder.mutation.op = OpDeleteOne
+	return &WalletLedgerDeleteOne{builder}
+}
+
+// Query returns a query builder for WalletLedger.
+func (c *WalletLedgerClient) Query() *WalletLedgerQuery {
+	return &WalletLedgerQuery{
+		config: c.config,
+		ctx:    &QueryContext{Type: TypeWalletLedger},
+		inters: c.Interceptors(),
+	}
+}
+
+// Get returns a WalletLedger entity by its id.
+func (c *WalletLedgerClient) Get(ctx context.Context, id int) (*WalletLedger, error) {
+	return c.Query().Where(walletledger.ID(id)).Only(ctx)
+}
+
+// GetX is like Get, but panics if an error occurs.
+func (c *WalletLedgerClient) GetX(ctx context.Context, id int) *WalletLedger {
+	obj, err := c.Get(ctx, id)
+	if err != nil {
+		panic(err)
+	}
+	return obj
+}
+
+// QueryUser queries the user edge of a WalletLedger.
+func (c *WalletLedgerClient) QueryUser(wl *WalletLedger) *UserQuery {
+	query := (&UserClient{config: c.config}).Query()
+	query.path = func(context.Context) (fromV *sql.Selector, _ error) {
+		id := wl.ID
+		step := sqlgraph.NewStep(
+			sqlgraph.From(walletledger.Table, walletledger.FieldID, id),
+			sqlgraph.To(user.Table, user.FieldID),
+			sqlgraph.Edge(sqlgraph.M2O, true, walletledger.UserTable, walletledger.UserColumn),
+		)
+		fromV = sqlgraph.Neighbors(wl.driver.Dialect(), step)
+		return fromV, nil
+	}
+	return query
+}
+
+// Hooks returns the client hooks.
+func (c *WalletLedgerClient) Hooks() []Hook {
+	hooks := c.hooks.WalletLedger
+	return append(hooks[:len(hooks):len(hooks)], walletledger.Hooks[:]...)
+}
+
+// Interceptors returns the client interceptors.
+func (c *WalletLedgerClient) Interceptors() []Interceptor {
+	inters := c.inters.WalletLedger
+	return append(inters[:len(inters):len(inters)], walletledger.Interceptors[:]...)
+}
+
+func (c *WalletLedgerClient) mutate(ctx context.Context, m *WalletLedgerMutation) (Value, error) {
+	switch m.Op() {
+	case OpCreate:
+		return (&WalletLedgerCreate{config: c.config, hooks: c.Hooks(), mutation: m}).Save(ctx)
+	case OpUpdate:
+		return (&WalletLedgerUpdate{config: c.config, hooks: c.Hooks(), mutation: m}).Save(ctx)
+	case OpUpdateOne:
+		return (&WalletLedgerUpdateOne{config: c.config, hooks: c.Hooks(), mutation: m}).Save(ctx)
+	case OpDelete, OpDeleteOne:
+		return (&WalletLedgerDelete{config: c.config, hooks: c.Hooks(), mutation: m}).Exec(ctx)
+	default:
+		return nil, fmt.Errorf("ent: unknown WalletLedger mutation op: %q", m.Op())
+	}
+}
+
 // hooks and interceptors per client, for fast access.
 type (
 	hooks struct {
 		AbuseReport, AuditLog, DavAccount, DirectLink, Entity, File, FsEvent, GiftCode,
 		Group, Metadata, Node, OAuthClient, OAuthGrant, OIDCBinding, Passkey, Payment,
-		PointsLedger, Setting, Share, StoragePolicy, Task, User []ent.Hook
+		PointsLedger, Setting, Share, StoragePolicy, Task, User, WalletBalance,
+		WalletLedger []ent.Hook
 	}
 	inters struct {
 		AbuseReport, AuditLog, DavAccount, DirectLink, Entity, File, FsEvent, GiftCode,
 		Group, Metadata, Node, OAuthClient, OAuthGrant, OIDCBinding, Passkey, Payment,
-		PointsLedger, Setting, Share, StoragePolicy, Task, User []ent.Interceptor
+		PointsLedger, Setting, Share, StoragePolicy, Task, User, WalletBalance,
+		WalletLedger []ent.Interceptor
 	}
 )
 

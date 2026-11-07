@@ -71,3 +71,9 @@ type Task func(*sql.Selector)
 
 // User is the predicate function for user builders.
 type User func(*sql.Selector)
+
+// WalletBalance is the predicate function for walletbalance builders.
+type WalletBalance func(*sql.Selector)
+
+// WalletLedger is the predicate function for walletledger builders.
+type WalletLedger func(*sql.Selector)

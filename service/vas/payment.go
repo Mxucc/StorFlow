@@ -4,6 +4,7 @@ import (
 	"context"
 	"crypto/rand"
 	"encoding/hex"
+	"errors"
 	"fmt"
 	"strconv"
 	"strings"
@@ -33,6 +34,9 @@ type CreatePaymentRequest struct {
 	Quantity   int    `json:"qyt"`  // quantity
 	ProviderID string `json:"provider_id"`
 	UsePoints  bool   `json:"use_points"`
+	// UseBalance pays the order with the user's wallet (余额): the money is
+	// already held by the platform, so no gateway is involved.
+	UseBalance bool   `json:"use_balance"`
 	Email      string `json:"email"` // anonymous purchase receipt
 }
 
@@ -96,6 +100,15 @@ func (service *CreatePaymentRequest) Create(c *gin.Context) serializer.Response 
 	}
 
 	orderNo := genOrderNo()
+
+	// Wallet payment: settle without any gateway.
+	useBalance := false
+	if !usePoints && user != nil && req.UseBalance && totalCost > 0 {
+		useBalance = true
+		if GetWalletBalance(c, db, user.ID) < totalCost {
+			return serializer.Err(c, serializer.NewError(serializer.CodeInsufficientCredit, "钱包余额不足", nil))
+		}
+	}
 	resumeTicket := genResumeTicket()
 
 	create := db.Payment.Create().
@@ -139,6 +152,40 @@ func (service *CreatePaymentRequest) Create(c *gin.Context) serializer.Response 
 		return serializer.Response{Data: PaymentResponse{OrderNo: orderNo, Status: PaymentStatusFulfilled}}
 	}
 
+	// Wallet payment: debit the wallet (atomic) and fulfill immediately.
+	if useBalance {
+		if _, err := DebitWallet(c, db, user.ID, totalCost, WalletReasonPurchase, name, orderNo); err != nil {
+			_ = db.Payment.DeleteOneID(p.ID).Exec(c)
+			if errors.Is(err, ErrInsufficientWallet) {
+				return serializer.Err(c, serializer.NewError(serializer.CodeInsufficientCredit, "钱包余额不足", err))
+			}
+			return serializer.Err(c, serializer.NewError(serializer.CodeDBError, "余额支付失败", err))
+		}
+		if _, err := db.Payment.UpdateOneID(p.ID).
+			SetChannel(ChannelBalance).
+			SetStatus(PaymentStatusPaid).
+			Save(c); err != nil {
+			// The order never became paid: give the money back.
+			_, _ = CreditWallet(c, db, user.ID, totalCost, WalletReasonRefund, name, orderNo)
+			_ = db.Payment.DeleteOneID(p.ID).Exec(c)
+			return serializer.DBErr(c, "Failed to settle the order", err)
+		}
+		writePaymentEvent(c, db, eventtype.PaymentPaid, p)
+		if err := fulfillOrder(c, db, user, p); err != nil {
+			// Nothing was delivered: refund the wallet so the buyer is not charged.
+			_, _ = CreditWallet(c, db, user.ID, totalCost, WalletReasonRefund, name, orderNo)
+			_ = markFulfillFailed(c, db, p, err.Error())
+			writePaymentEvent(c, db, eventtype.PaymentFulfillFailed, p)
+			return serializer.Err(c, serializer.NewError(serializer.CodeDBError,
+				"订单履行失败，余额已退回", err))
+		}
+		writePaymentEvent(c, db, eventtype.PaymentCreated, p)
+		writePaymentEvent(c, db, eventtype.PaymentFulfilled, p)
+		return serializer.Response{Data: PaymentResponse{
+			OrderNo: orderNo, Status: PaymentStatusFulfilled,
+			Amount: totalCost, Currency: currency,
+		}}
+	}
 	// Cash channel.
 	provider, ok := GetProviderByID(c, db, req.ProviderID)
 	if !ok || !provider.OnSale {

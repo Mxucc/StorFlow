@@ -60,6 +60,8 @@ func (User) Edges() []ent.Edge {
 		edge.To("auditlogs", AuditLog.Type),
 		edge.To("payments", Payment.Type),
 		edge.To("points_ledgers", PointsLedger.Type),
+		edge.To("wallet_balance", WalletBalance.Type).Unique(),
+		edge.To("wallet_ledgers", WalletLedger.Type),
 		edge.To("giftcodes", GiftCode.Type),
 		edge.To("entities", Entity.Type),
 		edge.To("oauth_grants", OAuthGrant.Type),

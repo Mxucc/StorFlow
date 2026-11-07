@@ -15,6 +15,7 @@ import (
 	"github.com/Mxucc/StorFlow/pkg/serializer"
 	"github.com/Mxucc/StorFlow/pkg/sharegate"
 	"github.com/Mxucc/StorFlow/service/share"
+	"github.com/Mxucc/StorFlow/service/vas"
 	"github.com/Mxucc/StorFlow/shop/gateway/epay"
 	"github.com/Mxucc/StorFlow/shop/model"
 	"github.com/Mxucc/StorFlow/shop/store"
@@ -136,12 +137,22 @@ func (s *Service) Checkout(c *gin.Context, req *CreateOrderRequest) (*OrderView,
 	if !channel.Valid() {
 		channel = s.defaultChannel()
 	}
+	// A buyer may pay with the internal wallet (余额). That path never touches a
+	// gateway, so the channel check below does not apply to it, and it is only
+	// possible when the platform itself collects the money for this shop.
+	payWithBalance := strings.EqualFold(strings.TrimSpace(req.PayWith), "balance")
+	if payWithBalance && shop.PayMode.OrDefault() != model.PayModePlatform {
+		return nil, serializer.NewError(serializer.CodeParamErr,
+			"The balance can only pay a shop that uses the platform payment channel", nil)
+	}
 
 	// Fail before the order exists when the requested channel cannot take money:
 	// a merchant channel without credentials, or a platform channel the
 	// administrator has not enabled / configured yet.
-	if _, _, err := s.gatewayFor(shop, channel); err != nil {
-		return nil, err
+	if !payWithBalance {
+		if _, _, err := s.gatewayFor(shop, channel); err != nil {
+			return nil, err
+		}
 	}
 
 	// Reuse an open order for the same object: without this a buyer who clicks
@@ -149,14 +160,20 @@ func (s *Service) Checkout(c *gin.Context, req *CreateOrderRequest) (*OrderView,
 	// for it twice.
 	if pending, err := s.store.GetPendingOrder(c, buyer.ID, kind, objectID); err == nil {
 		if pending.ExpireAt == 0 || pending.ExpireAt > time.Now().Unix() {
-			return s.orderView(c, pending)
+			if !payWithBalance {
+				return s.orderView(c, pending)
+			}
+			// The buyer switched to the wallet: close the stale cashier order so
+			// one product cannot be paid twice.
+			if err := s.store.CloseOrder(c, pending.OrderNo); err != nil {
+				s.l.Warning("Failed to close the previous order %s: %s", pending.OrderNo, err)
+			}
+		} else {
+			// The previous attempt expired: close it and let the buyer start over.
+			if _, err := s.store.CloseExpiredOrders(c, time.Now().Unix(), 10); err != nil {
+				s.l.Warning("Failed to close expired orders: %s", err)
+			}
 		}
-		// The previous attempt expired: close it and let the buyer start over.
-		if _, err := s.store.CloseExpiredOrders(c, time.Now().Unix(), 10); err != nil {
-			s.l.Warning("Failed to close expired orders: %s", err)
-		}
-	} else if err != store.ErrNotFound {
-		return nil, serializer.NewError(serializer.CodeDBError, "Failed to check open orders", err)
 	}
 
 	discount := model.Money(0)
@@ -193,6 +210,16 @@ func (s *Service) Checkout(c *gin.Context, req *CreateOrderRequest) (*OrderView,
 
 	payable := model.ClampPayable(price - discount)
 
+	// The wallet must cover the payable amount before an order is created: the
+	// atomic debit at settlement is the real guard, this is the friendly one.
+	if payWithBalance {
+		balance := vas.GetWalletBalance(c, s.dep.DBClient(), buyer.ID)
+		if balance < int64(payable) {
+			return nil, serializer.NewError(serializer.CodeInsufficientCredit,
+				fmt.Sprintf("The wallet balance is not enough (%s left)", model.Money(balance)), nil)
+		}
+	}
+
 	referrerUID := 0
 	if referral, err := s.store.GetReferralByInvitee(c, buyer.ID); err == nil {
 		referrerUID = referral.InviterUID
@@ -223,7 +250,7 @@ func (s *Service) Checkout(c *gin.Context, req *CreateOrderRequest) (*OrderView,
 		ExpireAt:    time.Now().Unix() + int64(s.Settings().OrderTTL),
 		// The payment mode is snapshotted: the order keeps being verified and
 		// settled the way it was created, whatever the shop does later.
-		PayMode: shop.PayMode.OrDefault(),
+		PayMode: orderPayMode(shop, payWithBalance),
 	}
 
 	order.Channel = channel
@@ -254,6 +281,14 @@ func (s *Service) Checkout(c *gin.Context, req *CreateOrderRequest) (*OrderView,
 		return nil, serializer.NewError(serializer.CodeDBError, "Failed to create the order", err)
 	}
 
+	if payWithBalance {
+		if err := s.payWithBalance(c, order, buyer); err != nil {
+			return nil, err
+		}
+		if refreshed, err := s.store.GetOrder(c, order.OrderNo); err == nil {
+			order = refreshed
+		}
+	}
 	view, err := s.orderView(c, order)
 	if err != nil {
 		return nil, err
@@ -467,7 +502,11 @@ func (s *Service) settle(c context.Context, order *model.Order, tradeNo string, 
 	}
 
 	settings := s.Settings()
-	settledByPlatform := order.PayMode.OrDefault() == model.PayModePlatform
+	// A wallet payment (余额) is platform money: the buyer already paid the
+	// platform, so the seller is credited, the commission applies and the same
+	// unfreeze window holds the income back.
+	settledByPlatform := order.PayMode.OrDefault() == model.PayModePlatform ||
+		order.PayMode.OrDefault() == model.PayModeBalance
 
 	// Income of a platform channel order is held back for the configured
 	// unfreeze window: the seller sees the money, but cannot withdraw it before
@@ -843,7 +882,9 @@ func (s *Service) CheckShareAccess(ctx context.Context, entity *ent.Share, reque
 func (s *Service) orderView(c *gin.Context, order *model.Order) (*OrderView, error) {
 	view := &OrderView{Order: order}
 
-	if order.Status == model.OrderStatusPending {
+	// A wallet order has no cashier: it is either already paid, or it was closed
+	// because the wallet could not cover it.
+	if order.Status == model.OrderStatusPending && order.PayMode.OrDefault() != model.PayModeBalance {
 		if url, err := s.payURL(c, order); err != nil {
 			s.l.Warning("Failed to build the cashier URL for %s: %s", order.OrderNo, err)
 		} else {
@@ -916,4 +957,56 @@ func (s *Service) isAdmin(c *gin.Context) bool {
 		return false
 	}
 	return user.Edges.Group.Permissions.Enabled(int(types.GroupPermissionIsAdmin))
+}
+
+// orderPayMode snapshots how the order is paid. A wallet payment is recorded as
+// its own mode so the seller side, the refund and the console all agree on where
+// the money came from.
+func orderPayMode(shop *model.Shop, payWithBalance bool) model.PayMode {
+	if payWithBalance {
+		return model.PayModeBalance
+	}
+	if shop == nil {
+		return model.PayModePlatform
+	}
+	return shop.PayMode.OrDefault()
+}
+
+// payWithBalance settles a shop order with the buyer's wallet.
+//
+// No gateway is involved, so the order is paid and delivered right away. The
+// debit is atomic; if anything after it fails the money is credited back, so a
+// buyer never pays for a delivery that did not happen.
+//
+// The wallet lives in the VAS module (ent) while the shop has its own raw SQL
+// store: the debit therefore runs before the shop transaction and the refund
+// after it, never nested inside it (a single connection database would deadlock).
+func (s *Service) payWithBalance(c *gin.Context, order *model.Order, buyer *ent.User) error {
+	db := s.dep.DBClient()
+	amount := int64(order.Payable)
+
+	if _, err := vas.DebitWallet(c, db, buyer.ID, amount, vas.WalletReasonShopPay, order.Title, order.OrderNo); err != nil {
+		// The order is unusable now: close it so the buyer is not left with a
+		// pending order that can never be paid by wallet.
+		if closeErr := s.store.CloseOrder(c, order.OrderNo); closeErr != nil {
+			s.l.Warning("Failed to close the unpaid order %s: %s", order.OrderNo, closeErr)
+		}
+		if errors.Is(err, vas.ErrInsufficientWallet) {
+			return serializer.NewError(serializer.CodeInsufficientCredit, "The wallet balance is not enough", err)
+		}
+		return serializer.NewError(serializer.CodeDBError, "Failed to pay with the balance", err)
+	}
+
+	if err := s.settle(c, order, "BALANCE-"+order.OrderNo, order.Payable); err != nil {
+		if _, creditErr := vas.CreditWallet(c, db, buyer.ID, amount, vas.WalletReasonRefund,
+			order.Title, order.OrderNo); creditErr != nil {
+			s.l.Error("Failed to refund the wallet of buyer %d for order %s: %s", buyer.ID, order.OrderNo, creditErr)
+		}
+		if closeErr := s.store.CloseOrder(c, order.OrderNo); closeErr != nil {
+			s.l.Warning("Failed to close the unsettled order %s: %s", order.OrderNo, closeErr)
+		}
+		return serializer.NewError(serializer.CodeDBError, "Failed to settle the order, the balance was returned", err)
+	}
+
+	return nil
 }

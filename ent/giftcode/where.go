@@ -85,6 +85,16 @@ func Num(v int64) predicate.GiftCode {
 	return predicate.GiftCode(sql.FieldEQ(FieldNum, v))
 }
 
+// Amount applies equality check predicate on the "amount" field. It's identical to AmountEQ.
+func Amount(v int64) predicate.GiftCode {
+	return predicate.GiftCode(sql.FieldEQ(FieldAmount, v))
+}
+
+// ExpiresAt applies equality check predicate on the "expires_at" field. It's identical to ExpiresAtEQ.
+func ExpiresAt(v int64) predicate.GiftCode {
+	return predicate.GiftCode(sql.FieldEQ(FieldExpiresAt, v))
+}
+
 // Name applies equality check predicate on the "name" field. It's identical to NameEQ.
 func Name(v string) predicate.GiftCode {
 	return predicate.GiftCode(sql.FieldEQ(FieldName, v))
@@ -408,6 +418,86 @@ func NumLT(v int64) predicate.GiftCode {
 // NumLTE applies the LTE predicate on the "num" field.
 func NumLTE(v int64) predicate.GiftCode {
 	return predicate.GiftCode(sql.FieldLTE(FieldNum, v))
+}
+
+// AmountEQ applies the EQ predicate on the "amount" field.
+func AmountEQ(v int64) predicate.GiftCode {
+	return predicate.GiftCode(sql.FieldEQ(FieldAmount, v))
+}
+
+// AmountNEQ applies the NEQ predicate on the "amount" field.
+func AmountNEQ(v int64) predicate.GiftCode {
+	return predicate.GiftCode(sql.FieldNEQ(FieldAmount, v))
+}
+
+// AmountIn applies the In predicate on the "amount" field.
+func AmountIn(vs ...int64) predicate.GiftCode {
+	return predicate.GiftCode(sql.FieldIn(FieldAmount, vs...))
+}
+
+// AmountNotIn applies the NotIn predicate on the "amount" field.
+func AmountNotIn(vs ...int64) predicate.GiftCode {
+	return predicate.GiftCode(sql.FieldNotIn(FieldAmount, vs...))
+}
+
+// AmountGT applies the GT predicate on the "amount" field.
+func AmountGT(v int64) predicate.GiftCode {
+	return predicate.GiftCode(sql.FieldGT(FieldAmount, v))
+}
+
+// AmountGTE applies the GTE predicate on the "amount" field.
+func AmountGTE(v int64) predicate.GiftCode {
+	return predicate.GiftCode(sql.FieldGTE(FieldAmount, v))
+}
+
+// AmountLT applies the LT predicate on the "amount" field.
+func AmountLT(v int64) predicate.GiftCode {
+	return predicate.GiftCode(sql.FieldLT(FieldAmount, v))
+}
+
+// AmountLTE applies the LTE predicate on the "amount" field.
+func AmountLTE(v int64) predicate.GiftCode {
+	return predicate.GiftCode(sql.FieldLTE(FieldAmount, v))
+}
+
+// ExpiresAtEQ applies the EQ predicate on the "expires_at" field.
+func ExpiresAtEQ(v int64) predicate.GiftCode {
+	return predicate.GiftCode(sql.FieldEQ(FieldExpiresAt, v))
+}
+
+// ExpiresAtNEQ applies the NEQ predicate on the "expires_at" field.
+func ExpiresAtNEQ(v int64) predicate.GiftCode {
+	return predicate.GiftCode(sql.FieldNEQ(FieldExpiresAt, v))
+}
+
+// ExpiresAtIn applies the In predicate on the "expires_at" field.
+func ExpiresAtIn(vs ...int64) predicate.GiftCode {
+	return predicate.GiftCode(sql.FieldIn(FieldExpiresAt, vs...))
+}
+
+// ExpiresAtNotIn applies the NotIn predicate on the "expires_at" field.
+func ExpiresAtNotIn(vs ...int64) predicate.GiftCode {
+	return predicate.GiftCode(sql.FieldNotIn(FieldExpiresAt, vs...))
+}
+
+// ExpiresAtGT applies the GT predicate on the "expires_at" field.
+func ExpiresAtGT(v int64) predicate.GiftCode {
+	return predicate.GiftCode(sql.FieldGT(FieldExpiresAt, v))
+}
+
+// ExpiresAtGTE applies the GTE predicate on the "expires_at" field.
+func ExpiresAtGTE(v int64) predicate.GiftCode {
+	return predicate.GiftCode(sql.FieldGTE(FieldExpiresAt, v))
+}
+
+// ExpiresAtLT applies the LT predicate on the "expires_at" field.
+func ExpiresAtLT(v int64) predicate.GiftCode {
+	return predicate.GiftCode(sql.FieldLT(FieldExpiresAt, v))
+}
+
+// ExpiresAtLTE applies the LTE predicate on the "expires_at" field.
+func ExpiresAtLTE(v int64) predicate.GiftCode {
+	return predicate.GiftCode(sql.FieldLTE(FieldExpiresAt, v))
 }
 
 // NameEQ applies the EQ predicate on the "name" field.

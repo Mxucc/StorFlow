@@ -83,6 +83,34 @@ func (gcc *GiftCodeCreate) SetNum(i int64) *GiftCodeCreate {
 	return gcc
 }
 
+// SetAmount sets the "amount" field.
+func (gcc *GiftCodeCreate) SetAmount(i int64) *GiftCodeCreate {
+	gcc.mutation.SetAmount(i)
+	return gcc
+}
+
+// SetNillableAmount sets the "amount" field if the given value is not nil.
+func (gcc *GiftCodeCreate) SetNillableAmount(i *int64) *GiftCodeCreate {
+	if i != nil {
+		gcc.SetAmount(*i)
+	}
+	return gcc
+}
+
+// SetExpiresAt sets the "expires_at" field.
+func (gcc *GiftCodeCreate) SetExpiresAt(i int64) *GiftCodeCreate {
+	gcc.mutation.SetExpiresAt(i)
+	return gcc
+}
+
+// SetNillableExpiresAt sets the "expires_at" field if the given value is not nil.
+func (gcc *GiftCodeCreate) SetNillableExpiresAt(i *int64) *GiftCodeCreate {
+	if i != nil {
+		gcc.SetExpiresAt(*i)
+	}
+	return gcc
+}
+
 // SetName sets the "name" field.
 func (gcc *GiftCodeCreate) SetName(s string) *GiftCodeCreate {
 	gcc.mutation.SetName(s)
@@ -223,6 +251,14 @@ func (gcc *GiftCodeCreate) defaults() error {
 		v := giftcode.DefaultUpdatedAt()
 		gcc.mutation.SetUpdatedAt(v)
 	}
+	if _, ok := gcc.mutation.Amount(); !ok {
+		v := giftcode.DefaultAmount
+		gcc.mutation.SetAmount(v)
+	}
+	if _, ok := gcc.mutation.ExpiresAt(); !ok {
+		v := giftcode.DefaultExpiresAt
+		gcc.mutation.SetExpiresAt(v)
+	}
 	if _, ok := gcc.mutation.Used(); !ok {
 		v := giftcode.DefaultUsed
 		gcc.mutation.SetUsed(v)
@@ -256,6 +292,12 @@ func (gcc *GiftCodeCreate) check() error {
 	}
 	if _, ok := gcc.mutation.Num(); !ok {
 		return &ValidationError{Name: "num", err: errors.New(`ent: missing required field "GiftCode.num"`)}
+	}
+	if _, ok := gcc.mutation.Amount(); !ok {
+		return &ValidationError{Name: "amount", err: errors.New(`ent: missing required field "GiftCode.amount"`)}
+	}
+	if _, ok := gcc.mutation.ExpiresAt(); !ok {
+		return &ValidationError{Name: "expires_at", err: errors.New(`ent: missing required field "GiftCode.expires_at"`)}
 	}
 	if v, ok := gcc.mutation.Name(); ok {
 		if err := giftcode.NameValidator(v); err != nil {
@@ -332,6 +374,14 @@ func (gcc *GiftCodeCreate) createSpec() (*GiftCode, *sqlgraph.CreateSpec) {
 	if value, ok := gcc.mutation.Num(); ok {
 		_spec.SetField(giftcode.FieldNum, field.TypeInt64, value)
 		_node.Num = value
+	}
+	if value, ok := gcc.mutation.Amount(); ok {
+		_spec.SetField(giftcode.FieldAmount, field.TypeInt64, value)
+		_node.Amount = value
+	}
+	if value, ok := gcc.mutation.ExpiresAt(); ok {
+		_spec.SetField(giftcode.FieldExpiresAt, field.TypeInt64, value)
+		_node.ExpiresAt = value
 	}
 	if value, ok := gcc.mutation.Name(); ok {
 		_spec.SetField(giftcode.FieldName, field.TypeString, value)
@@ -487,6 +537,42 @@ func (u *GiftCodeUpsert) UpdateNum() *GiftCodeUpsert {
 // AddNum adds v to the "num" field.
 func (u *GiftCodeUpsert) AddNum(v int64) *GiftCodeUpsert {
 	u.Add(giftcode.FieldNum, v)
+	return u
+}
+
+// SetAmount sets the "amount" field.
+func (u *GiftCodeUpsert) SetAmount(v int64) *GiftCodeUpsert {
+	u.Set(giftcode.FieldAmount, v)
+	return u
+}
+
+// UpdateAmount sets the "amount" field to the value that was provided on create.
+func (u *GiftCodeUpsert) UpdateAmount() *GiftCodeUpsert {
+	u.SetExcluded(giftcode.FieldAmount)
+	return u
+}
+
+// AddAmount adds v to the "amount" field.
+func (u *GiftCodeUpsert) AddAmount(v int64) *GiftCodeUpsert {
+	u.Add(giftcode.FieldAmount, v)
+	return u
+}
+
+// SetExpiresAt sets the "expires_at" field.
+func (u *GiftCodeUpsert) SetExpiresAt(v int64) *GiftCodeUpsert {
+	u.Set(giftcode.FieldExpiresAt, v)
+	return u
+}
+
+// UpdateExpiresAt sets the "expires_at" field to the value that was provided on create.
+func (u *GiftCodeUpsert) UpdateExpiresAt() *GiftCodeUpsert {
+	u.SetExcluded(giftcode.FieldExpiresAt)
+	return u
+}
+
+// AddExpiresAt adds v to the "expires_at" field.
+func (u *GiftCodeUpsert) AddExpiresAt(v int64) *GiftCodeUpsert {
+	u.Add(giftcode.FieldExpiresAt, v)
 	return u
 }
 
@@ -700,6 +786,48 @@ func (u *GiftCodeUpsertOne) AddNum(v int64) *GiftCodeUpsertOne {
 func (u *GiftCodeUpsertOne) UpdateNum() *GiftCodeUpsertOne {
 	return u.Update(func(s *GiftCodeUpsert) {
 		s.UpdateNum()
+	})
+}
+
+// SetAmount sets the "amount" field.
+func (u *GiftCodeUpsertOne) SetAmount(v int64) *GiftCodeUpsertOne {
+	return u.Update(func(s *GiftCodeUpsert) {
+		s.SetAmount(v)
+	})
+}
+
+// AddAmount adds v to the "amount" field.
+func (u *GiftCodeUpsertOne) AddAmount(v int64) *GiftCodeUpsertOne {
+	return u.Update(func(s *GiftCodeUpsert) {
+		s.AddAmount(v)
+	})
+}
+
+// UpdateAmount sets the "amount" field to the value that was provided on create.
+func (u *GiftCodeUpsertOne) UpdateAmount() *GiftCodeUpsertOne {
+	return u.Update(func(s *GiftCodeUpsert) {
+		s.UpdateAmount()
+	})
+}
+
+// SetExpiresAt sets the "expires_at" field.
+func (u *GiftCodeUpsertOne) SetExpiresAt(v int64) *GiftCodeUpsertOne {
+	return u.Update(func(s *GiftCodeUpsert) {
+		s.SetExpiresAt(v)
+	})
+}
+
+// AddExpiresAt adds v to the "expires_at" field.
+func (u *GiftCodeUpsertOne) AddExpiresAt(v int64) *GiftCodeUpsertOne {
+	return u.Update(func(s *GiftCodeUpsert) {
+		s.AddExpiresAt(v)
+	})
+}
+
+// UpdateExpiresAt sets the "expires_at" field to the value that was provided on create.
+func (u *GiftCodeUpsertOne) UpdateExpiresAt() *GiftCodeUpsertOne {
+	return u.Update(func(s *GiftCodeUpsert) {
+		s.UpdateExpiresAt()
 	})
 }
 
@@ -1098,6 +1226,48 @@ func (u *GiftCodeUpsertBulk) AddNum(v int64) *GiftCodeUpsertBulk {
 func (u *GiftCodeUpsertBulk) UpdateNum() *GiftCodeUpsertBulk {
 	return u.Update(func(s *GiftCodeUpsert) {
 		s.UpdateNum()
+	})
+}
+
+// SetAmount sets the "amount" field.
+func (u *GiftCodeUpsertBulk) SetAmount(v int64) *GiftCodeUpsertBulk {
+	return u.Update(func(s *GiftCodeUpsert) {
+		s.SetAmount(v)
+	})
+}
+
+// AddAmount adds v to the "amount" field.
+func (u *GiftCodeUpsertBulk) AddAmount(v int64) *GiftCodeUpsertBulk {
+	return u.Update(func(s *GiftCodeUpsert) {
+		s.AddAmount(v)
+	})
+}
+
+// UpdateAmount sets the "amount" field to the value that was provided on create.
+func (u *GiftCodeUpsertBulk) UpdateAmount() *GiftCodeUpsertBulk {
+	return u.Update(func(s *GiftCodeUpsert) {
+		s.UpdateAmount()
+	})
+}
+
+// SetExpiresAt sets the "expires_at" field.
+func (u *GiftCodeUpsertBulk) SetExpiresAt(v int64) *GiftCodeUpsertBulk {
+	return u.Update(func(s *GiftCodeUpsert) {
+		s.SetExpiresAt(v)
+	})
+}
+
+// AddExpiresAt adds v to the "expires_at" field.
+func (u *GiftCodeUpsertBulk) AddExpiresAt(v int64) *GiftCodeUpsertBulk {
+	return u.Update(func(s *GiftCodeUpsert) {
+		s.AddExpiresAt(v)
+	})
+}
+
+// UpdateExpiresAt sets the "expires_at" field to the value that was provided on create.
+func (u *GiftCodeUpsertBulk) UpdateExpiresAt() *GiftCodeUpsertBulk {
+	return u.Update(func(s *GiftCodeUpsert) {
+		s.UpdateExpiresAt()
 	})
 }
 

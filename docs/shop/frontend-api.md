@@ -84,11 +84,13 @@
 `GET /shop/store/:slug/product/:id`
 
 ```jsonc
-{ ...ProductSummary, "description": "…", "can_preview": true }
+{ ...ProductSummary, "description": "…", "can_preview": true,
+  "pay_channels": ["alipay", "wxpay"], "balance_payable": true }
 ```
 
 - 未上架（`offsale`）的商品对**非卖家、非买家**返回 `404`。
 - `can_preview=false` 表示不允许预览（卖家在 `props.allow_preview=false` 关闭了预览，且当前用户未购买）。
+- `balance_payable=true` 表示可以用**钱包余额**支付（只有走平台通道的店铺才为 `true`，见 §2.6）。
 
 ### 1.3 文件夹预览（只读、无下载）
 
@@ -118,7 +120,13 @@
 { "kind": "product", "object_id": "<product id>", "channel": "alipay", "coupon": "CODE" }
 // 购买付费分享（分享链接页）
 { "kind": "share", "object_id": "<share hash id>", "channel": "alipay", "share_password": "1234" }
+// 用钱包余额支付（仅 balance_payable=true 时可用，不需要 channel）
+{ "kind": "product", "object_id": "<product id>", "pay_with": "balance", "coupon": "CODE" }
 ```
+
+- `pay_with: "balance"` → 立即从买家余额扣款，订单直接是 `paid`（`channel` 为 `""`、无 `pay_url`）；
+  余额不足返回 `40003`，店铺不是平台通道返回 `40001`。老的可支付订单会被自动关闭，避免重复付款。
+- 余额支付的订单按**平台资金**处理：扣手续费、按 `settle_delay_hours` 解冻；退款时原路退回**买家余额**。
 
 返回 `OrderView`：
 
@@ -194,6 +202,23 @@
 - 首次售出前已存在的内容**不可删除**；
 - 售出后新增的内容有 **24 小时撤回时效**，超过后不可删除；
 - 包含已售商品的上级文件夹**不可删除**。
+
+### 2.6 钱包余额与卡密充值（余额支付的前提）
+
+余额是**平台账户**（不是店主钱包），存在 `service/vas`：快照表 + 账本表，只能由**卡密兑换**和
+**管理员调整**增，只能消费在网盘订阅（VAS SKU）与小店资源上，不做在线充值、不做提现。
+
+| 方法 | 路径 | 说明 |
+| --- | --- | --- |
+| `GET` | `/vas/wallet` | `{balance, currency:"CNY", history:[{delta, balance_after, reason, note, ref, created_at}]}`；`reason` ∈ `recharge｜purchase｜shop_pay｜refund｜manual` |
+| `POST` | `/vas/payment` | 创建订阅支付：`{sku_id, channel?, use_balance?:true}`；`use_balance=true` 时直接扣余额并把订单置为已支付 |
+| `POST` | `/vas/giftcode/redeem` | 兑换卡密：`{code}`；面额卡返回 `{product_type:"balance", amount, balance}`（`amount` 本次入账，`balance` 兑换后余额） |
+
+- 卡密由管理员在后台批量生成（`POST /admin/vas/giftcode`）：`{count, product_type:"balance", amount, expires_at?}`，
+  `amount` 为面额（分），`count` 上限 1000，`expires_at=0` 表示**永久有效**。
+- 兑换用条件 `UPDATE` 抢占，同一张卡密并发兑换只会成功一次；过期的卡密返回 `40001`。
+- 管理员调整余额：`POST /admin/user/:id/balance` → `{delta, reason, note}`（`delta` 为分，可正可负，写账本 + 审计事件）。
+- 前端入口：商店「兑换码」Tab（余额卡片 + 卡密输入 + 余额明细），下单时与在线支付并列的「余额支付」选项。
 
 ---
 
@@ -315,11 +340,12 @@
   "id": "l9ha", "name": "bundle", "unlocked": true, "source_type": 1,
   "owner": { "id": "JZhD", "nickname": "s" },
   "pay_enabled": true, "price": 1000, "currency": "", "purchased": false,
+  "pay_channels": ["alipay"], "balance_payable": true,
   "is_default": false, "permission": "read"
 }
 ```
 
-3. 展示「购买此分享」对话框：价格 + 支付方式（`alipay/wxpay/qqpay`）→ `POST /shop/order {kind:"share", object_id:"<shareId>", share_password?}` → 跳 `pay_url` → 回跳 `…/shop/order/<order_no>` → 轮询订单 → `paid` 后刷新当前分享页面（此时 `purchased=true`，内容可读）。
+3. 展示「购买此分享」对话框：价格 + 支付方式（`alipay/wxpay/qqpay`，`balance_payable=true` 时另加「余额支付」）→ `POST /shop/order {kind:"share", object_id:"<shareId>", share_password?, pay_with?}` → 余额支付直接回 `paid`；在线支付跳 `pay_url` → 回跳 `…/shop/order/<order_no>` → 轮询订单 → `paid` 后刷新当前分享页面（此时 `purchased=true`，内容可读）。
 4. 分享创建/编辑对话框增加「收费分享」开关 + 价格输入（`pay_enabled` / `price`），以及「设为默认分享」开关（`is_default`）。
 5. 默认分享列表：`GET /share/default`（公开，返回 `{shares: Share[], pagination}`），可在首页/登录后展示。
 

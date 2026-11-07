@@ -985,6 +985,8 @@ func initMasterRouter(dep dependency.Dep) *gin.Engine {
 					controllers.VASRedeemGiftCode,
 				)
 				vasGroup.GET("points", controllers.VASGetPoints)
+				// 钱包余额（卡密充值 / 余额支付）
+				vasGroup.GET("wallet", controllers.VASGetWallet)
 			}
 
 			// 管理
@@ -1448,6 +1450,12 @@ func initMasterRouter(dep dependency.Dep) *gin.Engine {
 					controllers.FromUri[adminsvc.UserAdjustPointsService](adminsvc.UserAdjustPointsParamCtx{}),
 					controllers.FromJSON[adminsvc.UserAdjustPointsBody](adminsvc.UserAdjustPointsBodyParamCtx{}),
 					controllers.AdminUserAdjustPoints,
+				)
+				adminUser.POST(":id/balance",
+					middleware.RequiredScopes(types.ScopeAdminWrite),
+					controllers.FromUri[adminsvc.UserAdjustBalanceService](adminsvc.UserAdjustBalanceParamCtx{}),
+					controllers.FromJSON[adminsvc.UserAdjustBalanceBody](adminsvc.UserAdjustBalanceBodyParamCtx{}),
+					controllers.AdminUserAdjustBalance,
 				)
 			}
 

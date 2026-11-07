@@ -26,6 +26,8 @@ import (
 	"github.com/Mxucc/StorFlow/ent/share"
 	"github.com/Mxucc/StorFlow/ent/task"
 	"github.com/Mxucc/StorFlow/ent/user"
+	"github.com/Mxucc/StorFlow/ent/walletbalance"
+	"github.com/Mxucc/StorFlow/ent/walletledger"
 	"github.com/Mxucc/StorFlow/inventory/types"
 )
 
@@ -345,6 +347,40 @@ func (uc *UserCreate) AddPointsLedgers(p ...*PointsLedger) *UserCreate {
 		ids[i] = p[i].ID
 	}
 	return uc.AddPointsLedgerIDs(ids...)
+}
+
+// SetWalletBalanceID sets the "wallet_balance" edge to the WalletBalance entity by ID.
+func (uc *UserCreate) SetWalletBalanceID(id int) *UserCreate {
+	uc.mutation.SetWalletBalanceID(id)
+	return uc
+}
+
+// SetNillableWalletBalanceID sets the "wallet_balance" edge to the WalletBalance entity by ID if the given value is not nil.
+func (uc *UserCreate) SetNillableWalletBalanceID(id *int) *UserCreate {
+	if id != nil {
+		uc = uc.SetWalletBalanceID(*id)
+	}
+	return uc
+}
+
+// SetWalletBalance sets the "wallet_balance" edge to the WalletBalance entity.
+func (uc *UserCreate) SetWalletBalance(w *WalletBalance) *UserCreate {
+	return uc.SetWalletBalanceID(w.ID)
+}
+
+// AddWalletLedgerIDs adds the "wallet_ledgers" edge to the WalletLedger entity by IDs.
+func (uc *UserCreate) AddWalletLedgerIDs(ids ...int) *UserCreate {
+	uc.mutation.AddWalletLedgerIDs(ids...)
+	return uc
+}
+
+// AddWalletLedgers adds the "wallet_ledgers" edges to the WalletLedger entity.
+func (uc *UserCreate) AddWalletLedgers(w ...*WalletLedger) *UserCreate {
+	ids := make([]int, len(w))
+	for i := range w {
+		ids[i] = w[i].ID
+	}
+	return uc.AddWalletLedgerIDs(ids...)
 }
 
 // AddGiftcodeIDs adds the "giftcodes" edge to the GiftCode entity by IDs.
@@ -754,6 +790,38 @@ func (uc *UserCreate) createSpec() (*User, *sqlgraph.CreateSpec) {
 			Bidi:    false,
 			Target: &sqlgraph.EdgeTarget{
 				IDSpec: sqlgraph.NewFieldSpec(pointsledger.FieldID, field.TypeInt),
+			},
+		}
+		for _, k := range nodes {
+			edge.Target.Nodes = append(edge.Target.Nodes, k)
+		}
+		_spec.Edges = append(_spec.Edges, edge)
+	}
+	if nodes := uc.mutation.WalletBalanceIDs(); len(nodes) > 0 {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.O2O,
+			Inverse: false,
+			Table:   user.WalletBalanceTable,
+			Columns: []string{user.WalletBalanceColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(walletbalance.FieldID, field.TypeInt),
+			},
+		}
+		for _, k := range nodes {
+			edge.Target.Nodes = append(edge.Target.Nodes, k)
+		}
+		_spec.Edges = append(_spec.Edges, edge)
+	}
+	if nodes := uc.mutation.WalletLedgersIDs(); len(nodes) > 0 {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.O2M,
+			Inverse: false,
+			Table:   user.WalletLedgersTable,
+			Columns: []string{user.WalletLedgersColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(walletledger.FieldID, field.TypeInt),
 			},
 		}
 		for _, k := range nodes {

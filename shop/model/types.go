@@ -234,10 +234,18 @@ const (
 	// records the order and delivers the content. No balance is credited, no
 	// commission is charged and a refund is carried out by the merchant.
 	PayModeCustom PayMode = "custom"
+	// PayModeBalance means the buyer paid with their internal wallet (余额).
+	// The money is already held by the platform, so there is no gateway: the
+	// order is settled and delivered at checkout time. It is handled like a
+	// platform payment afterwards (commission + unfreeze window), and a refund
+	// goes back to the buyer's wallet.
+	PayModeBalance PayMode = "balance"
 )
 
 // Valid reports whether m is a known payment mode.
-func (m PayMode) Valid() bool { return m == PayModePlatform || m == PayModeCustom }
+func (m PayMode) Valid() bool {
+	return m == PayModePlatform || m == PayModeCustom || m == PayModeBalance
+}
 
 // OrDefault returns m, or the platform mode when m is unset or unknown.
 func (m PayMode) OrDefault() PayMode {

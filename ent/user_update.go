@@ -27,6 +27,8 @@ import (
 	"github.com/Mxucc/StorFlow/ent/share"
 	"github.com/Mxucc/StorFlow/ent/task"
 	"github.com/Mxucc/StorFlow/ent/user"
+	"github.com/Mxucc/StorFlow/ent/walletbalance"
+	"github.com/Mxucc/StorFlow/ent/walletledger"
 	"github.com/Mxucc/StorFlow/inventory/types"
 )
 
@@ -411,6 +413,40 @@ func (uu *UserUpdate) AddPointsLedgers(p ...*PointsLedger) *UserUpdate {
 	return uu.AddPointsLedgerIDs(ids...)
 }
 
+// SetWalletBalanceID sets the "wallet_balance" edge to the WalletBalance entity by ID.
+func (uu *UserUpdate) SetWalletBalanceID(id int) *UserUpdate {
+	uu.mutation.SetWalletBalanceID(id)
+	return uu
+}
+
+// SetNillableWalletBalanceID sets the "wallet_balance" edge to the WalletBalance entity by ID if the given value is not nil.
+func (uu *UserUpdate) SetNillableWalletBalanceID(id *int) *UserUpdate {
+	if id != nil {
+		uu = uu.SetWalletBalanceID(*id)
+	}
+	return uu
+}
+
+// SetWalletBalance sets the "wallet_balance" edge to the WalletBalance entity.
+func (uu *UserUpdate) SetWalletBalance(w *WalletBalance) *UserUpdate {
+	return uu.SetWalletBalanceID(w.ID)
+}
+
+// AddWalletLedgerIDs adds the "wallet_ledgers" edge to the WalletLedger entity by IDs.
+func (uu *UserUpdate) AddWalletLedgerIDs(ids ...int) *UserUpdate {
+	uu.mutation.AddWalletLedgerIDs(ids...)
+	return uu
+}
+
+// AddWalletLedgers adds the "wallet_ledgers" edges to the WalletLedger entity.
+func (uu *UserUpdate) AddWalletLedgers(w ...*WalletLedger) *UserUpdate {
+	ids := make([]int, len(w))
+	for i := range w {
+		ids[i] = w[i].ID
+	}
+	return uu.AddWalletLedgerIDs(ids...)
+}
+
 // AddGiftcodeIDs adds the "giftcodes" edge to the GiftCode entity by IDs.
 func (uu *UserUpdate) AddGiftcodeIDs(ids ...int) *UserUpdate {
 	uu.mutation.AddGiftcodeIDs(ids...)
@@ -669,6 +705,33 @@ func (uu *UserUpdate) RemovePointsLedgers(p ...*PointsLedger) *UserUpdate {
 		ids[i] = p[i].ID
 	}
 	return uu.RemovePointsLedgerIDs(ids...)
+}
+
+// ClearWalletBalance clears the "wallet_balance" edge to the WalletBalance entity.
+func (uu *UserUpdate) ClearWalletBalance() *UserUpdate {
+	uu.mutation.ClearWalletBalance()
+	return uu
+}
+
+// ClearWalletLedgers clears all "wallet_ledgers" edges to the WalletLedger entity.
+func (uu *UserUpdate) ClearWalletLedgers() *UserUpdate {
+	uu.mutation.ClearWalletLedgers()
+	return uu
+}
+
+// RemoveWalletLedgerIDs removes the "wallet_ledgers" edge to WalletLedger entities by IDs.
+func (uu *UserUpdate) RemoveWalletLedgerIDs(ids ...int) *UserUpdate {
+	uu.mutation.RemoveWalletLedgerIDs(ids...)
+	return uu
+}
+
+// RemoveWalletLedgers removes "wallet_ledgers" edges to WalletLedger entities.
+func (uu *UserUpdate) RemoveWalletLedgers(w ...*WalletLedger) *UserUpdate {
+	ids := make([]int, len(w))
+	for i := range w {
+		ids[i] = w[i].ID
+	}
+	return uu.RemoveWalletLedgerIDs(ids...)
 }
 
 // ClearGiftcodes clears all "giftcodes" edges to the GiftCode entity.
@@ -1329,6 +1392,80 @@ func (uu *UserUpdate) sqlSave(ctx context.Context) (n int, err error) {
 		}
 		_spec.Edges.Add = append(_spec.Edges.Add, edge)
 	}
+	if uu.mutation.WalletBalanceCleared() {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.O2O,
+			Inverse: false,
+			Table:   user.WalletBalanceTable,
+			Columns: []string{user.WalletBalanceColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(walletbalance.FieldID, field.TypeInt),
+			},
+		}
+		_spec.Edges.Clear = append(_spec.Edges.Clear, edge)
+	}
+	if nodes := uu.mutation.WalletBalanceIDs(); len(nodes) > 0 {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.O2O,
+			Inverse: false,
+			Table:   user.WalletBalanceTable,
+			Columns: []string{user.WalletBalanceColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(walletbalance.FieldID, field.TypeInt),
+			},
+		}
+		for _, k := range nodes {
+			edge.Target.Nodes = append(edge.Target.Nodes, k)
+		}
+		_spec.Edges.Add = append(_spec.Edges.Add, edge)
+	}
+	if uu.mutation.WalletLedgersCleared() {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.O2M,
+			Inverse: false,
+			Table:   user.WalletLedgersTable,
+			Columns: []string{user.WalletLedgersColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(walletledger.FieldID, field.TypeInt),
+			},
+		}
+		_spec.Edges.Clear = append(_spec.Edges.Clear, edge)
+	}
+	if nodes := uu.mutation.RemovedWalletLedgersIDs(); len(nodes) > 0 && !uu.mutation.WalletLedgersCleared() {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.O2M,
+			Inverse: false,
+			Table:   user.WalletLedgersTable,
+			Columns: []string{user.WalletLedgersColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(walletledger.FieldID, field.TypeInt),
+			},
+		}
+		for _, k := range nodes {
+			edge.Target.Nodes = append(edge.Target.Nodes, k)
+		}
+		_spec.Edges.Clear = append(_spec.Edges.Clear, edge)
+	}
+	if nodes := uu.mutation.WalletLedgersIDs(); len(nodes) > 0 {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.O2M,
+			Inverse: false,
+			Table:   user.WalletLedgersTable,
+			Columns: []string{user.WalletLedgersColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(walletledger.FieldID, field.TypeInt),
+			},
+		}
+		for _, k := range nodes {
+			edge.Target.Nodes = append(edge.Target.Nodes, k)
+		}
+		_spec.Edges.Add = append(_spec.Edges.Add, edge)
+	}
 	if uu.mutation.GiftcodesCleared() {
 		edge := &sqlgraph.EdgeSpec{
 			Rel:     sqlgraph.O2M,
@@ -1897,6 +2034,40 @@ func (uuo *UserUpdateOne) AddPointsLedgers(p ...*PointsLedger) *UserUpdateOne {
 	return uuo.AddPointsLedgerIDs(ids...)
 }
 
+// SetWalletBalanceID sets the "wallet_balance" edge to the WalletBalance entity by ID.
+func (uuo *UserUpdateOne) SetWalletBalanceID(id int) *UserUpdateOne {
+	uuo.mutation.SetWalletBalanceID(id)
+	return uuo
+}
+
+// SetNillableWalletBalanceID sets the "wallet_balance" edge to the WalletBalance entity by ID if the given value is not nil.
+func (uuo *UserUpdateOne) SetNillableWalletBalanceID(id *int) *UserUpdateOne {
+	if id != nil {
+		uuo = uuo.SetWalletBalanceID(*id)
+	}
+	return uuo
+}
+
+// SetWalletBalance sets the "wallet_balance" edge to the WalletBalance entity.
+func (uuo *UserUpdateOne) SetWalletBalance(w *WalletBalance) *UserUpdateOne {
+	return uuo.SetWalletBalanceID(w.ID)
+}
+
+// AddWalletLedgerIDs adds the "wallet_ledgers" edge to the WalletLedger entity by IDs.
+func (uuo *UserUpdateOne) AddWalletLedgerIDs(ids ...int) *UserUpdateOne {
+	uuo.mutation.AddWalletLedgerIDs(ids...)
+	return uuo
+}
+
+// AddWalletLedgers adds the "wallet_ledgers" edges to the WalletLedger entity.
+func (uuo *UserUpdateOne) AddWalletLedgers(w ...*WalletLedger) *UserUpdateOne {
+	ids := make([]int, len(w))
+	for i := range w {
+		ids[i] = w[i].ID
+	}
+	return uuo.AddWalletLedgerIDs(ids...)
+}
+
 // AddGiftcodeIDs adds the "giftcodes" edge to the GiftCode entity by IDs.
 func (uuo *UserUpdateOne) AddGiftcodeIDs(ids ...int) *UserUpdateOne {
 	uuo.mutation.AddGiftcodeIDs(ids...)
@@ -2155,6 +2326,33 @@ func (uuo *UserUpdateOne) RemovePointsLedgers(p ...*PointsLedger) *UserUpdateOne
 		ids[i] = p[i].ID
 	}
 	return uuo.RemovePointsLedgerIDs(ids...)
+}
+
+// ClearWalletBalance clears the "wallet_balance" edge to the WalletBalance entity.
+func (uuo *UserUpdateOne) ClearWalletBalance() *UserUpdateOne {
+	uuo.mutation.ClearWalletBalance()
+	return uuo
+}
+
+// ClearWalletLedgers clears all "wallet_ledgers" edges to the WalletLedger entity.
+func (uuo *UserUpdateOne) ClearWalletLedgers() *UserUpdateOne {
+	uuo.mutation.ClearWalletLedgers()
+	return uuo
+}
+
+// RemoveWalletLedgerIDs removes the "wallet_ledgers" edge to WalletLedger entities by IDs.
+func (uuo *UserUpdateOne) RemoveWalletLedgerIDs(ids ...int) *UserUpdateOne {
+	uuo.mutation.RemoveWalletLedgerIDs(ids...)
+	return uuo
+}
+
+// RemoveWalletLedgers removes "wallet_ledgers" edges to WalletLedger entities.
+func (uuo *UserUpdateOne) RemoveWalletLedgers(w ...*WalletLedger) *UserUpdateOne {
+	ids := make([]int, len(w))
+	for i := range w {
+		ids[i] = w[i].ID
+	}
+	return uuo.RemoveWalletLedgerIDs(ids...)
 }
 
 // ClearGiftcodes clears all "giftcodes" edges to the GiftCode entity.
@@ -2838,6 +3036,80 @@ func (uuo *UserUpdateOne) sqlSave(ctx context.Context) (_node *User, err error) 
 			Bidi:    false,
 			Target: &sqlgraph.EdgeTarget{
 				IDSpec: sqlgraph.NewFieldSpec(pointsledger.FieldID, field.TypeInt),
+			},
+		}
+		for _, k := range nodes {
+			edge.Target.Nodes = append(edge.Target.Nodes, k)
+		}
+		_spec.Edges.Add = append(_spec.Edges.Add, edge)
+	}
+	if uuo.mutation.WalletBalanceCleared() {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.O2O,
+			Inverse: false,
+			Table:   user.WalletBalanceTable,
+			Columns: []string{user.WalletBalanceColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(walletbalance.FieldID, field.TypeInt),
+			},
+		}
+		_spec.Edges.Clear = append(_spec.Edges.Clear, edge)
+	}
+	if nodes := uuo.mutation.WalletBalanceIDs(); len(nodes) > 0 {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.O2O,
+			Inverse: false,
+			Table:   user.WalletBalanceTable,
+			Columns: []string{user.WalletBalanceColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(walletbalance.FieldID, field.TypeInt),
+			},
+		}
+		for _, k := range nodes {
+			edge.Target.Nodes = append(edge.Target.Nodes, k)
+		}
+		_spec.Edges.Add = append(_spec.Edges.Add, edge)
+	}
+	if uuo.mutation.WalletLedgersCleared() {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.O2M,
+			Inverse: false,
+			Table:   user.WalletLedgersTable,
+			Columns: []string{user.WalletLedgersColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(walletledger.FieldID, field.TypeInt),
+			},
+		}
+		_spec.Edges.Clear = append(_spec.Edges.Clear, edge)
+	}
+	if nodes := uuo.mutation.RemovedWalletLedgersIDs(); len(nodes) > 0 && !uuo.mutation.WalletLedgersCleared() {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.O2M,
+			Inverse: false,
+			Table:   user.WalletLedgersTable,
+			Columns: []string{user.WalletLedgersColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(walletledger.FieldID, field.TypeInt),
+			},
+		}
+		for _, k := range nodes {
+			edge.Target.Nodes = append(edge.Target.Nodes, k)
+		}
+		_spec.Edges.Clear = append(_spec.Edges.Clear, edge)
+	}
+	if nodes := uuo.mutation.WalletLedgersIDs(); len(nodes) > 0 {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.O2M,
+			Inverse: false,
+			Table:   user.WalletLedgersTable,
+			Columns: []string{user.WalletLedgersColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(walletledger.FieldID, field.TypeInt),
 			},
 		}
 		for _, k := range nodes {

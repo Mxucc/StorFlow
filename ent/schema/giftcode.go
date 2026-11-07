@@ -16,8 +16,14 @@ type GiftCode struct {
 func (GiftCode) Fields() []ent.Field {
 	return []ent.Field{
 		field.String("code").Unique().MaxLen(64),
-		field.String("product_type").MaxLen(32), // points | storage | group
+		field.String("product_type").MaxLen(32), // points | storage | group | balance
 		field.Int64("num"),                      // points amount / storage bytes / group id
+		// Amount is the face value of a balance card, in cents. It is only used
+		// when ProductType is "balance"; the other card types grant Num instead.
+		field.Int64("amount").Default(0),
+		// ExpiresAt is the Unix time after which the card can no longer be
+		// redeemed; 0 means the card never expires.
+		field.Int64("expires_at").Default(0),
 		field.String("name").Optional().MaxLen(255),
 		field.Bool("used").Default(false),
 		field.Int("used_by").Optional(),

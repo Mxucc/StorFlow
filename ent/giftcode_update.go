@@ -104,6 +104,48 @@ func (gcu *GiftCodeUpdate) AddNum(i int64) *GiftCodeUpdate {
 	return gcu
 }
 
+// SetAmount sets the "amount" field.
+func (gcu *GiftCodeUpdate) SetAmount(i int64) *GiftCodeUpdate {
+	gcu.mutation.ResetAmount()
+	gcu.mutation.SetAmount(i)
+	return gcu
+}
+
+// SetNillableAmount sets the "amount" field if the given value is not nil.
+func (gcu *GiftCodeUpdate) SetNillableAmount(i *int64) *GiftCodeUpdate {
+	if i != nil {
+		gcu.SetAmount(*i)
+	}
+	return gcu
+}
+
+// AddAmount adds i to the "amount" field.
+func (gcu *GiftCodeUpdate) AddAmount(i int64) *GiftCodeUpdate {
+	gcu.mutation.AddAmount(i)
+	return gcu
+}
+
+// SetExpiresAt sets the "expires_at" field.
+func (gcu *GiftCodeUpdate) SetExpiresAt(i int64) *GiftCodeUpdate {
+	gcu.mutation.ResetExpiresAt()
+	gcu.mutation.SetExpiresAt(i)
+	return gcu
+}
+
+// SetNillableExpiresAt sets the "expires_at" field if the given value is not nil.
+func (gcu *GiftCodeUpdate) SetNillableExpiresAt(i *int64) *GiftCodeUpdate {
+	if i != nil {
+		gcu.SetExpiresAt(*i)
+	}
+	return gcu
+}
+
+// AddExpiresAt adds i to the "expires_at" field.
+func (gcu *GiftCodeUpdate) AddExpiresAt(i int64) *GiftCodeUpdate {
+	gcu.mutation.AddExpiresAt(i)
+	return gcu
+}
+
 // SetName sets the "name" field.
 func (gcu *GiftCodeUpdate) SetName(s string) *GiftCodeUpdate {
 	gcu.mutation.SetName(s)
@@ -333,6 +375,18 @@ func (gcu *GiftCodeUpdate) sqlSave(ctx context.Context) (n int, err error) {
 	if value, ok := gcu.mutation.AddedNum(); ok {
 		_spec.AddField(giftcode.FieldNum, field.TypeInt64, value)
 	}
+	if value, ok := gcu.mutation.Amount(); ok {
+		_spec.SetField(giftcode.FieldAmount, field.TypeInt64, value)
+	}
+	if value, ok := gcu.mutation.AddedAmount(); ok {
+		_spec.AddField(giftcode.FieldAmount, field.TypeInt64, value)
+	}
+	if value, ok := gcu.mutation.ExpiresAt(); ok {
+		_spec.SetField(giftcode.FieldExpiresAt, field.TypeInt64, value)
+	}
+	if value, ok := gcu.mutation.AddedExpiresAt(); ok {
+		_spec.AddField(giftcode.FieldExpiresAt, field.TypeInt64, value)
+	}
 	if value, ok := gcu.mutation.Name(); ok {
 		_spec.SetField(giftcode.FieldName, field.TypeString, value)
 	}
@@ -475,6 +529,48 @@ func (gcuo *GiftCodeUpdateOne) SetNillableNum(i *int64) *GiftCodeUpdateOne {
 // AddNum adds i to the "num" field.
 func (gcuo *GiftCodeUpdateOne) AddNum(i int64) *GiftCodeUpdateOne {
 	gcuo.mutation.AddNum(i)
+	return gcuo
+}
+
+// SetAmount sets the "amount" field.
+func (gcuo *GiftCodeUpdateOne) SetAmount(i int64) *GiftCodeUpdateOne {
+	gcuo.mutation.ResetAmount()
+	gcuo.mutation.SetAmount(i)
+	return gcuo
+}
+
+// SetNillableAmount sets the "amount" field if the given value is not nil.
+func (gcuo *GiftCodeUpdateOne) SetNillableAmount(i *int64) *GiftCodeUpdateOne {
+	if i != nil {
+		gcuo.SetAmount(*i)
+	}
+	return gcuo
+}
+
+// AddAmount adds i to the "amount" field.
+func (gcuo *GiftCodeUpdateOne) AddAmount(i int64) *GiftCodeUpdateOne {
+	gcuo.mutation.AddAmount(i)
+	return gcuo
+}
+
+// SetExpiresAt sets the "expires_at" field.
+func (gcuo *GiftCodeUpdateOne) SetExpiresAt(i int64) *GiftCodeUpdateOne {
+	gcuo.mutation.ResetExpiresAt()
+	gcuo.mutation.SetExpiresAt(i)
+	return gcuo
+}
+
+// SetNillableExpiresAt sets the "expires_at" field if the given value is not nil.
+func (gcuo *GiftCodeUpdateOne) SetNillableExpiresAt(i *int64) *GiftCodeUpdateOne {
+	if i != nil {
+		gcuo.SetExpiresAt(*i)
+	}
+	return gcuo
+}
+
+// AddExpiresAt adds i to the "expires_at" field.
+func (gcuo *GiftCodeUpdateOne) AddExpiresAt(i int64) *GiftCodeUpdateOne {
+	gcuo.mutation.AddExpiresAt(i)
 	return gcuo
 }
 
@@ -736,6 +832,18 @@ func (gcuo *GiftCodeUpdateOne) sqlSave(ctx context.Context) (_node *GiftCode, er
 	}
 	if value, ok := gcuo.mutation.AddedNum(); ok {
 		_spec.AddField(giftcode.FieldNum, field.TypeInt64, value)
+	}
+	if value, ok := gcuo.mutation.Amount(); ok {
+		_spec.SetField(giftcode.FieldAmount, field.TypeInt64, value)
+	}
+	if value, ok := gcuo.mutation.AddedAmount(); ok {
+		_spec.AddField(giftcode.FieldAmount, field.TypeInt64, value)
+	}
+	if value, ok := gcuo.mutation.ExpiresAt(); ok {
+		_spec.SetField(giftcode.FieldExpiresAt, field.TypeInt64, value)
+	}
+	if value, ok := gcuo.mutation.AddedExpiresAt(); ok {
+		_spec.AddField(giftcode.FieldExpiresAt, field.TypeInt64, value)
 	}
 	if value, ok := gcuo.mutation.Name(); ok {
 		_spec.SetField(giftcode.FieldName, field.TypeString, value)

@@ -80,6 +80,11 @@ type CreateOrderRequest struct {
 	// Ref carries the inviter hash id captured from a share link, used when the
 	// buyer registered through a resource page.
 	Ref string `json:"ref"`
+	// PayWith selects how the buyer pays: empty (or "epay") goes through the
+	// cashier, "balance" debits the buyer's wallet (余额) and settles the order
+	// immediately. Balance payment is only offered by shops on the platform
+	// channel.
+	PayWith string `json:"pay_with"`
 }
 
 // NotifyRequest is unused for GET callbacks but kept for POST ones.

@@ -546,3 +546,72 @@ pending --审批--> approved --店主提交凭证--> refunded --平台核验--> 
 | 前端 `npx vite build` | 成功 |
 
 > 未执行：真实进程 + HTTP 的端到端回归（本轮以单测 + 构建 + 前端打包验证；接口清单见 `docs/shop/frontend-api.md` §3.2）。
+
+---
+
+## 13. 卡密充值与用户余额（本轮新增）
+
+### 13.1 余额放在 `service/vas`，不放小店
+
+余额是**平台账户**，既买网盘订阅（VAS SKU）也买小店资源，所以它与积分/容量包同处 `service/vas`（ent），
+而不是 `shop`（原生 SQL）。小店直接 `import service/vas`，方向单向、无循环依赖：
+
+- 快照 + 账本两张表，账本是唯一事实来源，`wallet_balance.balance` 只是可快速读取的快照；
+- 列表口径的断言全部可以「先算账本再对快照」，便于对账。
+
+### 13.2 数据模型（ent，`go generate ./ent` 生成）
+
+| 表 | 关键列 |
+| --- | --- |
+| `wallet_balances` | `user_id`(唯一), `balance`（分） |
+| `wallet_ledgers` | `user_id`, `delta`, `balance_after`, `reason`, `note`, `ref` |
+| `gift_codes` | 新增 `amount`（面额，分）、`expires_at`（Unix 秒，**0 = 永久**）；`product_type` 新增 `balance` |
+
+`reason` 取值：`recharge`（卡密充值）、`purchase`（订阅）、`shop_pay`（小店）、`refund`（退款）、`manual`（管理员调整）。
+
+### 13.3 卡密：后台批量生成、用户兑换
+
+- 生成：`POST /admin/vas/giftcode`，`{count, product_type:"balance", amount, expires_at?}`；
+  `count` 上限 **1000**（一次请求最多一千张），`expires_at=0` 即永久有效，其他类型（点数/容量/会员）行为不变。
+- 兑换：`POST /vas/giftcode/redeem`，`{code}`。用**条件 UPDATE**（`used_at IS NULL AND (expires_at = 0 OR expires_at > now)`）
+  抢占卡密，`RowsAffected = 0` 即视为已被使用/已过期，从根上杜绝并发重复兑换；入账与置用在同一事务
+  （`applyGiftCodeReward` → `CreditWalletTx`）。面额卡返回 `{amount, balance}`，前端直接刷新余额卡片。
+- 后台不再有第二套卡密：沿用 VAS 现有「礼品码」页，只多一个 `balance` 类型与三个字段（面额 / 有效天数 / 数量）。
+
+### 13.4 余额支付网盘订阅
+
+`POST /vas/payment` 增加 `use_balance`：先 `DebitWallet`（条件 `balance >= amount` 的原子扣减，
+不足返回 `ErrInsufficientWallet`），成功后再置订单 `channel=balance`、`status=paid`；
+`fulfillOrder` 失败则把余额**退回**，避免「钱扣了但没发货」。
+
+### 13.5 余额支付小店资源（商品 / 付费分享）
+
+- 入口判定：`ProductDetail.balance_payable`、`sharegate.BalancePayable` 只在 `shop.PayMode == platform` 时为真
+  ——自配易支付渠道的店铺收的是店主自己的钱，平台不能替它收余额。
+- 下单：`POST /shop/order {pay_with:"balance"}`。余额在**订单事务之前**扣掉（单连接 SQLite 里嵌套事务会死锁），
+  扣款成功才创建订单并 `settle`；资金口径与平台聚合支付完全一致（扣手续费、`settle_delay_hours` 解冻）。
+- 防重复：切到余额支付时，之前遗留的可支付订单会被 `CloseOrder` 关闭，避免同一件商品付两次。
+
+### 13.6 退款原路退回余额
+
+余额支付的订单退款时 `CreditWallet`（`reason=refund`），走的是**真实退款**而不是线下打款；
+卖家侧照常扣回净收入（待解冻从 `pending` 扣，不把可用余额打负），邀请返利同步扣回。
+
+### 13.7 管理员调整余额
+
+`POST /admin/user/:id/balance` → `{delta, reason, note}`：`delta` 为分、可正可负，写账本 + `eventtype.PointsChange` 审计事件；
+`GET /admin/user/:id` 的响应新增 `balance`，便于后台核对。
+
+### 13.8 本轮验证
+
+| 检查 | 结果 |
+| --- | --- |
+| `go build ./...` | 通过 |
+| `gofmt -l shop/ service/vas service/admin pkg/sharegate routers/` | 无输出 |
+| `go test ./shop/... ./service/vas/ -count=1` | 通过（新增：余额增减与账本一致性、刚好花完、单行快照、卡密入账、过期卡密、`CloseOrder` 只关待支付订单） |
+| `go test ./service/admin/ -count=1` | 通过 |
+| 前端 `npx tsc --noEmit` | 本次改动的文件无错误（仓库其它历史错误与本次无关） |
+| 前端 `npx eslint`（改动的 api/store/shop 文件） | 无错误（`Admin/Settings/VAS/*` 的 `react-in-jsx-scope` 为既有问题，整目录一致） |
+| 前端 `npx vite build` + 重打包 `application/statics/assets.zip` | 成功 |
+
+> 未执行：真实进程 + HTTP 的端到端回归（余额链路以 `service/vas` 单测 + 小店 settle/refund 单测覆盖；接口清单见 `docs/shop/frontend-api.md` §2.6）。

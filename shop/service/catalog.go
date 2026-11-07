@@ -54,6 +54,9 @@ type ProductDetail struct {
 	// shop may point every channel at a different gateway, so the buyer must only
 	// see the ones that can actually take the money right now.
 	PayChannels []string `json:"pay_channels"`
+	// BalancePayable reports whether the buyer may pay with the wallet (余额).
+	// Only a shop on the platform channel can: the platform must hold the money.
+	BalancePayable bool `json:"balance_payable"`
 }
 
 // CreateProduct lists a folder of the owner's drive.
@@ -346,6 +349,7 @@ func (s *Service) ProductDetailFor(c *gin.Context, slug, id string) (*ProductDet
 		CanPreview:            product.Status == model.ProductStatusOnSale || owned,
 		OwnerShopUID:          hashid.EncodeUserID(s.Hasher(), shop.UID),
 		PayChannels:           shop.PayChannels,
+		BalancePayable:        shop.PayMode.OrDefault() == model.PayModePlatform,
 	}, nil
 }
 

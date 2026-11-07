@@ -42,6 +42,17 @@ var (
 	channelProvider ChannelProvider
 )
 
+// BalanceProvider reports whether a share may be bought with the buyer's
+// internal wallet (余额). It resolves the owner itself: a shop that collects the
+// money on its own channel cannot be paid by the platform wallet, because the
+// platform never holds that money.
+type BalanceProvider func(ctx context.Context, share *ent.Share) bool
+
+var (
+	balanceMu       sync.RWMutex
+	balanceProvider BalanceProvider
+)
+
 // Register installs the process wide checker. Passing nil removes it.
 func Register(c Checker) {
 	mu.Lock()
@@ -66,6 +77,27 @@ func PayChannels() []string {
 		return nil
 	}
 	return p()
+}
+
+// RegisterBalancePayable installs the wallet-payment provider. Passing nil
+// removes it.
+func RegisterBalancePayable(p BalanceProvider) {
+	balanceMu.Lock()
+	defer balanceMu.Unlock()
+	balanceProvider = p
+}
+
+// BalancePayable reports whether the share may be paid with the buyer's wallet.
+// Without a provider installed it stays false: the caller then only offers the
+// gateway.
+func BalancePayable(ctx context.Context, share *ent.Share) bool {
+	balanceMu.RLock()
+	p := balanceProvider
+	balanceMu.RUnlock()
+	if p == nil || share == nil {
+		return false
+	}
+	return p(ctx, share)
 }
 
 // Payable reports whether share is a paid share.

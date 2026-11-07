@@ -2,6 +2,7 @@ package admin
 
 import (
 	"context"
+	"errors"
 	"strconv"
 
 	"github.com/Mxucc/StorFlow/application/dependency"
@@ -136,6 +137,7 @@ func (service *SingleUserService) Get(c *gin.Context) (*GetUserResponse, error) 
 		TwoFAEnabled: user.TwoFactorSecret != "",
 		Capacity:     capacity,
 		Points:       vas.GetPointsBalance(ctx, dep.DBClient(), user.ID),
+		Balance:      vas.GetWalletBalance(ctx, dep.DBClient(), user.ID),
 	}, nil
 }
 
@@ -326,6 +328,81 @@ func (service *UserAdjustPointsService) Adjust(c *gin.Context, body *UserAdjustP
 		SetContent(map[string]interface{}{
 			"delta":  body.Delta,
 			"reason": reason,
+			"by":     "admin",
+		}).
+		SetIP("")
+	creator.SetUserID(service.ID).SetUserEmail(target.Email)
+	if _, err := creator.Save(c); err != nil {
+		_ = err
+	}
+
+	resService := &SingleUserService{ID: service.ID}
+	return resService.Get(c)
+}
+
+// UserAdjustBalanceService 管理员调整用户钱包余额（单位：分，delta 可正可负）
+type UserAdjustBalanceService struct {
+	ID int `uri:"id" binding:"required"`
+}
+
+type UserAdjustBalanceParamCtx struct{}
+
+type UserAdjustBalanceBody struct {
+	// Delta is in cents: positive credits the wallet, negative debits it.
+	Delta int64 `json:"delta" binding:"required"`
+	// Reason and Note end up in the wallet ledger, so an operator has to be able
+	// to explain a manual movement later.
+	Reason string `json:"reason"`
+	Note   string `json:"note"`
+}
+
+type UserAdjustBalanceBodyParamCtx struct{}
+
+// AdjustBalance 管理员调整用户余额：写钱包流水，扣减不足时报错。
+func (service *UserAdjustBalanceService) AdjustBalance(c *gin.Context, body *UserAdjustBalanceBody) (*GetUserResponse, error) {
+	dep := dependency.FromContext(c)
+	db := dep.DBClient()
+
+	ctx := context.WithValue(c, inventory.LoadUserGroup{}, true)
+	target, err := db.User.Query().Where(user.IDEQ(service.ID)).First(ctx)
+	if err != nil {
+		return nil, serializer.NewError(serializer.CodeDBError, "Failed to get user", err)
+	}
+
+	note := body.Note
+	if note == "" {
+		note = body.Reason
+	}
+	if note == "" {
+		note = "管理员调整"
+	}
+
+	if body.Delta > 0 {
+		if _, err := vas.CreditWallet(c, db, service.ID, body.Delta, vas.WalletReasonManual, note, ""); err != nil {
+			return nil, serializer.NewError(serializer.CodeDBError, "Failed to add the balance", err)
+		}
+	} else {
+		if _, err := vas.DebitWallet(c, db, service.ID, -body.Delta, vas.WalletReasonManual, note, ""); err != nil {
+			if errors.Is(err, vas.ErrInsufficientWallet) {
+				return nil, serializer.NewError(serializer.CodeInsufficientCredit, "余额不足", err)
+			}
+			return nil, serializer.NewError(serializer.CodeDBError, "Failed to deduct the balance", err)
+		}
+	}
+
+	// The audit trail reuses the "points change" event type: wallet and points are
+	// both internal credit, and the content records which one moved.
+	ev := eventtype.PointsChange
+	creator := db.AuditLog.Create().
+		SetType(int(ev)).
+		SetAction(ev.Name()).
+		SetObjectType("user").
+		SetObjectName(target.Email).
+		SetContent(map[string]interface{}{
+			"kind":   "wallet",
+			"delta":  body.Delta,
+			"reason": body.Reason,
+			"note":   note,
 			"by":     "admin",
 		}).
 		SetIP("")

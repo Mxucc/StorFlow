@@ -12,6 +12,7 @@ import (
 	"entgo.io/ent/dialect/sql"
 	"github.com/Mxucc/StorFlow/ent/group"
 	"github.com/Mxucc/StorFlow/ent/user"
+	"github.com/Mxucc/StorFlow/ent/walletbalance"
 	"github.com/Mxucc/StorFlow/inventory/types"
 )
 
@@ -76,6 +77,10 @@ type UserEdges struct {
 	Payments []*Payment `json:"payments,omitempty"`
 	// PointsLedgers holds the value of the points_ledgers edge.
 	PointsLedgers []*PointsLedger `json:"points_ledgers,omitempty"`
+	// WalletBalance holds the value of the wallet_balance edge.
+	WalletBalance *WalletBalance `json:"wallet_balance,omitempty"`
+	// WalletLedgers holds the value of the wallet_ledgers edge.
+	WalletLedgers []*WalletLedger `json:"wallet_ledgers,omitempty"`
 	// Giftcodes holds the value of the giftcodes edge.
 	Giftcodes []*GiftCode `json:"giftcodes,omitempty"`
 	// Entities holds the value of the entities edge.
@@ -86,7 +91,7 @@ type UserEdges struct {
 	OidcBindings []*OIDCBinding `json:"oidc_bindings,omitempty"`
 	// loadedTypes holds the information for reporting if a
 	// type was loaded (or requested) in eager-loading or not.
-	loadedTypes [14]bool
+	loadedTypes [16]bool
 }
 
 // GroupOrErr returns the Group value or an error if the edge
@@ -183,10 +188,32 @@ func (e UserEdges) PointsLedgersOrErr() ([]*PointsLedger, error) {
 	return nil, &NotLoadedError{edge: "points_ledgers"}
 }
 
+// WalletBalanceOrErr returns the WalletBalance value or an error if the edge
+// was not loaded in eager-loading, or loaded but was not found.
+func (e UserEdges) WalletBalanceOrErr() (*WalletBalance, error) {
+	if e.loadedTypes[10] {
+		if e.WalletBalance == nil {
+			// Edge was loaded but was not found.
+			return nil, &NotFoundError{label: walletbalance.Label}
+		}
+		return e.WalletBalance, nil
+	}
+	return nil, &NotLoadedError{edge: "wallet_balance"}
+}
+
+// WalletLedgersOrErr returns the WalletLedgers value or an error if the edge
+// was not loaded in eager-loading.
+func (e UserEdges) WalletLedgersOrErr() ([]*WalletLedger, error) {
+	if e.loadedTypes[11] {
+		return e.WalletLedgers, nil
+	}
+	return nil, &NotLoadedError{edge: "wallet_ledgers"}
+}
+
 // GiftcodesOrErr returns the Giftcodes value or an error if the edge
 // was not loaded in eager-loading.
 func (e UserEdges) GiftcodesOrErr() ([]*GiftCode, error) {
-	if e.loadedTypes[10] {
+	if e.loadedTypes[12] {
 		return e.Giftcodes, nil
 	}
 	return nil, &NotLoadedError{edge: "giftcodes"}
@@ -195,7 +222,7 @@ func (e UserEdges) GiftcodesOrErr() ([]*GiftCode, error) {
 // EntitiesOrErr returns the Entities value or an error if the edge
 // was not loaded in eager-loading.
 func (e UserEdges) EntitiesOrErr() ([]*Entity, error) {
-	if e.loadedTypes[11] {
+	if e.loadedTypes[13] {
 		return e.Entities, nil
 	}
 	return nil, &NotLoadedError{edge: "entities"}
@@ -204,7 +231,7 @@ func (e UserEdges) EntitiesOrErr() ([]*Entity, error) {
 // OauthGrantsOrErr returns the OauthGrants value or an error if the edge
 // was not loaded in eager-loading.
 func (e UserEdges) OauthGrantsOrErr() ([]*OAuthGrant, error) {
-	if e.loadedTypes[12] {
+	if e.loadedTypes[14] {
 		return e.OauthGrants, nil
 	}
 	return nil, &NotLoadedError{edge: "oauth_grants"}
@@ -213,7 +240,7 @@ func (e UserEdges) OauthGrantsOrErr() ([]*OAuthGrant, error) {
 // OidcBindingsOrErr returns the OidcBindings value or an error if the edge
 // was not loaded in eager-loading.
 func (e UserEdges) OidcBindingsOrErr() ([]*OIDCBinding, error) {
-	if e.loadedTypes[13] {
+	if e.loadedTypes[15] {
 		return e.OidcBindings, nil
 	}
 	return nil, &NotLoadedError{edge: "oidc_bindings"}
@@ -403,6 +430,16 @@ func (u *User) QueryPointsLedgers() *PointsLedgerQuery {
 	return NewUserClient(u.config).QueryPointsLedgers(u)
 }
 
+// QueryWalletBalance queries the "wallet_balance" edge of the User entity.
+func (u *User) QueryWalletBalance() *WalletBalanceQuery {
+	return NewUserClient(u.config).QueryWalletBalance(u)
+}
+
+// QueryWalletLedgers queries the "wallet_ledgers" edge of the User entity.
+func (u *User) QueryWalletLedgers() *WalletLedgerQuery {
+	return NewUserClient(u.config).QueryWalletLedgers(u)
+}
+
 // QueryGiftcodes queries the "giftcodes" edge of the User entity.
 func (u *User) QueryGiftcodes() *GiftCodeQuery {
 	return NewUserClient(u.config).QueryGiftcodes(u)
@@ -551,28 +588,40 @@ func (e *User) SetPointsLedgers(v []*PointsLedger) {
 	e.Edges.loadedTypes[9] = true
 }
 
+// SetWalletBalance manually set the edge as loaded state.
+func (e *User) SetWalletBalance(v *WalletBalance) {
+	e.Edges.WalletBalance = v
+	e.Edges.loadedTypes[10] = true
+}
+
+// SetWalletLedgers manually set the edge as loaded state.
+func (e *User) SetWalletLedgers(v []*WalletLedger) {
+	e.Edges.WalletLedgers = v
+	e.Edges.loadedTypes[11] = true
+}
+
 // SetGiftcodes manually set the edge as loaded state.
 func (e *User) SetGiftcodes(v []*GiftCode) {
 	e.Edges.Giftcodes = v
-	e.Edges.loadedTypes[10] = true
+	e.Edges.loadedTypes[12] = true
 }
 
 // SetEntities manually set the edge as loaded state.
 func (e *User) SetEntities(v []*Entity) {
 	e.Edges.Entities = v
-	e.Edges.loadedTypes[11] = true
+	e.Edges.loadedTypes[13] = true
 }
 
 // SetOauthGrants manually set the edge as loaded state.
 func (e *User) SetOauthGrants(v []*OAuthGrant) {
 	e.Edges.OauthGrants = v
-	e.Edges.loadedTypes[12] = true
+	e.Edges.loadedTypes[14] = true
 }
 
 // SetOidcBindings manually set the edge as loaded state.
 func (e *User) SetOidcBindings(v []*OIDCBinding) {
 	e.Edges.OidcBindings = v
-	e.Edges.loadedTypes[13] = true
+	e.Edges.loadedTypes[15] = true
 }
 
 // Users is a parsable slice of User.

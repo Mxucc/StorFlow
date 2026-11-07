@@ -22,11 +22,17 @@ type AdminCreateGiftCodesParamCtx struct{}
 
 // AdminCreateGiftCodesService is the payload for batch gift code creation.
 type AdminCreateGiftCodesService struct {
-	Count       int    `json:"count" binding:"min=1,max=100"`
-	ProductType string `json:"product_type" binding:"required,eq=points|eq=storage|eq=group"`
-	Num         int64  `json:"num"`
-	Name        string `json:"name"`
-	Prefix      string `json:"prefix"`
+	Count int `json:"count" binding:"min=1,max=1000"`
+	// ProductType is "points" | "storage" | "group" | "balance".
+	ProductType string `json:"product_type" binding:"required,eq=points|eq=storage|eq=group|eq=balance"`
+	// Num is the amount granted by points/storage/group cards.
+	Num int64 `json:"num"`
+	// Amount is the face value of a balance card, in cents.
+	Amount int64 `json:"amount"`
+	// ExpiresAt is the Unix time the cards expire; 0 means "never".
+	ExpiresAt int64  `json:"expires_at"`
+	Name      string `json:"name"`
+	Prefix    string `json:"prefix"`
 }
 
 // AdminCreateGiftCodes generates gift codes in batch.
@@ -35,15 +41,22 @@ func AdminCreateGiftCodes(c *gin.Context) serializer.Response {
 	db := dep.DBClient()
 	user := inventory.UserFromContext(c)
 
-	var req struct {
-		Count       int    `json:"count" binding:"min=1,max=100"`
-		ProductType string `json:"product_type" binding:"required,eq=points|eq=storage|eq=group"`
-		Num         int64  `json:"num"`
-		Name        string `json:"name"`
-		Prefix      string `json:"prefix"`
-	}
+	var req AdminCreateGiftCodesService
 	if err := c.ShouldBindJSON(&req); err != nil {
 		return serializer.ParamErr(c, "Invalid request", err)
+	}
+
+	// A balance card carries its face value in Amount, the other card types use
+	// Num: accepting both would silently create worthless cards.
+	if req.ProductType == ProductTypeBalance {
+		if req.Amount <= 0 {
+			return serializer.Err(c, serializer.NewError(serializer.CodeParamErr, "卡密面额必须大于 0", nil))
+		}
+	} else if req.Num <= 0 {
+		return serializer.Err(c, serializer.NewError(serializer.CodeParamErr, "请填写卡密的数量或容量", nil))
+	}
+	if req.ExpiresAt > 0 && req.ExpiresAt <= time.Now().Unix() {
+		return serializer.Err(c, serializer.NewError(serializer.CodeParamErr, "有效期必须晚于当前时间", nil))
 	}
 
 	created := make([]string, 0, req.Count)
@@ -53,6 +66,12 @@ func AdminCreateGiftCodes(c *gin.Context) serializer.Response {
 			SetCode(code).
 			SetProductType(req.ProductType).
 			SetNum(req.Num)
+		if req.Amount > 0 {
+			creator = creator.SetAmount(req.Amount)
+		}
+		if req.ExpiresAt > 0 {
+			creator = creator.SetExpiresAt(req.ExpiresAt)
+		}
 		if req.Name != "" {
 			creator = creator.SetName(req.Name)
 		}
@@ -136,6 +155,11 @@ func Redeem(c *gin.Context) serializer.Response {
 	if code.Used {
 		return serializer.Err(c, serializer.NewError(serializer.CodeParamErr, "兑换码已被使用", nil))
 	}
+	// An expired card stays unused in the database (an administrator can extend
+	// its validity), it simply cannot be redeemed any more.
+	if giftCodeExpired(code, time.Now().Unix()) {
+		return serializer.Err(c, serializer.NewError(serializer.CodeParamErr, "兑换码已过期", nil))
+	}
 
 	// Fulfill + mark used in one transaction.
 	tx, txErr := db.Tx(c)
@@ -149,27 +173,24 @@ func Redeem(c *gin.Context) serializer.Response {
 		}
 	}()
 
-	if _, err := tx.GiftCode.UpdateOneID(code.ID).
+	// Mark used with a conditional update: two concurrent redemptions of the same
+	// card must not both succeed, which matters a lot more for a balance card
+	// than for a points code.
+	affected, err := tx.GiftCode.Update().
+		Where(giftcode.IDEQ(code.ID), giftcode.UsedEQ(false)).
 		SetUsed(true).
 		SetUsedBy(user.ID).
 		SetUsedByEmail(user.Email).
-		Save(c); err != nil {
+		Save(c)
+	if err != nil {
 		return serializer.DBErr(c, "Failed to redeem", err)
 	}
+	if affected == 0 {
+		return serializer.Err(c, serializer.NewError(serializer.CodeParamErr, "兑换码已被使用", nil))
+	}
 
-	switch code.ProductType {
-	case ProductTypePoints:
-		if _, err := GainPointsTx(c, tx, user.ID, code.Num, "redeem", code.Code); err != nil {
-			return serializer.DBErr(c, "Failed to add points", err)
-		}
-	case ProductTypeStorage:
-		if err := addExtraStorage(c, tx.Client(), user.ID, code.Num); err != nil {
-			return serializer.DBErr(c, "Failed to add storage", err)
-		}
-	case ProductTypeGroup:
-		if _, err := tx.User.UpdateOneID(user.ID).SetGroupUsers(int(code.Num)).Save(c); err != nil {
-			return serializer.DBErr(c, "Failed to change group", err)
-		}
+	if err := applyGiftCodeReward(c, tx, user, code); err != nil {
+		return serializer.Err(c, err)
 	}
 
 	if err := tx.Commit(); err != nil {
@@ -180,15 +201,19 @@ func Redeem(c *gin.Context) serializer.Response {
 	auditWriter(c, db, user.ID, user.Email, eventtype.RedeemGiftCode, code.ProductType,
 		code.Name, map[string]interface{}{"code": code.Code, "num": code.Num})
 
-	var reward int64 = code.Num
-	if code.ProductType == ProductTypePoints {
-		reward = code.Num
-	}
-	return serializer.Response{Data: map[string]interface{}{
+	reward := code.Num
+	data := map[string]interface{}{
 		"product_type": code.ProductType,
 		"num":          reward,
 		"name":         code.Name,
-	}}
+	}
+	if code.ProductType == ProductTypeBalance {
+		// A balance card reports the credited amount plus the balance after the
+		// redemption, so the console can show "到账 ¥X，余额 ¥Y".
+		data["amount"] = code.Amount
+		data["balance"] = GetWalletBalance(c, db, user.ID)
+	}
+	return serializer.Response{Data: data}
 }
 
 // genCode generates a random alphanumeric code.
@@ -249,4 +274,30 @@ func PointsSummary(c *gin.Context) serializer.Response {
 		"balance": balance,
 		"history": history,
 	}}
+}
+
+// giftCodeExpired reports whether the card can no longer be redeemed at now
+// (Unix seconds). A zero expiry never expires.
+func giftCodeExpired(code *ent.GiftCode, now int64) bool {
+	return code != nil && code.ExpiresAt > 0 && now > code.ExpiresAt
+}
+
+// applyGiftCodeReward grants the value of a redeemed card inside the redemption
+// transaction, so a card is either fully applied or not consumed at all.
+func applyGiftCodeReward(ctx context.Context, tx *ent.Tx, user *ent.User, code *ent.GiftCode) error {
+	switch code.ProductType {
+	case ProductTypePoints:
+		_, err := GainPointsTx(ctx, tx, user.ID, code.Num, "redeem", code.Code)
+		return err
+	case ProductTypeStorage:
+		return addExtraStorage(ctx, tx.Client(), user.ID, code.Num)
+	case ProductTypeGroup:
+		_, err := tx.User.UpdateOneID(user.ID).SetGroupUsers(int(code.Num)).Save(ctx)
+		return err
+	case ProductTypeBalance:
+		_, err := CreditWalletTx(ctx, tx, user.ID, code.Amount, WalletReasonRecharge, code.Name, code.Code)
+		return err
+	default:
+		return serializer.NewError(serializer.CodeParamErr, "未知的卡密类型", nil)
+	}
 }

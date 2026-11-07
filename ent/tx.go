@@ -58,6 +58,10 @@ type Tx struct {
 	Task *TaskClient
 	// User is the client for interacting with the User builders.
 	User *UserClient
+	// WalletBalance is the client for interacting with the WalletBalance builders.
+	WalletBalance *WalletBalanceClient
+	// WalletLedger is the client for interacting with the WalletLedger builders.
+	WalletLedger *WalletLedgerClient
 
 	// lazily loaded.
 	client     *Client
@@ -211,6 +215,8 @@ func (tx *Tx) init() {
 	tx.StoragePolicy = NewStoragePolicyClient(tx.config)
 	tx.Task = NewTaskClient(tx.config)
 	tx.User = NewUserClient(tx.config)
+	tx.WalletBalance = NewWalletBalanceClient(tx.config)
+	tx.WalletLedger = NewWalletLedgerClient(tx.config)
 }
 
 // txDriver wraps the given dialect.Tx with a nop dialect.Driver implementation.

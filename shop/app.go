@@ -76,6 +76,9 @@ func Init(dep dependency.Dep) (*App, error) {
 	shoplink.Register(svc.BindReferralFromRegister)
 	// The paid share dialog may only offer the platform channels that are on.
 	sharegate.RegisterChannels(func() []string { return svc.Settings().Channels() })
+	// A buyer may also pay a paid share with the wallet, but only when the shop
+	// owner uses the platform channel.
+	sharegate.RegisterBalancePayable(svc.ShopBalancePayable)
 	// Files that were sold must not disappear from under the buyers.
 	fileguard.Register(svc.GuardDeletion)
 

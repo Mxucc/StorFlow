@@ -68,7 +68,8 @@ type GetUserResponse struct {
 	HashID       string       `json:"hash_id,omitempty"`
 	TwoFAEnabled bool         `json:"two_fa_enabled,omitempty"`
 	Capacity     *fs.Capacity `json:"capacity,omitempty"`
-	Points       int64        `json:"points"` // 积分余额（points_ledgers 账本求和）
+	Points       int64        `json:"points"`  // 积分余额（points_ledgers 账本求和）
+	Balance      int64        `json:"balance"` // 钱包余额（分，wallet_balance）
 }
 
 type GetNodeResponse struct {

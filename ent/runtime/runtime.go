@@ -28,6 +28,8 @@ import (
 	"github.com/Mxucc/StorFlow/ent/storagepolicy"
 	"github.com/Mxucc/StorFlow/ent/task"
 	"github.com/Mxucc/StorFlow/ent/user"
+	"github.com/Mxucc/StorFlow/ent/walletbalance"
+	"github.com/Mxucc/StorFlow/ent/walletledger"
 	"github.com/Mxucc/StorFlow/inventory/types"
 )
 
@@ -246,20 +248,28 @@ func init() {
 	giftcodeDescProductType := giftcodeFields[1].Descriptor()
 	// giftcode.ProductTypeValidator is a validator for the "product_type" field. It is called by the builders before save.
 	giftcode.ProductTypeValidator = giftcodeDescProductType.Validators[0].(func(string) error)
+	// giftcodeDescAmount is the schema descriptor for amount field.
+	giftcodeDescAmount := giftcodeFields[3].Descriptor()
+	// giftcode.DefaultAmount holds the default value on creation for the amount field.
+	giftcode.DefaultAmount = giftcodeDescAmount.Default.(int64)
+	// giftcodeDescExpiresAt is the schema descriptor for expires_at field.
+	giftcodeDescExpiresAt := giftcodeFields[4].Descriptor()
+	// giftcode.DefaultExpiresAt holds the default value on creation for the expires_at field.
+	giftcode.DefaultExpiresAt = giftcodeDescExpiresAt.Default.(int64)
 	// giftcodeDescName is the schema descriptor for name field.
-	giftcodeDescName := giftcodeFields[3].Descriptor()
+	giftcodeDescName := giftcodeFields[5].Descriptor()
 	// giftcode.NameValidator is a validator for the "name" field. It is called by the builders before save.
 	giftcode.NameValidator = giftcodeDescName.Validators[0].(func(string) error)
 	// giftcodeDescUsed is the schema descriptor for used field.
-	giftcodeDescUsed := giftcodeFields[4].Descriptor()
+	giftcodeDescUsed := giftcodeFields[6].Descriptor()
 	// giftcode.DefaultUsed holds the default value on creation for the used field.
 	giftcode.DefaultUsed = giftcodeDescUsed.Default.(bool)
 	// giftcodeDescUsedByEmail is the schema descriptor for used_by_email field.
-	giftcodeDescUsedByEmail := giftcodeFields[6].Descriptor()
+	giftcodeDescUsedByEmail := giftcodeFields[8].Descriptor()
 	// giftcode.UsedByEmailValidator is a validator for the "used_by_email" field. It is called by the builders before save.
 	giftcode.UsedByEmailValidator = giftcodeDescUsedByEmail.Validators[0].(func(string) error)
 	// giftcodeDescCreatedByEmail is the schema descriptor for created_by_email field.
-	giftcodeDescCreatedByEmail := giftcodeFields[7].Descriptor()
+	giftcodeDescCreatedByEmail := giftcodeFields[9].Descriptor()
 	// giftcode.CreatedByEmailValidator is a validator for the "created_by_email" field. It is called by the builders before save.
 	giftcode.CreatedByEmailValidator = giftcodeDescCreatedByEmail.Validators[0].(func(string) error)
 	groupMixin := schema.Group{}.Mixin()
@@ -686,6 +696,60 @@ func init() {
 	userDescSettings := userFields[7].Descriptor()
 	// user.DefaultSettings holds the default value on creation for the settings field.
 	user.DefaultSettings = userDescSettings.Default.(*types.UserSetting)
+	walletbalanceMixin := schema.WalletBalance{}.Mixin()
+	walletbalanceMixinHooks0 := walletbalanceMixin[0].Hooks()
+	walletbalance.Hooks[0] = walletbalanceMixinHooks0[0]
+	walletbalanceMixinInters0 := walletbalanceMixin[0].Interceptors()
+	walletbalance.Interceptors[0] = walletbalanceMixinInters0[0]
+	walletbalanceMixinFields0 := walletbalanceMixin[0].Fields()
+	_ = walletbalanceMixinFields0
+	walletbalanceFields := schema.WalletBalance{}.Fields()
+	_ = walletbalanceFields
+	// walletbalanceDescCreatedAt is the schema descriptor for created_at field.
+	walletbalanceDescCreatedAt := walletbalanceMixinFields0[0].Descriptor()
+	// walletbalance.DefaultCreatedAt holds the default value on creation for the created_at field.
+	walletbalance.DefaultCreatedAt = walletbalanceDescCreatedAt.Default.(func() time.Time)
+	// walletbalanceDescUpdatedAt is the schema descriptor for updated_at field.
+	walletbalanceDescUpdatedAt := walletbalanceMixinFields0[1].Descriptor()
+	// walletbalance.DefaultUpdatedAt holds the default value on creation for the updated_at field.
+	walletbalance.DefaultUpdatedAt = walletbalanceDescUpdatedAt.Default.(func() time.Time)
+	// walletbalance.UpdateDefaultUpdatedAt holds the default value on update for the updated_at field.
+	walletbalance.UpdateDefaultUpdatedAt = walletbalanceDescUpdatedAt.UpdateDefault.(func() time.Time)
+	// walletbalanceDescBalance is the schema descriptor for balance field.
+	walletbalanceDescBalance := walletbalanceFields[1].Descriptor()
+	// walletbalance.DefaultBalance holds the default value on creation for the balance field.
+	walletbalance.DefaultBalance = walletbalanceDescBalance.Default.(int64)
+	walletledgerMixin := schema.WalletLedger{}.Mixin()
+	walletledgerMixinHooks0 := walletledgerMixin[0].Hooks()
+	walletledger.Hooks[0] = walletledgerMixinHooks0[0]
+	walletledgerMixinInters0 := walletledgerMixin[0].Interceptors()
+	walletledger.Interceptors[0] = walletledgerMixinInters0[0]
+	walletledgerMixinFields0 := walletledgerMixin[0].Fields()
+	_ = walletledgerMixinFields0
+	walletledgerFields := schema.WalletLedger{}.Fields()
+	_ = walletledgerFields
+	// walletledgerDescCreatedAt is the schema descriptor for created_at field.
+	walletledgerDescCreatedAt := walletledgerMixinFields0[0].Descriptor()
+	// walletledger.DefaultCreatedAt holds the default value on creation for the created_at field.
+	walletledger.DefaultCreatedAt = walletledgerDescCreatedAt.Default.(func() time.Time)
+	// walletledgerDescUpdatedAt is the schema descriptor for updated_at field.
+	walletledgerDescUpdatedAt := walletledgerMixinFields0[1].Descriptor()
+	// walletledger.DefaultUpdatedAt holds the default value on creation for the updated_at field.
+	walletledger.DefaultUpdatedAt = walletledgerDescUpdatedAt.Default.(func() time.Time)
+	// walletledger.UpdateDefaultUpdatedAt holds the default value on update for the updated_at field.
+	walletledger.UpdateDefaultUpdatedAt = walletledgerDescUpdatedAt.UpdateDefault.(func() time.Time)
+	// walletledgerDescReason is the schema descriptor for reason field.
+	walletledgerDescReason := walletledgerFields[3].Descriptor()
+	// walletledger.ReasonValidator is a validator for the "reason" field. It is called by the builders before save.
+	walletledger.ReasonValidator = walletledgerDescReason.Validators[0].(func(string) error)
+	// walletledgerDescNote is the schema descriptor for note field.
+	walletledgerDescNote := walletledgerFields[4].Descriptor()
+	// walletledger.NoteValidator is a validator for the "note" field. It is called by the builders before save.
+	walletledger.NoteValidator = walletledgerDescNote.Validators[0].(func(string) error)
+	// walletledgerDescRef is the schema descriptor for ref field.
+	walletledgerDescRef := walletledgerFields[5].Descriptor()
+	// walletledger.RefValidator is a validator for the "ref" field. It is called by the builders before save.
+	walletledger.RefValidator = walletledgerDescRef.Validators[0].(func(string) error)
 }
 
 const (

@@ -622,6 +622,18 @@ func AdminUserAdjustPoints(c *gin.Context) {
 	c.JSON(200, serializer.Response{Data: res})
 }
 
+// AdminUserAdjustBalance 管理员调整用户钱包余额（差额入钱包流水）
+func AdminUserAdjustBalance(c *gin.Context) {
+	service := ParametersFromContext[*admin.UserAdjustBalanceService](c, admin.UserAdjustBalanceParamCtx{})
+	body := ParametersFromContext[*admin.UserAdjustBalanceBody](c, admin.UserAdjustBalanceBodyParamCtx{})
+	res, err := service.AdjustBalance(c, body)
+	if err != nil {
+		c.JSON(200, serializer.Err(c, err))
+		return
+	}
+	c.JSON(200, serializer.Response{Data: res})
+}
+
 // AdminListOAuthClients lists OAuth clients
 func AdminListOAuthClients(c *gin.Context) {
 	service := ParametersFromContext[*admin.AdminListService](c, admin.AdminListServiceParamsCtx{})

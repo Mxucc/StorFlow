@@ -346,6 +346,9 @@ type Share struct {
 	// PayChannels lists the payment channels the cashier may offer for this paid
 	// share: only the platform channels that are actually switched on.
 	PayChannels []string `json:"pay_channels,omitempty"`
+	// BalancePayable reports whether this paid share may be bought with the
+	// buyer's wallet (余额): only shops on the platform channel allow it.
+	BalancePayable bool `json:"balance_payable,omitempty"`
 
 	// Permission is the collaboration permission of the share.
 	Permission string `json:"permission,omitempty"`
@@ -389,6 +392,9 @@ func BuildShare(ctx context.Context, s *ent.Share, base *url.URL, hasher hashid.
 	// A paid share can only be bought with the platform channels that are on.
 	if res.PayEnabled {
 		res.PayChannels = sharegate.PayChannels()
+	}
+	if res.PayEnabled {
+		res.BalancePayable = sharegate.BalancePayable(ctx, s)
 	}
 
 	if unlocked {

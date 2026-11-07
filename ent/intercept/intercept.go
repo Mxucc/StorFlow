@@ -31,6 +31,8 @@ import (
 	"github.com/Mxucc/StorFlow/ent/storagepolicy"
 	"github.com/Mxucc/StorFlow/ent/task"
 	"github.com/Mxucc/StorFlow/ent/user"
+	"github.com/Mxucc/StorFlow/ent/walletbalance"
+	"github.com/Mxucc/StorFlow/ent/walletledger"
 )
 
 // The Query interface represents an operation that queries a graph.
@@ -683,6 +685,60 @@ func (f TraverseUser) Traverse(ctx context.Context, q ent.Query) error {
 	return fmt.Errorf("unexpected query type %T. expect *ent.UserQuery", q)
 }
 
+// The WalletBalanceFunc type is an adapter to allow the use of ordinary function as a Querier.
+type WalletBalanceFunc func(context.Context, *ent.WalletBalanceQuery) (ent.Value, error)
+
+// Query calls f(ctx, q).
+func (f WalletBalanceFunc) Query(ctx context.Context, q ent.Query) (ent.Value, error) {
+	if q, ok := q.(*ent.WalletBalanceQuery); ok {
+		return f(ctx, q)
+	}
+	return nil, fmt.Errorf("unexpected query type %T. expect *ent.WalletBalanceQuery", q)
+}
+
+// The TraverseWalletBalance type is an adapter to allow the use of ordinary function as Traverser.
+type TraverseWalletBalance func(context.Context, *ent.WalletBalanceQuery) error
+
+// Intercept is a dummy implementation of Intercept that returns the next Querier in the pipeline.
+func (f TraverseWalletBalance) Intercept(next ent.Querier) ent.Querier {
+	return next
+}
+
+// Traverse calls f(ctx, q).
+func (f TraverseWalletBalance) Traverse(ctx context.Context, q ent.Query) error {
+	if q, ok := q.(*ent.WalletBalanceQuery); ok {
+		return f(ctx, q)
+	}
+	return fmt.Errorf("unexpected query type %T. expect *ent.WalletBalanceQuery", q)
+}
+
+// The WalletLedgerFunc type is an adapter to allow the use of ordinary function as a Querier.
+type WalletLedgerFunc func(context.Context, *ent.WalletLedgerQuery) (ent.Value, error)
+
+// Query calls f(ctx, q).
+func (f WalletLedgerFunc) Query(ctx context.Context, q ent.Query) (ent.Value, error) {
+	if q, ok := q.(*ent.WalletLedgerQuery); ok {
+		return f(ctx, q)
+	}
+	return nil, fmt.Errorf("unexpected query type %T. expect *ent.WalletLedgerQuery", q)
+}
+
+// The TraverseWalletLedger type is an adapter to allow the use of ordinary function as Traverser.
+type TraverseWalletLedger func(context.Context, *ent.WalletLedgerQuery) error
+
+// Intercept is a dummy implementation of Intercept that returns the next Querier in the pipeline.
+func (f TraverseWalletLedger) Intercept(next ent.Querier) ent.Querier {
+	return next
+}
+
+// Traverse calls f(ctx, q).
+func (f TraverseWalletLedger) Traverse(ctx context.Context, q ent.Query) error {
+	if q, ok := q.(*ent.WalletLedgerQuery); ok {
+		return f(ctx, q)
+	}
+	return fmt.Errorf("unexpected query type %T. expect *ent.WalletLedgerQuery", q)
+}
+
 // NewQuery returns the generic Query interface for the given typed query.
 func NewQuery(q ent.Query) (Query, error) {
 	switch q := q.(type) {
@@ -730,6 +786,10 @@ func NewQuery(q ent.Query) (Query, error) {
 		return &query[*ent.TaskQuery, predicate.Task, task.OrderOption]{typ: ent.TypeTask, tq: q}, nil
 	case *ent.UserQuery:
 		return &query[*ent.UserQuery, predicate.User, user.OrderOption]{typ: ent.TypeUser, tq: q}, nil
+	case *ent.WalletBalanceQuery:
+		return &query[*ent.WalletBalanceQuery, predicate.WalletBalance, walletbalance.OrderOption]{typ: ent.TypeWalletBalance, tq: q}, nil
+	case *ent.WalletLedgerQuery:
+		return &query[*ent.WalletLedgerQuery, predicate.WalletLedger, walletledger.OrderOption]{typ: ent.TypeWalletLedger, tq: q}, nil
 	default:
 		return nil, fmt.Errorf("unknown query type %T", q)
 	}
